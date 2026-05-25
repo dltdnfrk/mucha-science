@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Muchanipo Research Harness Architecture</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&display=swap');
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #020617;
+      color: #e2e8f0;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 28px;
+    }
+    .wrap { max-width: 1480px; margin: 0 auto; }
+    .header { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+    .pulse { width: 12px; height: 12px; background: #34d399; border-radius: 50%; box-shadow: 0 0 20px #34d399; animation: pulse 1.7s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.45;transform:scale(.82)} }
+    h1 { margin: 0; font-size: 26px; letter-spacing: -0.04em; }
+    .subtitle { color: #94a3b8; margin: 4px 0 22px 26px; font-size: 13px; }
+    .card { border: 1px solid #1e293b; background: rgba(15,23,42,.72); border-radius: 18px; padding: 18px; box-shadow: 0 20px 60px rgba(0,0,0,.28); }
+    svg { width: 100%; height: auto; display: block; }
+    .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 16px; }
+    .mini { border: 1px solid #1e293b; border-radius: 14px; padding: 14px 16px; background: rgba(15,23,42,.65); }
+    .mini h3 { font-size: 13px; margin: 0 0 10px; color: #f8fafc; }
+    .mini p { font-size: 11px; line-height: 1.65; color: #cbd5e1; margin: 0; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header"><div class="pulse"></div><h1>Muchanipo Research Harness Architecture</h1></div>
+  <div class="subtitle">Stage gate가 adapter를 선택하고, adapter는 product flow를 결정하지 못한다.</div>
+  <div class="card">
+    <svg viewBox="0 0 1440 980" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Muchanipo research harness architecture diagram">
+      <defs>
+        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1e293b" stroke-width="0.55"/></pattern>
+        <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#64748b"/></marker>
+        <marker id="arrowCyan" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#22d3ee"/></marker>
+        <marker id="arrowGreen" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L0,6 L9,3 z" fill="#34d399"/></marker>
+        <filter id="glow"><feGaussianBlur stdDeviation="3" result="coloredBlur"/><feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <rect width="1440" height="980" fill="#020617"/>
+      <rect width="1440" height="980" fill="url(#grid)" opacity=".65"/>
+
+      <!-- arrows behind boxes -->
+      <path d="M185 150 L185 220 L185 270" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+      <path d="M185 340 L185 405 L185 450" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+      <path d="M185 520 L185 585 L185 630" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+      <path d="M185 700 L185 775 L185 820" stroke="#64748b" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+
+      <path d="M360 315 L515 315" stroke="#22d3ee" stroke-width="2" fill="none" marker-end="url(#arrowCyan)"/>
+      <path d="M360 495 L515 495" stroke="#22d3ee" stroke-width="2" fill="none" marker-end="url(#arrowCyan)"/>
+      <path d="M360 675 L515 675" stroke="#22d3ee" stroke-width="2" fill="none" marker-end="url(#arrowCyan)"/>
+      <path d="M360 865 L515 865" stroke="#22d3ee" stroke-width="2" fill="none" marker-end="url(#arrowCyan)"/>
+
+      <path d="M815 315 L965 315" stroke="#34d399" stroke-width="2" fill="none" marker-end="url(#arrowGreen)"/>
+      <path d="M815 495 L965 495" stroke="#34d399" stroke-width="2" fill="none" marker-end="url(#arrowGreen)"/>
+      <path d="M815 675 L965 675" stroke="#34d399" stroke-width="2" fill="none" marker-end="url(#arrowGreen)"/>
+      <path d="M815 865 L965 865" stroke="#34d399" stroke-width="2" fill="none" marker-end="url(#arrowGreen)"/>
+
+      <!-- boundaries -->
+      <rect x="35" y="90" width="330" height="830" rx="18" fill="rgba(8,51,68,.16)" stroke="#22d3ee" stroke-width="1.5" stroke-dasharray="8,5"/>
+      <text x="55" y="122" fill="#67e8f9" font-size="14" font-weight="700">STAGE GATES</text>
+      <text x="55" y="142" fill="#94a3b8" font-size="10">harness-owned product flow</text>
+
+      <rect x="515" y="90" width="300" height="830" rx="18" fill="rgba(6,78,59,.15)" stroke="#34d399" stroke-width="1.5" stroke-dasharray="8,5"/>
+      <text x="535" y="122" fill="#6ee7b7" font-size="14" font-weight="700">ADAPTER REGISTRY</text>
+      <text x="535" y="142" fill="#94a3b8" font-size="10">explicit stage_id + adapter_id</text>
+
+      <rect x="965" y="90" width="420" height="830" rx="18" fill="rgba(76,29,149,.14)" stroke="#a78bfa" stroke-width="1.5" stroke-dasharray="8,5"/>
+      <text x="985" y="122" fill="#c4b5fd" font-size="14" font-weight="700">EXECUTABLE EVIDENCE LAYER</text>
+      <text x="985" y="142" fill="#94a3b8" font-size="10">logs · state · raw output · provenance</text>
+
+      <!-- stage boxes -->
+      <g font-family="JetBrains Mono">
+        <rect x="70" y="170" width="230" height="68" rx="8" fill="#0f172a"/><rect x="70" y="170" width="230" height="68" rx="8" fill="rgba(8,51,68,.42)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="90" y="197" fill="#f8fafc" font-size="13" font-weight="700">1. Idea Dump</text><text x="90" y="218" fill="#94a3b8" font-size="10">raw idea · constraints</text>
+
+        <rect x="70" y="270" width="230" height="68" rx="8" fill="#0f172a"/><rect x="70" y="270" width="230" height="68" rx="8" fill="rgba(8,51,68,.42)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="90" y="297" fill="#f8fafc" font-size="13" font-weight="700">2. Deep Interview</text><text x="90" y="318" fill="#94a3b8" font-size="10">scope contract</text>
+
+        <rect x="70" y="450" width="230" height="68" rx="8" fill="#0f172a"/><rect x="70" y="450" width="230" height="68" rx="8" fill="rgba(8,51,68,.42)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="90" y="477" fill="#f8fafc" font-size="13" font-weight="700">3. Deep Research Max</text><text x="90" y="498" fill="#94a3b8" font-size="10">selected adapter only</text>
+
+        <rect x="70" y="630" width="230" height="68" rx="8" fill="#0f172a"/><rect x="70" y="630" width="230" height="68" rx="8" fill="rgba(8,51,68,.42)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="90" y="657" fill="#f8fafc" font-size="13" font-weight="700">4. Plannotator / HITL</text><text x="90" y="678" fill="#94a3b8" font-size="10">approve · scope · block</text>
+
+        <rect x="70" y="820" width="230" height="68" rx="8" fill="#0f172a"/><rect x="70" y="820" width="230" height="68" rx="8" fill="rgba(8,51,68,.42)" stroke="#22d3ee" stroke-width="1.5"/>
+        <text x="90" y="847" fill="#f8fafc" font-size="13" font-weight="700">5-8. Ontology → Report</text><text x="90" y="868" fill="#94a3b8" font-size="10">persona · council · HTML/YAML</text>
+      </g>
+
+      <!-- adapters -->
+      <g>
+        <rect x="545" y="205" width="240" height="72" rx="8" fill="#0f172a"/><rect x="545" y="205" width="240" height="72" rx="8" fill="rgba(6,78,59,.42)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="565" y="232" fill="#f8fafc" font-size="12" font-weight="700">interview_scope_adapter</text><text x="565" y="253" fill="#94a3b8" font-size="9">Claude/OMC deep interview</text>
+
+        <rect x="545" y="310" width="240" height="72" rx="8" fill="#0f172a"/><rect x="545" y="310" width="240" height="72" rx="8" fill="rgba(6,78,59,.42)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="565" y="337" fill="#f8fafc" font-size="12" font-weight="700">source_forward_engine</text><text x="565" y="358" fill="#94a3b8" font-size="9">Codex/Kimi/Grok docs + web</text>
+
+        <rect x="545" y="415" width="240" height="72" rx="8" fill="#0f172a"/><rect x="545" y="415" width="240" height="72" rx="8" fill="rgba(6,78,59,.42)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="565" y="442" fill="#f8fafc" font-size="12" font-weight="700">deep_synthesis_engine</text><text x="565" y="463" fill="#94a3b8" font-size="9">Claude deep research / synthesis</text>
+
+        <rect x="545" y="520" width="240" height="72" rx="8" fill="#0f172a"/><rect x="545" y="520" width="240" height="72" rx="8" fill="rgba(6,78,59,.42)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="565" y="547" fill="#f8fafc" font-size="12" font-weight="700">local_corpus_adapter</text><text x="565" y="568" fill="#94a3b8" font-size="9">repo/docs deepsearch only</text>
+
+        <rect x="545" y="625" width="240" height="72" rx="8" fill="#0f172a"/><rect x="545" y="625" width="240" height="72" rx="8" fill="rgba(6,78,59,.42)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="565" y="652" fill="#f8fafc" font-size="12" font-weight="700">evidence_qa_gate</text><text x="565" y="673" fill="#94a3b8" font-size="9">OpenCode/Grok/Gemini verify</text>
+
+        <rect x="545" y="730" width="240" height="72" rx="8" fill="#0f172a"/><rect x="545" y="730" width="240" height="72" rx="8" fill="rgba(6,78,59,.42)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="565" y="757" fill="#f8fafc" font-size="12" font-weight="700">persona_or_council_review</text><text x="565" y="778" fill="#94a3b8" font-size="9">persona critique + chair synthesis</text>
+
+        <rect x="545" y="835" width="240" height="72" rx="8" fill="#0f172a"/><rect x="545" y="835" width="240" height="72" rx="8" fill="rgba(6,78,59,.42)" stroke="#34d399" stroke-width="1.5"/>
+        <text x="565" y="862" fill="#f8fafc" font-size="12" font-weight="700">artifact_writer / loop</text><text x="565" y="883" fill="#94a3b8" font-size="9">HTML/YAML + explicit budget only</text>
+      </g>
+
+      <!-- evidence layer -->
+      <g>
+        <rect x="995" y="180" width="355" height="82" rx="9" fill="#0f172a"/><rect x="995" y="180" width="355" height="82" rx="9" fill="rgba(76,29,149,.42)" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="1020" y="209" fill="#f8fafc" font-size="13" font-weight="700">Run Envelope</text><text x="1020" y="232" fill="#cbd5e1" font-size="10">stage_id · adapter_id · budget · stop_conditions</text>
+
+        <rect x="995" y="305" width="355" height="82" rx="9" fill="#0f172a"/><rect x="995" y="305" width="355" height="82" rx="9" fill="rgba(76,29,149,.42)" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="1020" y="334" fill="#f8fafc" font-size="13" font-weight="700">Raw Output + Provenance</text><text x="1020" y="357" fill="#cbd5e1" font-size="10">raw_output_path · source ledger · manifest</text>
+
+        <rect x="995" y="430" width="355" height="82" rx="9" fill="#0f172a"/><rect x="995" y="430" width="355" height="82" rx="9" fill="rgba(76,29,149,.42)" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="1020" y="459" fill="#f8fafc" font-size="13" font-weight="700">Harness-owned Checks</text><text x="1020" y="482" fill="#cbd5e1" font-size="10">function · command · test · state_assertion</text>
+
+        <rect x="995" y="555" width="355" height="82" rx="9" fill="#0f172a"/><rect x="995" y="555" width="355" height="82" rx="9" fill="rgba(76,29,149,.42)" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="1020" y="584" fill="#f8fafc" font-size="13" font-weight="700">Evidence Matrix</text><text x="1020" y="607" fill="#cbd5e1" font-size="10">claim → evidence_refs → confidence → gaps</text>
+
+        <rect x="995" y="680" width="355" height="82" rx="9" fill="#0f172a"/><rect x="995" y="680" width="355" height="82" rx="9" fill="rgba(76,29,149,.42)" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="1020" y="709" fill="#f8fafc" font-size="13" font-weight="700">Decision Gate</text><text x="1020" y="732" fill="#cbd5e1" font-size="10">PASS · BLOCKED · UNVERIFIED_LEAD</text>
+
+        <rect x="995" y="805" width="355" height="82" rx="9" fill="#0f172a"/><rect x="995" y="805" width="355" height="82" rx="9" fill="rgba(76,29,149,.42)" stroke="#a78bfa" stroke-width="1.5"/>
+        <text x="1020" y="834" fill="#f8fafc" font-size="13" font-weight="700">Final Artifacts</text><text x="1020" y="857" fill="#cbd5e1" font-size="10">HTML report · YAML report · evidence manifest</text>
+      </g>
+
+      <!-- center rule callout -->
+      <rect x="390" y="35" width="660" height="52" rx="12" fill="#0f172a" stroke="#fbbf24" stroke-width="1.5" filter="url(#glow)"/>
+      <text x="420" y="58" fill="#fde68a" font-size="13" font-weight="700">CORE RULE</text>
+      <text x="545" y="58" fill="#f8fafc" font-size="13">Harness chooses adapters by stage; adapter never chooses product flow.</text>
+      <text x="545" y="76" fill="#94a3b8" font-size="9">No bare “research” trigger · no implicit fanout · no natural-language-only pass</text>
+
+      <!-- guardrail callouts -->
+      <rect x="380" y="930" width="690" height="36" rx="10" fill="rgba(136,19,55,.34)" stroke="#fb7185" stroke-width="1.2"/>
+      <text x="405" y="953" fill="#fecdd3" font-size="12" font-weight="700">Freshness / Repo Guard:</text>
+      <text x="585" y="953" fill="#f8fafc" font-size="12">verify repo root + latest task context before invoking any adapter.</text>
+    </svg>
+  </div>
+  <div class="summary">
+    <div class="mini"><h3>Stage Gate</h3><p>제품 흐름은 하네스가 소유한다. stage_id가 없으면 실행하지 않고, ambiguous 상태는 block으로 둔다.</p></div>
+    <div class="mini"><h3>Adapter Registry</h3><p>Claude/Codex/Kimi/OpenCode/Grok/Gemini는 역할별 adapter로 제한된다. 자동 fanout은 기본 금지다.</p></div>
+    <div class="mini"><h3>Evidence Layer</h3><p>raw output, provenance, execution log, state assertion, evidence manifest가 있어야 최종 산출물로 승격된다.</p></div>
+  </div>
+</div>
+</body>
+</html>
