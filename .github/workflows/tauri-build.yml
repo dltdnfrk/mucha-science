@@ -121,6 +121,9 @@ jobs:
       - name: Vitest
         run: npm test
 
+      - name: Frontend production build
+        run: npm run build
+
       - name: Workspace Cargo tests
         working-directory: app/muchanipo-tauri/src-tauri
         run: cargo test --workspace --locked
