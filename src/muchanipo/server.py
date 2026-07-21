@@ -36,12 +36,44 @@ import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, IO, List, Sequence
+from typing import Any, IO, List, Mapping, Sequence
+from collections.abc import Mapping as MappingABC
 from uuid import uuid4
 
-from .events import Action, emit, parse_action
+from .events import (
+    SCIENTIFIC_ACTIONS,
+    SCIENTIFIC_PROTOCOL_VERSION,
+    Action,
+    ScientificEnvelope,
+    emit,
+    emit_scientific,
+    parse_action,
+    parse_scientific_action,
+)
+from src.pipeline.cycle_repository import (
+    AckMismatch,
+    CommitOutcomeUnknown,
+    CursorMismatch,
+    ExportTooLarge,
+    CycleRepository,
+    IdempotencyConflict,
+    RepositoryCorrupt,
+    RevisionConflict,
+)
+from src.pipeline.external_result_ingest import (
+    ExternalResultIngestError,
+    ImportQuota,
+    stage_external_result,
+)
+from src.pipeline.scientific_contracts import deterministic_id
+from src.pipeline.scientific_cycle import CycleError, GateUnsatisfied
+from src.pipeline.scientific_handoff import HandoffError
 from src.research.session_contract import ResearchContract, scope_event
 from src.research.depth import VALID_DEPTHS
+
+
+class ScientificConfigError(RuntimeError):
+    """A scientific configuration file exists but cannot be used."""
 
 
 # ---- argparse ------------------------------------------------------------
@@ -172,6 +204,17 @@ def _build_parser() -> argparse.ArgumentParser:
         help="full = PRD-v2 §2.1 8-stage MBB pipeline (default), stub = legacy 4-phase placeholder",
     )
     serve.add_argument("--depth", choices=VALID_DEPTHS, default="deep", help="Autoresearch depth budget")
+    serve.add_argument(
+        "--scientific-mode",
+        "--ai-scientist",
+        action="store_true",
+        help="Enable the negotiated ai-scientist.v1 protocol (off by default)",
+    )
+    serve.add_argument(
+        "--scientific-home",
+        default=None,
+        help="CycleRepository home used only with --scientific-mode",
+    )
     return parser
 
 
@@ -181,6 +224,425 @@ def _read_action(stdin: IO[str]) -> Action | None:
         return None
     return parse_action(line)
 
+def _scientific_error(
+    stdout: IO[str],
+    *,
+    code: str,
+    message: str,
+    action: ScientificEnvelope | None = None,
+) -> None:
+    retryability = "after_refresh" if code in {"revision_conflict", "cursor_ahead", "cursor_mismatch", "ack_mismatch"} else "never"
+    outcome = "unknown" if code == "commit_outcome_unknown" else "not_committed"
+    emit_scientific(
+        ScientificEnvelope(
+            kind="error",
+            name="command.rejected.error",
+            payload={
+                "stable_code": code, "message": message, "details": {},
+                "retryability": retryability, "outcome": outcome,
+            },
+            cycle_id=action.cycle_id if action else None,
+            correlation_id=action.message_id if action else None,
+            causation_id=action.message_id if action else None,
+            sequence=action.sequence if action else 0,
+            revision=action.revision if action else 0,
+        ),
+        stream=stdout,
+    )
+
+
+def _scientific_response(
+    stdout: IO[str],
+    action: ScientificEnvelope,
+    *,
+    name: str,
+    payload: Mapping[str, Any],
+    cycle_id: str | None = None,
+    sequence: int = 0,
+    revision: int = 0,
+) -> None:
+    emit_scientific(
+        ScientificEnvelope(
+            kind="response",
+            name=name,
+            payload=dict(payload),
+            cycle_id=cycle_id if cycle_id is not None else action.cycle_id,
+            correlation_id=action.message_id,
+            causation_id=action.message_id,
+            sequence=sequence,
+            revision=revision,
+        ),
+        stream=stdout,
+    )
+def _scientific_snapshot(
+    stdout: IO[str], action: ScientificEnvelope, *, snapshot: Mapping[str, Any], reason: str,
+) -> None:
+    checkpoint = snapshot["checkpoint"]
+    emit_scientific(
+        ScientificEnvelope(
+            kind="snapshot", name="cycle.snapshot",
+            payload={"request_message_id": action.message_id, "reason": reason, **snapshot},
+            cycle_id=checkpoint["cycle_id"], correlation_id=action.message_id,
+            causation_id=action.message_id, sequence=checkpoint["sequence"],
+            revision=snapshot["state"]["revision"],
+        ),
+        stream=stdout,
+    )
+
+
+
+def _repository_response(stdout: IO[str], response: bytes) -> None:
+    """Write the repository's committed envelope without changing its bytes."""
+    stdout.write(response.decode("utf-8"))
+    stdout.write("\n")
+    stdout.flush()
+
+
+_SCIENTIFIC_BOOLEAN_POLICIES = (
+    "enabled",
+    "protocol_capability",
+    "allow_new_cycles",
+    "allow_external_result_import",
+    "emergency_read_only",
+)
+
+
+def _canonical_import_root(root: str) -> Path:
+    configured = Path(root)
+    if not configured.is_absolute():
+        raise ScientificConfigError("ai_scientist.approved_import_roots entries must be absolute paths")
+    try:
+        canonical = configured.resolve(strict=True)
+    except OSError as exc:
+        raise ScientificConfigError(
+            f"ai_scientist.approved_import_roots entry is inaccessible: {root}"
+        ) from exc
+    if configured.is_symlink() or configured != canonical or not canonical.is_dir():
+        raise ScientificConfigError(
+            "ai_scientist.approved_import_roots entries must be canonical non-symlink directories"
+        )
+    return canonical
+
+
+def _scientific_config(config: Mapping[str, Any] | None) -> dict[str, Any]:
+    if config is None:
+        source: Mapping[str, Any] = {}
+    elif not isinstance(config, MappingABC):
+        raise ScientificConfigError("scientific config must be a JSON object")
+    elif "ai_scientist" in config:
+        nested = config["ai_scientist"]
+        if not isinstance(nested, MappingABC):
+            raise ScientificConfigError("ai_scientist section must be a JSON object")
+        source = nested
+    else:
+        source = config
+    for name in _SCIENTIFIC_BOOLEAN_POLICIES:
+        if name in source and type(source[name]) is not bool:
+            raise ScientificConfigError(f"ai_scientist.{name} must be a boolean")
+    roots = source.get("approved_import_roots", [])
+    if not isinstance(roots, list) or not all(isinstance(root, str) and root for root in roots):
+        raise ScientificConfigError("ai_scientist.approved_import_roots must be an array of paths")
+    canonical_roots = [_canonical_import_root(root) for root in roots]
+    values = {name: source.get(name, False) for name in _SCIENTIFIC_BOOLEAN_POLICIES}
+    values["approved_import_roots"] = [str(root) for root in canonical_roots]
+    for name, default in (("max_import_bytes", 256 * 1024 * 1024), ("max_import_files", 32)):
+        value = source.get(name, default)
+        if type(value) is not int or value < 1:
+            raise ScientificConfigError(f"ai_scientist.{name} must be a positive integer")
+        values[name] = value
+    return values
+
+
+def _load_scientific_config(scientific_home: str | Path | None = None) -> Mapping[str, Any]:
+    candidates = []
+    if scientific_home is not None:
+        candidates.append(Path(scientific_home) / "config.json")
+    candidates.append(Path(__file__).resolve().parents[2] / "config" / "config.json")
+    for path in candidates:
+        try:
+            text = path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            continue
+        except OSError as exc:
+            raise ScientificConfigError(f"unable to read scientific config at {path}") from exc
+        try:
+            value = json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise ScientificConfigError(f"invalid JSON scientific config at {path}") from exc
+        if not isinstance(value, MappingABC):
+            raise ScientificConfigError(f"scientific config at {path} must be a JSON object")
+        return value
+    return {}
+
+def _approved_import_roots(config: Mapping[str, Any]) -> tuple[Path, ...]:
+    approved: list[Path] = []
+    for root in config["approved_import_roots"]:
+        try:
+            approved.append(_canonical_import_root(root))
+        except ScientificConfigError:
+            return ()
+    return tuple(approved)
+def stage_external_result_files(
+    staged_files: Sequence[str | Path],
+    *,
+    staging_root: str | Path,
+    scientific_config: Mapping[str, Any] | None = None,
+) -> Mapping[str, Any]:
+    """Local-only admission API; it is deliberately absent from the wire protocol."""
+    config = _scientific_config(scientific_config)
+    approved_roots = _approved_import_roots(config)
+    if not config["allow_external_result_import"] or not approved_roots:
+        raise ScientificConfigError("external result staging is not configured")
+    quota = ImportQuota(
+        max_files=config["max_import_files"],
+        max_file_bytes=config["max_import_bytes"],
+        max_total_bytes=config["max_import_bytes"],
+    )
+    return stage_external_result(
+        staged_files=staged_files,
+        approved_roots=approved_roots,
+        staging_root=staging_root,
+        quota=quota,
+    )
+
+
+
+def _advertised_capabilities(config: Mapping[str, Any]) -> list[str]:
+    capabilities = set(SCIENTIFIC_ACTIONS) - {"protocol.hello"}
+    if not config["allow_external_result_import"] or not _approved_import_roots(config):
+        capabilities.discard("result.submit")
+    if config["emergency_read_only"]:
+        capabilities -= {"cycle.start", "cycle.continue", "proposal.reject", "validation.adjudicate",
+                         "cycle.abort", "export.create", "responsibility.disposition.supersede",
+                         "result.submit"}
+        capabilities -= {name for name in capabilities if name.startswith("responsibility.") and name.endswith(".disposition")}
+    elif not config["allow_new_cycles"]:
+        capabilities.discard("cycle.start")
+    return sorted(capabilities)
+
+def scientific_serve(
+    *,
+    repository: CycleRepository,
+    stdout: IO[str],
+    stdin: IO[str],
+    scientific_config: Mapping[str, Any] | None = None,
+) -> int:
+    """Serve only negotiated cognitive lifecycle commands; no execution command exists."""
+    config = _scientific_config(scientific_config)
+    negotiated = False
+    client_instance_id: str | None = None
+    request_ordinals: dict[str, int] = {}
+    ack_ordinals: dict[str, int] = {}
+    replay_blocked: set[str] = set()
+    server_instance_id = deterministic_id(
+        "server",
+        {"implementation": "muchanipo", "protocol": SCIENTIFIC_PROTOCOL_VERSION},
+    )
+    while line := stdin.readline():
+        action = parse_scientific_action(line)
+        if action is None:
+            _scientific_error(stdout, code="protocol_invalid", message="expected ai-scientist.v1 action envelope")
+            continue
+        if action.name == "protocol.hello":
+            if not config["enabled"]:
+                _scientific_error(stdout, code="feature_disabled", message="ai-scientist is disabled", action=action)
+                continue
+            if not config["protocol_capability"]:
+                _scientific_error(stdout, code="capability_required", message="ai-scientist wire capability is disabled", action=action)
+                continue
+            if SCIENTIFIC_PROTOCOL_VERSION not in action.payload["supported_versions"]:
+                _scientific_error(stdout, code="protocol_unsupported", message="ai-scientist.v1 capability is required", action=action)
+                continue
+            negotiated = True
+            client_instance_id = action.payload["client_instance_id"]
+            accepted_cursors = []
+            for cursor in action.payload["cursors"]:
+                try:
+                    repository.verified_replay(cursor["cycle_id"], cursor=cursor, max_events=1)
+                    accepted_cursors.append(dict(cursor))
+                except CursorMismatch:
+                    _scientific_snapshot(stdout, action, snapshot=repository.state_snapshot(cursor["cycle_id"]), reason="cursor_mismatch")
+                except (FileNotFoundError, RevisionConflict):
+                    continue
+            _scientific_response(
+                stdout, action, name="protocol.welcome.response",
+                payload={"request_message_id": action.message_id, "selected_version": SCIENTIFIC_PROTOCOL_VERSION,
+                         "connection_id": deterministic_id(
+                             "connection",
+                             {
+                                 "client_instance_id": client_instance_id,
+                                 "handshake_idempotency_key": action.payload["handshake_idempotency_key"],
+                                 "server_instance_id": server_instance_id,
+                             },
+                         ),
+                         "server_instance_id": server_instance_id,
+                         "capabilities": _advertised_capabilities(config),
+                         "operation_modes": ["read_only" if config["emergency_read_only"] else "normal"],
+                         "accepted_cursors": accepted_cursors},
+            )
+            continue
+        if not config["enabled"]:
+            _scientific_error(stdout, code="feature_disabled", message="ai-scientist is disabled", action=action)
+            continue
+        if not config["protocol_capability"] or not negotiated:
+            _scientific_error(stdout, code="capability_required", message="protocol.hello is required before lifecycle commands", action=action)
+            continue
+        if action.name not in SCIENTIFIC_ACTIONS:
+            _scientific_error(stdout, code="unknown_action", message=f"unsupported scientific action: {action.name}", action=action)
+            continue
+        if action.name in {"cycle.replay", "cycle.resume", "export.get", "report.render"}:
+            payload = action.payload
+            if payload["client_instance_id"] != client_instance_id or payload["request_ordinal"] <= request_ordinals.get(client_instance_id, 0):
+                _scientific_error(stdout, code="validation_failed", message="stale client request ordinal", action=action)
+                continue
+            request_ordinals[client_instance_id] = payload["request_ordinal"]
+        elif action.name == "cycle.ack":
+            payload = action.payload
+            if payload["client_instance_id"] != client_instance_id or payload["ack_ordinal"] <= ack_ordinals.get(client_instance_id, 0):
+                _scientific_error(stdout, code="ack_mismatch", message="stale client acknowledgement ordinal", action=action)
+                continue
+            ack_ordinals[client_instance_id] = payload["ack_ordinal"]
+        read_actions = {"cycle.replay", "cycle.resume", "report.render", "export.get", "cycle.ack"}
+        if action.name == "result.submit":
+            if (not config["allow_external_result_import"]
+                    or not (approved_roots := _approved_import_roots(config))):
+                _scientific_error(stdout, code="import_forbidden", message="external result import is not configured", action=action)
+                continue
+            if config["emergency_read_only"]:
+                _scientific_error(stdout, code="read_only", message="scientific mutations are disabled in emergency mode", action=action)
+                continue
+        if action.name not in read_actions:
+            if config["emergency_read_only"]:
+                _scientific_error(stdout, code="read_only", message="scientific mutations are disabled in emergency mode", action=action)
+                continue
+            if action.name == "cycle.start" and not config["allow_new_cycles"]:
+                _scientific_error(stdout, code="feature_disabled", message="new scientific cycles are disabled", action=action)
+                continue
+        try:
+            if action.name == "cycle.start":
+                command = action.to_dict()
+                _repository_response(stdout, repository.start_cycle(command))
+            elif action.name == "cycle.replay":
+                cursor = action.payload["cursor"]
+                cycle_id = cursor["cycle_id"]
+                if cycle_id in replay_blocked:
+                    raise AckMismatch("acknowledgement is required before another replay")
+                page = repository.verified_replay(cycle_id, cursor=cursor, max_events=action.payload["max_events"])
+                replay_blocked.add(cycle_id)
+                _scientific_response(
+                    stdout, action, name="cycle.replay.response",
+                    payload={"request_message_id": action.message_id, "cycle_id": cycle_id, **page},
+                    cycle_id=cycle_id, sequence=page["to_cursor"]["sequence"], revision=page["current_revision"],
+                )
+            elif action.name == "cycle.resume":
+                cycle_id = action.payload["cycle_id"]
+                snapshot = repository.state_snapshot(cycle_id)
+                try:
+                    page = repository.verified_replay(cycle_id, cursor=action.payload["cursor"], max_events=128)
+                except CursorMismatch:
+                    _scientific_snapshot(stdout, action, snapshot=snapshot, reason="cursor_mismatch")
+                    page = repository.verified_replay(cycle_id, cursor=snapshot["checkpoint"], max_events=128)
+                _scientific_response(
+                    stdout, action, name="cycle.resume.response",
+                    payload={"request_message_id": action.message_id, "cycle_id": cycle_id, "snapshot": snapshot,
+                             "events": page["events"], "to_cursor": page["to_cursor"],
+                             "current_revision": snapshot["state"]["revision"]},
+                    cycle_id=cycle_id, sequence=snapshot["checkpoint"]["sequence"],
+                    revision=snapshot["state"]["revision"],
+                )
+            elif action.name == "result.submit":
+                if not action.cycle_id:
+                    raise CycleError("result.submit requires cycle_id")
+                command = action.to_dict()
+                quota = ImportQuota(
+                    max_files=config["max_import_files"],
+                    max_file_bytes=config["max_import_bytes"],
+                    max_total_bytes=config["max_import_bytes"],
+                )
+                _repository_response(
+                    stdout,
+                    repository.submit_external_result(
+                        command,
+                        staging_root=repository.root / "staged-results",
+                        quota=quota,
+                    ),
+                )
+            elif action.name == "export.create":
+                if not action.cycle_id:
+                    raise CycleError("export.create requires cycle_id")
+                command = action.to_dict()
+                _repository_response(stdout, repository.create_export(command))
+            elif action.name == "export.get":
+                payload = repository.get_export(
+                    action.payload["export_id"],
+                    include_archive_bytes=action.payload["include_archive_bytes"],
+                )
+                emit_scientific(
+                    ScientificEnvelope(
+                        kind="response",
+                        name="export.get.response",
+                        payload={"request_message_id": action.message_id, **payload},
+                        cycle_id=None,
+                        correlation_id=action.message_id,
+                        causation_id=action.message_id,
+                    ),
+                    stream=stdout,
+                )
+            elif action.name == "report.render":
+                payload = action.payload
+                rendered = repository.render_report(
+                    payload["cycle_id"],
+                    at_revision=payload["at_revision"],
+                    format=payload["format"],
+                    include_status_overlay=payload["include_status_overlay"],
+                )
+                snapshot = repository.state_snapshot(payload["cycle_id"])
+                _scientific_response(
+                    stdout, action, name="report.render.response",
+                    payload={"request_message_id": action.message_id, **rendered},
+                    cycle_id=payload["cycle_id"], sequence=snapshot["checkpoint"]["sequence"],
+                    revision=payload["at_revision"],
+                )
+            elif action.name == "cycle.ack":
+                checkpoint = action.payload["checkpoint"]
+                acknowledgement = repository.acknowledge(
+                    checkpoint["cycle_id"], checkpoint=checkpoint, state_hash=action.payload["state_hash"],
+                )
+                replay_blocked.discard(checkpoint["cycle_id"])
+                _scientific_response(
+                    stdout, action, name="cycle.acknowledged.response",
+                    payload={"request_message_id": action.message_id, **acknowledgement, "accepted": True},
+                    cycle_id=checkpoint["cycle_id"], sequence=checkpoint["sequence"],
+                    revision=repository.state_snapshot(checkpoint["cycle_id"])["state"]["revision"],
+                )
+            else:
+                if not action.cycle_id:
+                    raise CycleError(f"{action.name} requires cycle_id")
+                command = action.to_dict()
+                _repository_response(stdout, repository.execute(command))
+        except IdempotencyConflict as exc:
+            _scientific_error(stdout, code="idempotency_conflict", message=str(exc), action=action)
+        except CursorMismatch as exc:
+            _scientific_error(stdout, code="cursor_mismatch", message=str(exc), action=action)
+        except AckMismatch as exc:
+            _scientific_error(stdout, code="ack_mismatch", message=str(exc), action=action)
+        except RevisionConflict as exc:
+            _scientific_error(stdout, code="revision_conflict", message=str(exc), action=action)
+        except (GateUnsatisfied, HandoffError) as exc:
+            _scientific_error(stdout, code="gate_unsatisfied", message=str(exc), action=action)
+        except FileNotFoundError as exc:
+            _scientific_error(stdout, code="not_found", message=str(exc), action=action)
+        except RepositoryCorrupt as exc:
+            _scientific_error(stdout, code="repository_corrupt", message=str(exc), action=action)
+        except CommitOutcomeUnknown as exc:
+            _scientific_error(stdout, code="commit_outcome_unknown", message=str(exc), action=action)
+        except ExportTooLarge as exc:
+            _scientific_error(stdout, code="export_too_large", message=str(exc), action=action)
+        except ExternalResultIngestError as exc:
+            _scientific_error(stdout, code="import_forbidden", message=str(exc), action=action)
+        except CycleError as exc:
+            _scientific_error(stdout, code="validation_failed", message=str(exc), action=action)
+    return 0
 
 class _ScopedJSONLineWriter:
     """Add research-contract fields to JSONL events written by helper flows."""
@@ -233,7 +695,17 @@ def serve_stub(
     wait_for_input: bool,
     stdout: IO[str],
     stdin: IO[str],
+    scientific_mode: bool = False,
+    repository: CycleRepository | None = None,
+    scientific_config: Mapping[str, Any] | None = None,
 ) -> int:
+    if scientific_mode:
+        return scientific_serve(
+            repository=repository or CycleRepository(),
+            stdout=stdout,
+            stdin=stdin,
+            scientific_config=scientific_config,
+        )
     emit("phase_change", phase="STARTUP", stream=stdout, data={"topic": topic})
 
     emit("phase_change", phase="INTERVIEW", stream=stdout)
@@ -1587,7 +2059,20 @@ def serve(
     stdin: IO[str],
     pipeline: str = "full",
     depth: str = "deep",
+    scientific_mode: bool = False,
+    repository: CycleRepository | None = None,
+    scientific_config: Mapping[str, Any] | None = None,
 ) -> int:
+    if scientific_mode:
+        # Explicit opt-in ai-scientist.v1 protocol takes precedence over the
+        # research pipeline selection; it serves only negotiated lifecycle
+        # commands against the durable cycle repository.
+        return scientific_serve(
+            repository=repository or CycleRepository(),
+            stdout=stdout,
+            stdin=stdin,
+            scientific_config=scientific_config,
+        )
     if pipeline == "full":
         return serve_full(
             topic,
@@ -1807,6 +2292,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error(f"unknown command: {args.command}")
 
     report_path = Path(args.report_path) if args.report_path else Path.cwd() / "REPORT.md"
+    repository = CycleRepository(args.scientific_home) if args.scientific_mode else None
     return serve(
         args.topic,
         report_path=report_path,
@@ -1815,6 +2301,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         stdin=sys.stdin,
         pipeline=args.pipeline,
         depth=args.depth,
+        scientific_mode=args.scientific_mode,
+        repository=repository,
+        scientific_config=_load_scientific_config(args.scientific_home) if args.scientific_mode else None,
     )
 
 

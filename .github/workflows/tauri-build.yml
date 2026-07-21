@@ -6,20 +6,42 @@ on:
     tags: ['v*']
     paths:
       - 'app/muchanipo-tauri/**'
+      - 'app/Muchanipo/**'
+      - 'tools/build_scientific_sidecar.py'
+      - 'pyproject.toml'
+      - 'config/protocol/**'
+      - 'muchanipo/**'
+      - 'src/**'
+      - 'tests/**'
+      - 'tools/build_protocol_fixtures.py'
+      - 'uv.lock'
       - '.github/workflows/tauri-build.yml'
   pull_request:
     paths:
       - 'app/muchanipo-tauri/**'
+      - 'app/Muchanipo/**'
+      - 'tools/build_scientific_sidecar.py'
+      - 'pyproject.toml'
+      - 'config/protocol/**'
+      - 'muchanipo/**'
+      - 'src/**'
+      - 'tests/**'
+      - 'tools/build_protocol_fixtures.py'
+      - 'uv.lock'
       - '.github/workflows/tauri-build.yml'
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: macos-14
-    timeout-minutes: 30
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: app/muchanipo-tauri
+    env:
+      MUCHANIPO_SIDECAR_PYTHON: ${{ github.workspace }}/.venv-sidecar/bin/python
+      PYTHONHASHSEED: '0'
+      SOURCE_DATE_EPOCH: '1704067200'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,6 +52,18 @@ jobs:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: app/muchanipo-tauri/package-lock.json
+
+      - name: Setup Python sidecar toolchain
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install pinned sidecar builder
+        working-directory: .
+        run: |
+          python -m venv .venv-sidecar
+          .venv-sidecar/bin/python -m pip install --upgrade pip
+          .venv-sidecar/bin/python -m pip install 'pyinstaller==6.11.1' 'pytest>=8,<9' 'unicodedata2==15.1.0' 'httpx>=0.28'
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -46,7 +80,7 @@ jobs:
             exit 1
           fi
 
-      - name: Cache cargo registry + target
+      - name: Cache cargo registry and workspace target
         uses: actions/cache@v4
         with:
           path: |
@@ -60,18 +94,66 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
-      - name: Lint frontend (non-blocking)
-        run: npm run lint --if-present || true
+      - name: AI-scientist backend contracts
+        working-directory: .
+        run: |
+          .venv-sidecar/bin/python -m pytest -q \
+            tests/test_protocol_fixtures.py \
+            tests/test_muchanipo_server.py \
+            tests/test_cycle_repository.py \
+            tests/test_scientific_contracts.py \
+            tests/test_external_result_ingest.py \
+            tests/test_scientific_validation.py \
+            tests/test_scientific_cycle.py \
+            tests/test_cycle_lifecycle_table.py \
+            tests/test_scientific_handoff.py \
+            tests/test_hypothesis_lifecycle.py \
+            tests/test_report_attestation.py \
+            tests/test_sidecar_entrypoint.py
 
-      - name: Build Tauri (debug, PR check)
-        if: github.event_name == 'pull_request'
-        run: npm run tauri build -- --debug
+      - name: Generated protocol corpus is current
+        working-directory: .
+        run: python tools/build_protocol_fixtures.py --check
 
-      - name: Build Tauri (release, main/tag)
-        if: github.event_name != 'pull_request'
-        run: npm run tauri build
+      - name: Exact frontend fixtures
+        run: npm run test:fixtures
 
-      - name: Upload macOS .app + .dmg artifacts
+      - name: Vitest
+        run: npm test
+
+      - name: Workspace Cargo tests
+        working-directory: app/muchanipo-tauri/src-tauri
+        run: cargo test --workspace --locked
+
+      - name: Swift tests
+        working-directory: app/Muchanipo
+        run: swift test
+
+      - name: Build sidecar twice from clean output
+        run: |
+          first_build_dir="$(mktemp -d)"
+          npm run sidecar:build
+          mv src-tauri/binaries "$first_build_dir/binaries"
+          npm run sidecar:build
+          diff -qr "$first_build_dir/binaries" src-tauri/binaries
+
+      - name: Verify sidecar manifest and artifact
+        run: npm run test:sidecar
+
+      - name: Packaged sidecar lifecycle E2E
+        run: npm run test:e2e:sidecar
+
+      - name: Build and package Tauri
+        run: npm run tauri:bundle
+
+      - name: Inspect packaged sidecar
+        run: |
+          app_bundle=$(printf '%s\n' target/release/bundle/macos/*.app)
+          test -d "$app_bundle"
+          test -x "$app_bundle/Contents/MacOS/muchanipo-service"
+          test -f "$app_bundle/Contents/Resources/binaries/muchanipo-service-aarch64-apple-darwin.manifest.json"
+
+      - name: Upload macOS .app and .dmg artifacts
         if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
@@ -89,3 +171,42 @@ jobs:
             app/muchanipo-tauri/target/release/bundle/macos/*.app
             app/muchanipo-tauri/target/release/bundle/dmg/*.dmg
           generate_release_notes: true
+  linux-sidecar-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: app/muchanipo-tauri
+    env:
+      MUCHANIPO_SIDECAR_PYTHON: ${{ github.workspace }}/.venv-sidecar/bin/python
+      PYTHONHASHSEED: '0'
+      SOURCE_DATE_EPOCH: '1704067200'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Python sidecar toolchain
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install pinned sidecar builder
+        working-directory: .
+        run: |
+          python -m venv .venv-sidecar
+          .venv-sidecar/bin/python -m pip install --upgrade pip
+          .venv-sidecar/bin/python -m pip install 'pyinstaller==6.11.1' 'unicodedata2==15.1.0' 'httpx>=0.28'
+
+      - name: Build native Linux sidecar
+        run: npm run sidecar:build
+
+      - name: Verify sidecar manifest and artifact
+        run: npm run test:sidecar
+
+      - name: Packaged sidecar lifecycle E2E
+        run: npm run test:e2e:sidecar

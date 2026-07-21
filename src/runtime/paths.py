@@ -8,6 +8,8 @@ from typing import Any, Mapping, Optional
 
 
 ENV_VAULT_PATH = "MUCHANIPO_VAULT_PATH"
+ENV_MUCHANIPO_HOME = "MUCHANIPO_HOME"
+DEFAULT_MUCHANIPO_HOME = Path.home() / ".muchanipo"
 DEFAULT_VAULT_PATH = Path.home() / "Documents" / "Hyunjun"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = REPO_ROOT / "config" / "config.json"
@@ -16,6 +18,32 @@ RUBRIC_PATH = REPO_ROOT / "config" / "rubric.json"
 
 def get_repo_root() -> Path:
     return REPO_ROOT
+
+
+def _confined_child_path(base: Path, parts: tuple[str, ...]) -> Path:
+    root = base.resolve()
+    for part in parts:
+        child = Path(part)
+        if child.is_absolute() or ".." in child.parts:
+            raise ValueError(f"path child must not be absolute or traverse parents: {part!r}")
+
+    path = root.joinpath(*parts).resolve()
+    try:
+        path.relative_to(root)
+    except ValueError as exc:
+        raise ValueError("path child escapes its configured root") from exc
+    return path
+
+
+def get_muchanipo_home(*parts: str, create: bool = False) -> Path:
+    """Return the CWD-independent Muchanipo data root plus child parts."""
+    raw = os.environ.get(ENV_MUCHANIPO_HOME)
+    base = Path(os.path.expanduser(os.path.expandvars(raw))) if raw else DEFAULT_MUCHANIPO_HOME
+    path = _confined_child_path(base, parts)
+    if create:
+        path.mkdir(parents=True, exist_ok=True)
+    return path
+
 
 
 def get_config_path() -> Path:
@@ -30,7 +58,7 @@ def get_vault_path(*parts: str, create: bool = False) -> Path:
     """Return the configured Obsidian vault root plus optional child parts."""
     raw = os.environ.get(ENV_VAULT_PATH)
     base = Path(os.path.expandvars(os.path.expanduser(raw))) if raw else DEFAULT_VAULT_PATH
-    path = base.joinpath(*parts)
+    path = _confined_child_path(base, parts)
     if create:
         path.mkdir(parents=True, exist_ok=True)
     return path
@@ -59,7 +87,7 @@ def resolve_vault_path_setting(value: Optional[str], *, create: bool = False) ->
 
 def rubric_score_max(rubric: Mapping[str, Any]) -> int:
     """Return the max score for axes that actively count toward total."""
-    axes = rubric.get("axes", {})
+    axes = rubric.get("axes")
     if isinstance(axes, Mapping):
         total = 0
         for cfg in axes.values():
@@ -71,7 +99,7 @@ def rubric_score_max(rubric: Mapping[str, Any]) -> int:
             if float(cfg.get("weight", 1.0) or 0.0) <= 0.0:
                 continue
             total += int(cfg.get("max", 10))
-        return total or 100
+        return total
     if isinstance(axes, list):
         return len(axes) * 10
     return 100

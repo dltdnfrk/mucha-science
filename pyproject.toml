@@ -7,10 +7,14 @@ name = "muchanipo"
 version = "0.0.0"
 description = "MuchaNipo research council runtime"
 requires-python = ">=3.11"
-dependencies = ["httpx>=0.28"]
+dependencies = ["httpx>=0.28", "unicodedata2==15.1.0"]
 
 [project.scripts]
 muchanipo = "src.muchanipo.server:main"
+
+[project.optional-dependencies]
+test = ["pytest>=8"]
+sidecar = ["pyinstaller==6.11.1"]
 
 [tool.setuptools.packages.find]
 where = ["."]

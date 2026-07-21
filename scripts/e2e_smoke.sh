@@ -7,11 +7,19 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 PYTHON_BIN="${PYTHON_BIN:-}"
 if [[ -z "$PYTHON_BIN" ]]; then
-  if command -v python >/dev/null 2>&1; then
-    PYTHON_BIN=python
-  else
-    PYTHON_BIN=python3
-  fi
+  # pyproject requires Python >=3.11; prefer explicit modern interpreters over
+  # whatever `python`/`python3` happens to be on PATH (macOS often ships 3.8/3.9).
+  for candidate in "$ROOT/.venv/bin/python" python3.12 python3.11 python python3; do
+    if command -v "$candidate" >/dev/null 2>&1 \
+      && "$candidate" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)' >/dev/null 2>&1; then
+      PYTHON_BIN="$candidate"
+      break
+    fi
+  done
+fi
+if [[ -z "$PYTHON_BIN" ]]; then
+  echo "[smoke] no Python >=3.11 interpreter found on PATH (set PYTHON_BIN)" >&2
+  exit 1
 fi
 TMP="${TMPDIR:-/tmp}"
 REPORT="$TMP/muchanipo_smoke_report.md"
