@@ -23,7 +23,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col items-center justify-center p-6">
+    <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col justify-center gap-6 p-6">
       <Card className="w-full">
         <CardHeader>
           <CardTitle>Muchanipo</CardTitle>
@@ -42,6 +42,27 @@ export default function HomePage() {
         <CardFooter className="justify-end">
           <Button onClick={handleSubmit} disabled={!canSubmit} size="lg">
             인터뷰 시작
+          </Button>
+        </CardFooter>
+      </Card>
+
+      <Card className="w-full">
+        <CardHeader>
+          <CardTitle>Scientific cycle (beta)</CardTitle>
+          <CardDescription>
+            가설을 만들고 외부 실험으로 넘기는 과학적 검토 경로입니다. 실험 수행과 결과
+            검증의 책임은 사람에게 있으며, 물리적 작업은 이 도구 밖에서 이루어집니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-muted-foreground">
+            Creator authority is operator-asserted and unverified. This beta can prepare an
+            export package; it does not operate a lab or claim institutional approval.
+          </p>
+        </CardContent>
+        <CardFooter className="justify-end">
+          <Button variant="outline" onClick={() => navigate("/scientific")}>
+            Scientific cycle (beta) 열기
           </Button>
         </CardFooter>
       </Card>

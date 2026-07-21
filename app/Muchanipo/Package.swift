@@ -13,6 +13,12 @@ let package = Package(
         .executableTarget(
             name: "Muchanipo",
             path: "Sources/Muchanipo"
+        ),
+        .testTarget(
+            name: "MuchanipoTests",
+            dependencies: ["Muchanipo"],
+            path: "Tests/MuchanipoTests",
+            resources: [.copy("Fixtures")]
         )
     ]
 )

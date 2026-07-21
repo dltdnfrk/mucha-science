@@ -9,8 +9,13 @@ from __future__ import annotations
 
 import json
 import sys
+from datetime import datetime, timezone
+from hashlib import sha256
 from dataclasses import dataclass, field
+from collections.abc import Mapping
+from copy import deepcopy
 from typing import Any, IO
+from src.pipeline.scientific_contracts import ContractError, decode_json_object, validate_protocol_action
 
 
 KNOWN_EVENTS = frozenset(
@@ -45,6 +50,33 @@ KNOWN_ACTIONS = frozenset(
         "abort",
     }
 )
+SCIENTIFIC_PROTOCOL = "muchanipo"
+SCIENTIFIC_PROTOCOL_VERSION = "ai-scientist.v1"
+
+SCIENTIFIC_ACTIONS = frozenset(
+    {
+        "protocol.hello",
+        "cycle.start",
+        "cycle.replay",
+        "cycle.resume",
+        "cycle.continue",
+        "responsibility.question_selection.disposition",
+        "responsibility.safety_ethics_review.disposition",
+        "responsibility.execution_accountability.disposition",
+        "responsibility.exception_interpretation.disposition",
+        "responsibility.novelty_value_judgment.disposition",
+        "responsibility.final_accountability.disposition",
+        "responsibility.disposition.supersede",
+        "proposal.reject",
+        "result.submit",
+        "validation.adjudicate",
+        "cycle.abort",
+        "export.create",
+        "export.get",
+        "report.render",
+        "cycle.ack",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -55,8 +87,14 @@ class Event:
     fields: dict[str, Any] = field(default_factory=dict)
 
     def to_json(self) -> str:
-        payload = {"event": self.event, **self.fields}
-        return json.dumps(payload, ensure_ascii=False)
+        # Legacy research events are permissive by design: the full pipeline
+        # emits stage/report telemetry beyond the stub-era KNOWN_EVENTS set
+        # (e.g. final_report), and clients preserve unknown legacy events.
+        # Strict fail-closed validation applies only to ai-scientist.v1
+        # envelopes via validate_protocol_action.
+        if not isinstance(self.event, str) or not self.event:
+            raise ValueError(f"invalid legacy event name: {self.event!r}")
+        return json.dumps({"event": self.event, **self.fields}, ensure_ascii=False)
 
 
 @dataclass(frozen=True)
@@ -66,12 +104,148 @@ class Action:
     action: str
     fields: dict[str, Any] = field(default_factory=dict)
 
+class _FrozenDict(dict[str, Any]):
+    """A JSON-serializable mapping that cannot be mutated after construction."""
+
+    def __init__(self, value: Mapping[str, Any]) -> None:
+        dict.__init__(self, ((key, _freeze_value(item)) for key, item in value.items()))
+
+    @staticmethod
+    def _immutable(*_: object, **__: object) -> None:
+        raise TypeError("scientific envelope content is immutable")
+
+    __setitem__ = _immutable
+    __delitem__ = _immutable
+    clear = _immutable
+    pop = _immutable
+    popitem = _immutable
+    setdefault = _immutable
+    update = _immutable
+    __ior__ = _immutable
+
+
+def _freeze_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return _FrozenDict(value)
+    if isinstance(value, list):
+        return tuple(_freeze_value(item) for item in value)
+    if isinstance(value, tuple):
+        return tuple(_freeze_value(item) for item in value)
+    if isinstance(value, set):
+        return frozenset(_freeze_value(item) for item in value)
+    return deepcopy(value)
+def _copy_value(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {key: _copy_value(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [_copy_value(item) for item in value]
+    if isinstance(value, frozenset):
+        return [_copy_value(item) for item in value]
+    return deepcopy(value)
+
+
+
+
+def _frame_message_id(envelope: "ScientificEnvelope") -> str:
+    content = {
+        "kind": envelope.kind,
+        "name": envelope.name,
+        "payload": envelope.payload,
+        "cycle_id": envelope.cycle_id,
+        "correlation_id": envelope.correlation_id,
+        "causation_id": envelope.causation_id,
+        "sequence": envelope.sequence,
+        "revision": envelope.revision,
+        "idempotency_key": envelope.idempotency_key,
+        "timestamp": envelope.timestamp,
+        "extensions": envelope.extensions,
+    }
+    return f"message_{sha256(json.dumps(content, sort_keys=True, default=str).encode()).hexdigest()[:32]}"
+
+
+@dataclass(frozen=True)
+class ScientificEnvelope:
+    """Negotiated AI-scientist protocol frame; separate from legacy flat events."""
+
+    kind: str
+    name: str
+    payload: dict[str, Any] = field(default_factory=dict)
+    message_id: str | None = None
+    cycle_id: str | None = None
+    correlation_id: str | None = None
+    causation_id: str | None = None
+    sequence: int = 0
+    revision: int = 0
+    idempotency_key: str | None = None
+    timestamp: str | None = None
+    extensions: dict[str, Any] = field(default_factory=dict)
+    def __post_init__(self) -> None:
+        if not isinstance(self.payload, Mapping) or not isinstance(self.extensions, Mapping):
+            raise ValueError("scientific envelope payload and extensions must be objects")
+        object.__setattr__(self, "payload", _FrozenDict(self.payload))
+        object.__setattr__(self, "extensions", _FrozenDict(self.extensions))
+        object.__setattr__(
+            self,
+            "timestamp",
+            self.timestamp or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
+        )
+        object.__setattr__(self, "message_id", self.message_id or _frame_message_id(self))
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "protocol": SCIENTIFIC_PROTOCOL,
+            "protocol_version": SCIENTIFIC_PROTOCOL_VERSION,
+            "kind": self.kind,
+            "name": self.name,
+            "message_id": self.message_id,
+            "cycle_id": self.cycle_id,
+            "correlation_id": self.correlation_id,
+            "causation_id": self.causation_id,
+            "sequence": self.sequence,
+            "revision": self.revision,
+            "idempotency_key": self.idempotency_key,
+            "timestamp": self.timestamp,
+            "payload": _copy_value(self.payload),
+            "extensions": _copy_value(self.extensions),
+        }
+
+    def to_json(self) -> str:
+        return json.dumps(self.to_dict(), ensure_ascii=False)
+
+
+def emit_scientific(envelope: ScientificEnvelope, *, stream: IO[str] | None = None) -> None:
+    """Emit one negotiated protocol envelope without changing legacy event layout."""
+    out = stream if stream is not None else sys.stdout
+    out.write(envelope.to_json())
+    out.write("\n")
+    out.flush()
+
+
+def parse_scientific_action(line: str) -> ScientificEnvelope | None:
+    """Parse only complete, frozen AI-scientist v1 action envelopes."""
+    line = line.strip()
+    if not line:
+        return None
+    try:
+        obj = decode_json_object(line)
+        if not isinstance(obj, dict):
+            return None
+        validate_protocol_action(obj)
+    except ContractError:
+        return None
+    return ScientificEnvelope(
+        kind="action", name=obj["name"], payload=dict(obj["payload"]),
+        message_id=obj["message_id"], cycle_id=obj["cycle_id"],
+        correlation_id=obj["correlation_id"], causation_id=obj["causation_id"],
+        sequence=obj["sequence"], revision=obj["revision"],
+        idempotency_key=obj["idempotency_key"], timestamp=obj["timestamp"],
+        extensions=dict(obj["extensions"]),
+    )
 
 def emit(event: str, *, stream: IO[str] | None = None, **fields: Any) -> None:
     """Write a single JSON-line event and flush so Swift sees it immediately."""
     out = stream if stream is not None else sys.stdout
-    payload = {"event": event, **fields}
-    out.write(json.dumps(payload, ensure_ascii=False))
+    out.write(Event(event, fields).to_json())
     out.write("\n")
     out.flush()
 
@@ -85,9 +259,9 @@ def parse_action(line: str) -> Action | None:
         obj = json.loads(line)
     except json.JSONDecodeError:
         return None
-    if not isinstance(obj, dict) or "action" not in obj:
+    if not isinstance(obj, dict) or set(obj) == set() or "action" not in obj:
         return None
     name = obj.pop("action")
-    if not isinstance(name, str):
+    if not isinstance(name, str) or name not in KNOWN_ACTIONS:
         return None
     return Action(action=name, fields=obj)

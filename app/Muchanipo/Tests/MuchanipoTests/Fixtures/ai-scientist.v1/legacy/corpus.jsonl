@@ -1,0 +1,2 @@
+{"bytes":"{\"event\":\"legacy.started\"}\n","case":"legacy-event"}
+{"bytes":"{\"event\":\"legacy.started\",\"protocol\":\"muchanipo\"}\n","case":"mixed-frame-rejected"}

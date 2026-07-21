@@ -5,6 +5,7 @@ import BrowserHome from "./pages/BrowserHome";
 import RunProgress from "./pages/RunProgress";
 import ReportView from "./pages/ReportView";
 import Settings from "./pages/Settings";
+import ScientificPage from "./pages/ScientificPage";
 import Sidebar from "./components/Sidebar";
 import { listRuns } from "./lib/runsIndex";
 
@@ -63,6 +64,7 @@ export default function App() {
             <Route path="/browser/:runId/report" element={<ReportView />} />
             <Route path="/run/:runId" element={<RunProgress />} />
             <Route path="/report/:runId" element={<ReportView />} />
+            <Route path="/scientific" element={<ScientificPage />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

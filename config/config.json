@@ -71,5 +71,15 @@
       "deep": 3,
       "moderate": 1
     }
+  },
+  "ai_scientist": {
+    "enabled": false,
+    "protocol_capability": false,
+    "allow_new_cycles": false,
+    "allow_external_result_import": false,
+    "emergency_read_only": false,
+    "max_import_bytes": 104857600,
+    "max_import_files": 32,
+    "approved_import_roots": []
   }
 }
