@@ -17,6 +17,7 @@ from src.muchanipo import server as server_mod
 from src.muchanipo.events import KNOWN_EVENTS, emit
 from src.muchanipo.server import _detect_offline_mode, scientific_serve, serve
 from src.muchanipo import server
+from src.muchanipo.web import scientific_config as scientific_config_mod
 from src.runtime.paths import (
     ENV_MUCHANIPO_HOME,
     ENV_VAULT_PATH,
@@ -421,7 +422,11 @@ def test_scientific_import_roots_are_absolute_canonical_directories(tmp_path: Pa
 def test_load_scientific_config_prefers_explicit_home_and_falls_back_only_when_absent(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(server, "__file__", str(tmp_path / "src" / "muchanipo" / "server.py"))
+    monkeypatch.setattr(
+        scientific_config_mod,
+        "__file__",
+        str(tmp_path / "src" / "muchanipo" / "web" / "scientific_config.py"),
+    )
     fallback = tmp_path / "config" / "config.json"
     fallback.parent.mkdir()
     fallback.write_text('{"enabled": false}', encoding="utf-8")
