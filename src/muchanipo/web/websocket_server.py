@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import argparse
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from ipaddress import ip_address
 import json
-from socket import socket as Socket
+import logging
+from socket import SHUT_RDWR, socket as Socket
 from threading import Lock
 from typing import Protocol
 
@@ -42,6 +43,18 @@ class NonLoopbackHostError(ValueError):
         return f"host must be a loopback address or localhost: {self.host}"
 
 
+class _ShutdownLogFilter(logging.Filter):
+    def __init__(self, is_shutting_down: Callable[[], bool]) -> None:
+        super().__init__()
+        self._is_shutting_down = is_shutting_down
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return not (
+            self._is_shutting_down()
+            and record.getMessage() == "opening handshake failed"
+        )
+
+
 class _Connection(Protocol):
     def __iter__(self) -> Iterator[str | bytes]: ...
     def send(self, message: str) -> None: ...
@@ -74,16 +87,21 @@ class WebSocketServer:
         self._repository = repository
         self._scientific_config = scientific_config
         self._handler_factory = handler_factory
-        self._connections: set[ServerConnection] = set()
-        self._connection_lock = Lock()
+        self._accepted_sockets: set[Socket] = set()
+        self._socket_lock = Lock()
         self._shutting_down = False
+        logger = logging.getLogger(f"{__name__}.{id(self)}")
+        logger.addFilter(_ShutdownLogFilter(self._is_shutting_down))
         self._server = serve(
             self._handle_connection,
             host,
             port,
             max_size=MAX_MESSAGE_SIZE,
             origins=ALLOWED_ORIGINS,
+            logger=logger,
         )
+        self._connection_handler = self._server.handler
+        self._server.handler = self._handle_socket
 
     @property
     def socket(self) -> Socket:
@@ -93,21 +111,44 @@ class WebSocketServer:
         self._server.serve_forever()
 
     def shutdown(self) -> None:
-        with self._connection_lock:
+        with self._socket_lock:
             if self._shutting_down:
                 return
             self._shutting_down = True
-            connections = tuple(self._connections)
+            sockets = tuple(self._accepted_sockets)
         self._server.shutdown()
-        for connection in connections:
-            connection.close_socket()
+        for accepted_socket in sockets:
+            self._close_socket(accepted_socket)
+
+    def _is_shutting_down(self) -> bool:
+        with self._socket_lock:
+            return self._shutting_down
+
+    def _handle_socket(self, accepted_socket: Socket, address: object) -> None:
+        with self._socket_lock:
+            if self._shutting_down:
+                self._close_socket(accepted_socket)
+                return
+            self._accepted_sockets.add(accepted_socket)
+        try:
+            self._connection_handler(accepted_socket, address)
+        finally:
+            with self._socket_lock:
+                self._accepted_sockets.discard(accepted_socket)
+
+    @staticmethod
+    def _close_socket(accepted_socket: Socket) -> None:
+        try:
+            accepted_socket.shutdown(SHUT_RDWR)
+        except OSError:
+            pass
+        accepted_socket.close()
 
     def _handle_connection(self, connection: ServerConnection) -> None:
-        with self._connection_lock:
+        with self._socket_lock:
             if self._shutting_down:
                 connection.close_socket()
                 return
-            self._connections.add(connection)
         try:
             handler = self._handler_factory(
                 repository=self._repository,
@@ -115,12 +156,9 @@ class WebSocketServer:
             )
             serve_websocket_connection(connection, handler)
         except ConnectionClosed:
-            with self._connection_lock:
+            with self._socket_lock:
                 if not self._shutting_down:
                     raise
-        finally:
-            with self._connection_lock:
-                self._connections.discard(connection)
 
 
 def serve_websocket_connection(

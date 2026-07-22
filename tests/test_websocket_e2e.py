@@ -4,9 +4,11 @@ import json
 from pathlib import Path
 from queue import Queue
 import signal
+from socket import create_connection
 import subprocess
 import sys
 from threading import Thread
+from urllib.parse import urlsplit
 
 import pytest
 from websockets.sync.client import connect
@@ -204,6 +206,50 @@ def test_sigint_closes_active_connection_and_exits_130(tmp_path: Path) -> None:
             stop_process(process)
 
     # Then shutdown closes the active connection and preserves the CLI exit contract
+    assert process.returncode == 130
+    assert stdout == ""
+    assert stderr == ""
+
+
+def test_sigint_closes_pending_handshake_and_exits_130(tmp_path: Path) -> None:
+    # Given an installed CLI with a TCP client stalled mid-WebSocket handshake
+    home = scientific_home(tmp_path)
+    process = subprocess.Popen(
+        [str(WEB_EXECUTABLE), "--host", "127.0.0.1", "--port", "0", "--scientific-home", str(home)],
+        cwd=REPO_ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    pending = None
+
+    try:
+        readiness = json.loads(read_line(process))
+        parsed_url = urlsplit(readiness["url"])
+        assert parsed_url.hostname is not None
+        assert parsed_url.port is not None
+        pending = create_connection((parsed_url.hostname, parsed_url.port), timeout=2)
+        pending.sendall(b"GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nUpgrade: websocket\r\n")
+
+        # A completed second handshake proves the accept loop handled the pending socket.
+        with connect(readiness["url"]):
+            pass
+
+        # When the process receives SIGINT before the first handshake completes
+        process.send_signal(signal.SIGINT)
+        try:
+            stdout, stderr = process.communicate(timeout=3)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.communicate(timeout=2)
+            pytest.fail("muchanipo-web did not exit while a handshake remained pending")
+    finally:
+        if pending is not None:
+            pending.close()
+        if process.poll() is None:
+            stop_process(process)
+
+    # Then shutdown closes the pending socket and preserves the CLI exit contract
     assert process.returncode == 130
     assert stdout == ""
     assert stderr == ""
