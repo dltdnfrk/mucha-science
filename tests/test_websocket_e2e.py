@@ -188,6 +188,19 @@ def test_cli_rejects_invalid_ports_before_readiness(port: int) -> None:
     assert "0..65535" in completed.stderr
 
 
+def test_cli_rejects_non_loopback_host_before_readiness() -> None:
+    # Given a bind address that would expose the local sidecar to the network
+    command = [str(WEB_EXECUTABLE), "--host", "0.0.0.0", "--port", "0"]
+
+    # When the installed CLI parses its arguments
+    completed = subprocess.run(command, cwd=REPO_ROOT, capture_output=True, text=True, timeout=5, check=False)
+
+    # Then argparse rejects it before exposing a listener or readiness record
+    assert completed.returncode == 2
+    assert completed.stdout == ""
+    assert "loopback" in completed.stderr
+
+
 def test_cli_rejects_invalid_config_before_readiness(tmp_path: Path) -> None:
     # Given a scientific home with malformed JSON configuration
     home = tmp_path / "home"

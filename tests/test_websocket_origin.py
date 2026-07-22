@@ -43,6 +43,22 @@ def test_server_rejects_untrusted_browser_origin(tmp_path: Path) -> None:
     assert raised.value.response.status_code == 403
 
 
+def test_server_rejects_non_loopback_bind(tmp_path: Path) -> None:
+    # Given a host that would expose mutable state beyond the local machine
+    server = None
+    try:
+        # When the server factory is asked to bind every IPv4 interface
+        with pytest.raises(ValueError, match="loopback"):
+            server = create_websocket_server(
+                repository=CycleRepository(tmp_path / "home"),
+                host="0.0.0.0",
+                port=0,
+            )
+    finally:
+        if server is not None:
+            server.shutdown()
+
+
 @pytest.mark.parametrize("origin", [
     Origin("http://127.0.0.1:1420"),
     Origin("http://localhost:1420"),

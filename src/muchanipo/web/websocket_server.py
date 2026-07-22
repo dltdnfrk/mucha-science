@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 from collections.abc import Iterator, Sequence
+from dataclasses import dataclass
+from ipaddress import ip_address
 import json
 from typing import Protocol
 
@@ -27,6 +29,14 @@ ALLOWED_ORIGINS: tuple[Origin | None, ...] = (
     Origin("https://tauri.localhost"),
     Origin("tauri://localhost"),
 )
+
+
+@dataclass(frozen=True, slots=True)
+class NonLoopbackHostError(ValueError):
+    host: str
+
+    def __str__(self) -> str:
+        return f"host must be a loopback address or localhost: {self.host}"
 
 
 class _Connection(Protocol):
@@ -68,6 +78,7 @@ def create_websocket_server(
     port: int = DEFAULT_PORT,
     handler_factory: _HandlerFactory | None = None,
 ) -> Server:
+    _require_loopback_host(host)
     resolved_factory = handler_factory or ProtocolHandler
 
     def handle_connection(connection: ServerConnection) -> None:
@@ -93,12 +104,31 @@ def _port(value: str) -> int:
     return port
 
 
+def _require_loopback_host(host: str) -> str:
+    if host == "localhost":
+        return host
+    try:
+        address = ip_address(host)
+    except ValueError:
+        raise NonLoopbackHostError(host) from None
+    if not address.is_loopback:
+        raise NonLoopbackHostError(host)
+    return host
+
+
+def _host(value: str) -> str:
+    try:
+        return _require_loopback_host(value)
+    except NonLoopbackHostError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="muchanipo-web",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--host", default=DEFAULT_HOST)
+    parser.add_argument("--host", default=DEFAULT_HOST, type=_host)
     parser.add_argument("--port", default=DEFAULT_PORT, type=_port)
     parser.add_argument("--scientific-home", default=None)
     return parser
