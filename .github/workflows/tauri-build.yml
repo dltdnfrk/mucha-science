@@ -63,7 +63,7 @@ jobs:
         run: |
           python -m venv .venv-sidecar
           .venv-sidecar/bin/python -m pip install --upgrade pip
-          .venv-sidecar/bin/python -m pip install 'pyinstaller==6.11.1' 'pytest>=8,<9' 'unicodedata2==15.1.0' 'httpx>=0.28' 'websockets>=16.1,<17'
+          .venv-sidecar/bin/python -m pip install -e . 'pyinstaller==6.11.1' 'pytest>=8,<9' 'unicodedata2==15.1.0' 'httpx>=0.28' 'websockets>=16.1,<17'
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
