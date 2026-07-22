@@ -5,9 +5,12 @@ from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from ipaddress import ip_address
 import json
+from socket import socket as Socket
+from threading import Lock
 from typing import Protocol
 
-from websockets.sync.server import Server, ServerConnection, serve
+from websockets.exceptions import ConnectionClosed
+from websockets.sync.server import ServerConnection, serve
 from websockets.typing import Origin
 
 from src.pipeline.cycle_repository import CycleRepository
@@ -58,6 +61,68 @@ class _HandlerFactory(Protocol):
     ) -> _MessageHandler: ...
 
 
+class WebSocketServer:
+    def __init__(
+        self,
+        *,
+        repository: CycleRepository,
+        scientific_config: ScientificConfig | None,
+        host: str,
+        port: int,
+        handler_factory: _HandlerFactory,
+    ) -> None:
+        self._repository = repository
+        self._scientific_config = scientific_config
+        self._handler_factory = handler_factory
+        self._connections: set[ServerConnection] = set()
+        self._connection_lock = Lock()
+        self._shutting_down = False
+        self._server = serve(
+            self._handle_connection,
+            host,
+            port,
+            max_size=MAX_MESSAGE_SIZE,
+            origins=ALLOWED_ORIGINS,
+        )
+
+    @property
+    def socket(self) -> Socket:
+        return self._server.socket
+
+    def serve_forever(self) -> None:
+        self._server.serve_forever()
+
+    def shutdown(self) -> None:
+        with self._connection_lock:
+            if self._shutting_down:
+                return
+            self._shutting_down = True
+            connections = tuple(self._connections)
+        self._server.shutdown()
+        for connection in connections:
+            connection.close_socket()
+
+    def _handle_connection(self, connection: ServerConnection) -> None:
+        with self._connection_lock:
+            if self._shutting_down:
+                connection.close_socket()
+                return
+            self._connections.add(connection)
+        try:
+            handler = self._handler_factory(
+                repository=self._repository,
+                scientific_config=self._scientific_config,
+            )
+            serve_websocket_connection(connection, handler)
+        except ConnectionClosed:
+            with self._connection_lock:
+                if not self._shutting_down:
+                    raise
+        finally:
+            with self._connection_lock:
+                self._connections.discard(connection)
+
+
 def serve_websocket_connection(
     connection: _Connection,
     handler: _MessageHandler,
@@ -77,23 +142,15 @@ def create_websocket_server(
     host: str = DEFAULT_HOST,
     port: int = DEFAULT_PORT,
     handler_factory: _HandlerFactory | None = None,
-) -> Server:
+) -> WebSocketServer:
     _require_loopback_host(host)
     resolved_factory = handler_factory or ProtocolHandler
-
-    def handle_connection(connection: ServerConnection) -> None:
-        handler = resolved_factory(
-            repository=repository,
-            scientific_config=scientific_config,
-        )
-        serve_websocket_connection(connection, handler)
-
-    return serve(
-        handle_connection,
-        host,
-        port,
-        max_size=MAX_MESSAGE_SIZE,
-        origins=ALLOWED_ORIGINS,
+    return WebSocketServer(
+        repository=repository,
+        scientific_config=scientific_config,
+        host=host,
+        port=port,
+        handler_factory=resolved_factory,
     )
 
 
@@ -138,12 +195,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     scientific_config = _load_scientific_config(args.scientific_home)
     repository = CycleRepository(args.scientific_home)
-    with create_websocket_server(
+    server = create_websocket_server(
         repository=repository,
         scientific_config=scientific_config,
         host=args.host,
         port=args.port,
-    ) as server:
+    )
+    try:
         actual_port = server.socket.getsockname()[1]
         readiness = {
             "event": "muchanipo_web.ready",
@@ -156,6 +214,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             server.serve_forever()
         except KeyboardInterrupt:
             return 130
+    finally:
+        server.shutdown()
     return 0
 
 

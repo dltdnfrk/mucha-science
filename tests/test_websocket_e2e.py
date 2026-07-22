@@ -174,6 +174,41 @@ def test_installed_cli_readiness_and_reconnect_persistence(tmp_path: Path) -> No
     assert process.returncode == 130, stderr
 
 
+def test_sigint_closes_active_connection_and_exits_130(tmp_path: Path) -> None:
+    # Given an installed CLI with one negotiated client still connected
+    home = scientific_home(tmp_path)
+    process = subprocess.Popen(
+        [str(WEB_EXECUTABLE), "--host", "127.0.0.1", "--port", "0", "--scientific-home", str(home)],
+        cwd=REPO_ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+    try:
+        readiness = json.loads(read_line(process))
+        with connect(readiness["url"]) as client:
+            client.send(hello("hello-active"))
+            assert json.loads(client.recv())["name"] == "protocol.welcome.response"
+
+            # When the process receives SIGINT before the client disconnects
+            process.send_signal(signal.SIGINT)
+            try:
+                stdout, stderr = process.communicate(timeout=3)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.communicate(timeout=2)
+                pytest.fail("muchanipo-web did not exit while a client remained connected")
+    finally:
+        if process.poll() is None:
+            stop_process(process)
+
+    # Then shutdown closes the active connection and preserves the CLI exit contract
+    assert process.returncode == 130
+    assert stdout == ""
+    assert stderr == ""
+
+
 @pytest.mark.parametrize("port", [-1, 65536])
 def test_cli_rejects_invalid_ports_before_readiness(port: int) -> None:
     # Given a port outside the valid TCP range

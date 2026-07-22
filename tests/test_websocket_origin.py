@@ -11,7 +11,7 @@ from websockets.protocol import State
 from websockets.sync.client import connect
 from websockets.typing import Origin
 
-from src.muchanipo.web.websocket_server import create_websocket_server
+from src.muchanipo.web.websocket_server import NonLoopbackHostError, create_websocket_server
 from src.pipeline.cycle_repository import CycleRepository
 
 
@@ -48,7 +48,7 @@ def test_server_rejects_non_loopback_bind(tmp_path: Path) -> None:
     server = None
     try:
         # When the server factory is asked to bind every IPv4 interface
-        with pytest.raises(ValueError, match="loopback"):
+        with pytest.raises(NonLoopbackHostError):
             server = create_websocket_server(
                 repository=CycleRepository(tmp_path / "home"),
                 host="0.0.0.0",
