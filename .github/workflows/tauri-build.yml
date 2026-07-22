@@ -102,6 +102,7 @@ jobs:
             tests/test_muchanipo_server.py \
             tests/test_protocol_handler.py \
             tests/test_websocket_server.py \
+            tests/test_websocket_origin.py \
             tests/test_websocket_e2e.py \
             tests/test_cycle_repository.py \
             tests/test_scientific_contracts.py \

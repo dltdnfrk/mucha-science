@@ -6,6 +6,7 @@ import json
 from typing import Protocol
 
 from websockets.sync.server import Server, ServerConnection, serve
+from websockets.typing import Origin
 
 from src.pipeline.cycle_repository import CycleRepository
 
@@ -18,6 +19,14 @@ DEFAULT_PORT = 8765
 MAX_MESSAGE_SIZE = 1_048_576
 BINARY_CLOSE_CODE = 1003
 BINARY_CLOSE_REASON = "binary frames are unsupported"
+ALLOWED_ORIGINS: tuple[Origin | None, ...] = (
+    None,
+    Origin("http://127.0.0.1:1420"),
+    Origin("http://localhost:1420"),
+    Origin("http://tauri.localhost"),
+    Origin("https://tauri.localhost"),
+    Origin("tauri://localhost"),
+)
 
 
 class _Connection(Protocol):
@@ -73,6 +82,7 @@ def create_websocket_server(
         host,
         port,
         max_size=MAX_MESSAGE_SIZE,
+        origins=ALLOWED_ORIGINS,
     )
 
 
