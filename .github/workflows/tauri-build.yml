@@ -87,9 +87,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             app/muchanipo-tauri/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('app/muchanipo-tauri/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ github.event.repository.name }}-cargo-${{ hashFiles('app/muchanipo-tauri/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-
+            ${{ runner.os }}-${{ github.event.repository.name }}-cargo-
 
       - name: Install npm dependencies
         run: npm ci
