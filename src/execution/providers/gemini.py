@@ -207,10 +207,13 @@ def _estimate_cost(model: str, payload: dict[str, Any]) -> float:
     input_tokens = int(usage.get("promptTokenCount", 0) or 0)
     output_tokens = int(usage.get("candidatesTokenCount", 0) or 0)
 
-    pricing = {
-        "gemini-3.1-pro-preview": (2.0, 12.0),
-        "gemini-2.5-flash": (0.15, 0.60),
-    }.get(model, (0.15, 0.60))
+    if model == "gemini-3.1-pro-preview" and input_tokens > 200_000:
+        pricing = (4.0, 18.0)
+    else:
+        pricing = {
+            "gemini-3.1-pro-preview": (2.0, 12.0),
+            "gemini-2.5-flash": (0.15, 0.60),
+        }.get(model, (0.15, 0.60))
 
     return round(
         (input_tokens * pricing[0] + output_tokens * pricing[1]) / 1_000_000, 6

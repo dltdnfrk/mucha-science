@@ -20,7 +20,7 @@ PRICE_PER_M_INPUT = {
     "claude-sonnet-4-6": 3.00,
     "claude-sonnet-4-5": 3.00,
     "claude-haiku-4-5": 0.25,
-    "gemini-2.5-pro": 2.50,
+    "gemini-3.1-pro-preview": 2.00,
     "gemini-2.5-flash": 0.075,
     "kimi-k2-0711-preview": 0.55,
     "gpt-5.4": 2.00,
@@ -30,7 +30,7 @@ PRICE_PER_M_INPUT = {
 
 PRICE_PER_M_OUTPUT = {
     model: price * 4.0 for model, price in PRICE_PER_M_INPUT.items()
-}
+} | {"gemini-3.1-pro-preview": 12.00}
 
 STAGE_OUTPUT_MULTIPLIER = {
     "intake": 0.6,
@@ -49,7 +49,10 @@ STAGE_PROVIDER_MODELS = {
     ("intake", "gemini"): "gemini-2.5-flash",
     ("interview", "anthropic"): "claude-sonnet-4-6",
     ("targeting", "gemini"): "gemini-2.5-flash",
-    ("research", "gemini"): "gemini-2.5-flash",
+    ("research", "gemini"): "gemini-3.1-pro-preview",
+    ("evidence", "gemini"): "gemini-3.1-pro-preview",
+    ("council", "gemini"): "gemini-3.1-pro-preview",
+    ("consensus", "gemini"): "gemini-3.1-pro-preview",
     ("research", "kimi"): "kimi-k2-0711-preview",
     ("evidence", "kimi"): "kimi-k2-0711-preview",
     ("council", "anthropic"): "claude-opus-4-7",
@@ -246,8 +249,11 @@ def estimate_output_tokens(input_tokens: int, stage: str) -> int:
 
 
 def estimate_cost_usd(model: str, input_tokens: int, output_tokens: int) -> float:
-    input_price = PRICE_PER_M_INPUT.get(model, 0.0)
-    output_price = PRICE_PER_M_OUTPUT.get(model, input_price * 4.0)
+    if model == "gemini-3.1-pro-preview" and input_tokens > 200_000:
+        input_price, output_price = 4.0, 18.0
+    else:
+        input_price = PRICE_PER_M_INPUT.get(model, 0.0)
+        output_price = PRICE_PER_M_OUTPUT.get(model, input_price * 4.0)
     cost = (input_tokens / 1_000_000.0) * input_price
     cost += (output_tokens / 1_000_000.0) * output_price
     return round(cost, 8)

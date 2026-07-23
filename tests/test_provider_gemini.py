@@ -32,10 +32,15 @@ class TestResolveApiKey:
 
 
 class TestEstimateCost:
-    def test_pro_pricing(self):
+    def test_pro_short_context_pricing(self):
+        payload = {"usageMetadata": {"promptTokenCount": 200_000, "candidatesTokenCount": 200_000}}
+        cost = _estimate_cost("gemini-3.1-pro-preview", payload)
+        assert pytest.approx(cost, 0.001) == 2.8
+
+    def test_pro_long_context_pricing(self):
         payload = {"usageMetadata": {"promptTokenCount": 1_000_000, "candidatesTokenCount": 1_000_000}}
         cost = _estimate_cost("gemini-3.1-pro-preview", payload)
-        assert pytest.approx(cost, 0.001) == 14.0
+        assert pytest.approx(cost, 0.001) == 22.0
 
     def test_flash_pricing(self):
         payload = {"usageMetadata": {"promptTokenCount": 2_000_000, "candidatesTokenCount": 1_000_000}}

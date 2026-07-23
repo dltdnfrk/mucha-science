@@ -3,7 +3,12 @@ from concurrent.futures import ThreadPoolExecutor
 import pytest
 
 from src.governance.audit import AuditLog
-from src.governance.budget import BudgetExceeded, RunBudget
+from src.governance.budget import (
+    BudgetExceeded,
+    RunBudget,
+    estimate_cost_usd,
+    resolve_model,
+)
 from src.governance.profiles import resolve_profile
 
 
@@ -55,6 +60,18 @@ def test_estimate_uses_provider_rate():
     budget = RunBudget(limit_usd=1.0)
 
     assert budget.estimate(stage="x", prompt="x" * 500, provider=provider) == 0.1
+
+
+@pytest.mark.parametrize("stage", ["research", "evidence", "council", "consensus"])
+def test_gemini_pro_stage_budget_routes_current_pro_model(stage):
+    provider = type("Provider", (), {"name": "gemini", "model": "gemini-2.5-flash"})()
+
+    assert resolve_model(stage=stage, provider=provider) == "gemini-3.1-pro-preview"
+
+
+def test_gemini_current_pro_budget_uses_documented_pricing():
+    assert estimate_cost_usd("gemini-3.1-pro-preview", 200_000, 200_000) == 2.8
+    assert estimate_cost_usd("gemini-3.1-pro-preview", 1_000_000, 1_000_000) == 22.0
 
 
 def test_reconcile_unknown_reservation_raises():
