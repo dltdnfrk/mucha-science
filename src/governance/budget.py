@@ -6,6 +6,7 @@ import json
 import threading
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
+from math import isfinite
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -17,6 +18,7 @@ from .budget_policy import (
     PROVIDER_DEFAULT_MODELS,
     STAGE_OUTPUT_MULTIPLIER,
     STAGE_PROVIDER_MODELS,
+    UnpricedModelError,
     estimate_cost_usd,
     estimate_input_tokens,
     estimate_output_tokens,
@@ -82,12 +84,13 @@ class RunBudget:
             input_tokens = estimate_input_tokens(prompt)
             output_tokens = estimate_output_tokens(input_tokens, stage)
             return estimate_cost_usd(resolved_model, input_tokens, output_tokens)
-        if resolved_model and provider_name(provider) == "gemini":
-            raise ValueError(f"Gemini model pricing is not configured: {resolved_model}")
 
         if rate_per_1k_chars is None:
-            rate_per_1k_chars = float(getattr(provider, "rate_per_1k_chars", 0.0) or 0.0)
-        return round((max(len(prompt), 1) / 1000.0) * float(rate_per_1k_chars), 8)
+            rate_per_1k_chars = getattr(provider, "rate_per_1k_chars", 0.0) or 0.0
+        rate_per_1k_chars = float(rate_per_1k_chars)
+        if resolved_model and (not isfinite(rate_per_1k_chars) or rate_per_1k_chars <= 0):
+            raise UnpricedModelError(f"Model pricing is not configured: {resolved_model}")
+        return round((max(len(prompt), 1) / 1000.0) * rate_per_1k_chars, 8)
 
     def reserve(
         self,

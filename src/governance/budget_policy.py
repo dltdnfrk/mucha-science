@@ -70,6 +70,10 @@ PROVIDER_DEFAULT_MODELS = {
 }
 
 
+class UnpricedModelError(ValueError):
+    pass
+
+
 def estimate_input_tokens(prompt: str) -> int:
     return max(len(prompt) // 4, 1)
 
@@ -83,8 +87,13 @@ def estimate_cost_usd(model: str, input_tokens: int, output_tokens: int) -> floa
     if model in GEMINI_PRO_MODELS and input_tokens > 200_000:
         input_price, output_price = 4.0, 18.0
     else:
-        input_price = PRICE_PER_M_INPUT.get(model, 0.0)
-        output_price = PRICE_PER_M_OUTPUT.get(model, input_price * 4.0)
+        try:
+            input_price = PRICE_PER_M_INPUT[model]
+            output_price = PRICE_PER_M_OUTPUT[model]
+        except KeyError as exc:
+            raise UnpricedModelError(
+                f"Model pricing is not configured: {model}"
+            ) from exc
     cost = (input_tokens / 1_000_000.0) * input_price
     cost += (output_tokens / 1_000_000.0) * output_price
     return round(cost, 8)

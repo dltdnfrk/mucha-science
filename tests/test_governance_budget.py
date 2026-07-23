@@ -7,6 +7,7 @@ from src.governance.audit import AuditLog
 from src.governance.budget import (
     BudgetExceeded,
     RunBudget,
+    UnpricedModelError,
     estimate_cost_usd,
     resolve_model,
 )
@@ -57,7 +58,15 @@ def test_budget_reserve_is_atomic_under_race(tmp_path):
 
 
 def test_estimate_uses_provider_rate():
-    provider = type("Provider", (), {"rate_per_1k_chars": 0.2})()
+    provider = type(
+        "Provider",
+        (),
+        {
+            "name": "custom",
+            "model": "custom-priced-model",
+            "rate_per_1k_chars": 0.2,
+        },
+    )()
     budget = RunBudget(limit_usd=1.0)
 
     assert budget.estimate(stage="x", prompt="x" * 500, provider=provider) == 0.1
@@ -79,6 +88,11 @@ def test_gemini_current_pro_budget_uses_documented_pricing():
 
 def test_gemini_flash_budget_uses_documented_pricing():
     assert estimate_cost_usd("gemini-2.5-flash", 2_000_000, 1_000_000) == 3.1
+
+
+def test_unknown_model_cost_is_rejected():
+    with pytest.raises(UnpricedModelError, match="pricing is not configured"):
+        estimate_cost_usd("unpriced-paid-model", 1_000, 1_000)
 
 
 def test_budget_uses_gemini_provider_effective_stage_model(monkeypatch):

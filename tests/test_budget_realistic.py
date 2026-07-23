@@ -90,6 +90,35 @@ def test_gateway_v2_rejects_unpriced_gemini_model_before_reservation(tmp_path):
     assert budget.records == []
 
 
+def test_model_gateway_rejects_unpriced_non_gemini_model_before_dispatch(tmp_path):
+    budget = RunBudget(max_usd=1.0, cost_log_path=tmp_path / "cost-log.jsonl")
+    provider = _SuccessProvider("anthropic", "claude-sonnet-4-6")
+    gateway = ModelGateway(provider=provider, budget=budget)
+
+    with pytest.raises(ValueError, match="pricing is not configured"):
+        gateway.call("council", "prompt", model="unpriced-paid-model")
+
+    assert budget.records == []
+    assert provider.calls == 0
+
+
+def test_gateway_v2_rejects_unpriced_non_gemini_model_before_dispatch(tmp_path):
+    budget = RunBudget(max_usd=1.0, cost_log_path=tmp_path / "cost-log.jsonl")
+    provider = _SuccessProvider("anthropic", "claude-sonnet-4-6")
+    gateway = GatewayV2(
+        providers={"anthropic": provider},
+        stage_routes={"council": "anthropic"},
+        fallback_chain={"council": ["anthropic"]},
+        budget=budget,
+    )
+
+    with pytest.raises(ValueError, match="pricing is not configured"):
+        gateway.call("council", "prompt", model="unpriced-paid-model")
+
+    assert budget.records == []
+    assert provider.calls == 0
+
+
 def test_reserve_reconcile_status_uses_actual_cost_for_remaining_budget(tmp_path):
     budget = RunBudget(max_usd=0.5, cost_log_path=tmp_path / "cost-log.jsonl")
     first = budget.reserve(stage="council", estimated_usd=0.4)
@@ -135,8 +164,14 @@ def test_budgeted_live_mode_rejects_short_primary_and_uses_fallback_chain(tmp_pa
     budget = RunBudget(max_usd=1.0, cost_log_path=tmp_path / "cost-log.jsonl")
     gateway = GatewayV2(
         providers={
-            "mimo": _SuccessProvider("mimo", "mimo-v2.5-pro", text=""),
-            "opencode": _SuccessProvider("opencode", "opencode-go", text="live council output with enough detail", cost_usd=0.01),
+            "mimo": _SuccessProvider("mimo", "mimo-v2.5-pro", text="", rate_per_1k_chars=0.1),
+            "opencode": _SuccessProvider(
+                "opencode",
+                "opencode-go",
+                text="live council output with enough detail",
+                cost_usd=0.01,
+                rate_per_1k_chars=0.1,
+            ),
         },
         stage_routes={"council": "mimo"},
         fallback_chain={"council": ["mimo", "opencode"]},
@@ -152,13 +187,25 @@ def test_budgeted_live_mode_rejects_short_primary_and_uses_fallback_chain(tmp_pa
 
 
 class _SuccessProvider:
-    def __init__(self, name: str, model: str, *, text: str | None = None, cost_usd: float = 0.0):
+    def __init__(
+        self,
+        name: str,
+        model: str,
+        *,
+        text: str | None = None,
+        cost_usd: float = 0.0,
+        rate_per_1k_chars: float | None = None,
+    ):
         self.name = name
         self.model = model
         self._text = text
         self._cost_usd = cost_usd
+        self.calls = 0
+        if rate_per_1k_chars is not None:
+            self.rate_per_1k_chars = rate_per_1k_chars
 
     def call(self, stage: str, prompt: str, **kwargs):
+        self.calls += 1
         return ModelResult(
             text=self._text if self._text is not None else f"ok-{self.name}",
             provider=self.name,
