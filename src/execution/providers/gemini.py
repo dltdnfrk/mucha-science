@@ -31,6 +31,15 @@ _RESEARCH_MODEL = os.environ.get(
     "MUCHANIPO_GEMINI_RESEARCH_MODEL", "gemini-3.1-pro-preview"
 )
 _HTTP_TIMEOUT_SEC = _env_int("MUCHANIPO_GEMINI_TIMEOUT_SEC", 30)
+_PRO_MODELS = frozenset({
+    "gemini-3.1-pro-preview",
+    "gemini-3.1-pro-preview-customtools",
+})
+_MODEL_PRICING = {
+    "gemini-3.1-pro-preview": (2.0, 12.0),
+    "gemini-3.1-pro-preview-customtools": (2.0, 12.0),
+    "gemini-2.5-flash": (0.30, 2.50),
+}
 
 # Stage → model mapping (PRD-v2 §8.1)
 _STAGE_MODELS: dict[str, str] = {
@@ -102,6 +111,7 @@ class GeminiProvider:
             return _mock_result(stage, prompt, model=self.model, provider=self.name)
 
         model = kwargs.pop("model", self.model_for_stage(stage))
+        _pricing_for_model(model, 0)
         search_grounding = kwargs.pop("search_grounding", stage in ("research", "evidence", "intake"))
 
         if self.use_cli and self.gemini_bin:
@@ -209,18 +219,20 @@ def _estimate_cost(model: str, payload: dict[str, Any]) -> float:
     usage = payload.get("usageMetadata", {}) or {}
     input_tokens = int(usage.get("promptTokenCount", 0) or 0)
     output_tokens = int(usage.get("candidatesTokenCount", 0) or 0)
-
-    if model == "gemini-3.1-pro-preview" and input_tokens > 200_000:
-        pricing = (4.0, 18.0)
-    else:
-        pricing = {
-            "gemini-3.1-pro-preview": (2.0, 12.0),
-            "gemini-2.5-flash": (0.30, 2.50),
-        }.get(model, (0.30, 2.50))
+    pricing = _pricing_for_model(model, input_tokens)
 
     return round(
         (input_tokens * pricing[0] + output_tokens * pricing[1]) / 1_000_000, 6
     )
+
+
+def _pricing_for_model(model: str, input_tokens: int) -> tuple[float, float]:
+    if model in _PRO_MODELS and input_tokens > 200_000:
+        return 4.0, 18.0
+    try:
+        return _MODEL_PRICING[model]
+    except KeyError as exc:
+        raise ValueError(f"Gemini model pricing is not configured: {model}") from exc
 
 
 def _mock_result(stage: str, prompt: str, *, model: str, provider: str) -> ModelResult:

@@ -21,6 +21,7 @@ PRICE_PER_M_INPUT = {
     "claude-sonnet-4-5": 3.00,
     "claude-haiku-4-5": 0.25,
     "gemini-3.1-pro-preview": 2.00,
+    "gemini-3.1-pro-preview-customtools": 2.00,
     "gemini-2.5-flash": 0.30,
     "kimi-k2-0711-preview": 0.55,
     "gpt-5.4": 2.00,
@@ -32,8 +33,14 @@ PRICE_PER_M_OUTPUT = {
     model: price * 4.0 for model, price in PRICE_PER_M_INPUT.items()
 } | {
     "gemini-3.1-pro-preview": 12.00,
+    "gemini-3.1-pro-preview-customtools": 12.00,
     "gemini-2.5-flash": 2.50,
 }
+
+GEMINI_PRO_MODELS = frozenset({
+    "gemini-3.1-pro-preview",
+    "gemini-3.1-pro-preview-customtools",
+})
 
 STAGE_OUTPUT_MULTIPLIER = {
     "intake": 0.6,
@@ -124,17 +131,12 @@ class RunBudget:
         rate_per_1k_chars: float | None = None,
     ) -> float:
         resolved_model = resolve_model(stage=stage, provider=provider, model=model)
-        if resolved_model in PRICE_PER_M_INPUT or (
-            resolved_model and provider_name(provider) == "gemini"
-        ):
-            pricing_model = (
-                resolved_model
-                if resolved_model in PRICE_PER_M_INPUT
-                else PROVIDER_DEFAULT_MODELS["gemini"]
-            )
+        if resolved_model in PRICE_PER_M_INPUT:
             input_tokens = estimate_input_tokens(prompt)
             output_tokens = estimate_output_tokens(input_tokens, stage)
-            return estimate_cost_usd(pricing_model, input_tokens, output_tokens)
+            return estimate_cost_usd(resolved_model, input_tokens, output_tokens)
+        if resolved_model and provider_name(provider) == "gemini":
+            raise ValueError(f"Gemini model pricing is not configured: {resolved_model}")
 
         if rate_per_1k_chars is None:
             rate_per_1k_chars = float(getattr(provider, "rate_per_1k_chars", 0.0) or 0.0)
@@ -259,7 +261,7 @@ def estimate_output_tokens(input_tokens: int, stage: str) -> int:
 
 
 def estimate_cost_usd(model: str, input_tokens: int, output_tokens: int) -> float:
-    if model == "gemini-3.1-pro-preview" and input_tokens > 200_000:
+    if model in GEMINI_PRO_MODELS and input_tokens > 200_000:
         input_price, output_price = 4.0, 18.0
     else:
         input_price = PRICE_PER_M_INPUT.get(model, 0.0)

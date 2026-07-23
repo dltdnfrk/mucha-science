@@ -47,6 +47,11 @@ class TestEstimateCost:
         cost = _estimate_cost("gemini-3.1-pro-preview", payload)
         assert pytest.approx(cost, 0.000001) == 0.800022
 
+    def test_customtools_alias_uses_pro_pricing(self):
+        payload = {"usageMetadata": {"promptTokenCount": 200_001, "candidatesTokenCount": 1}}
+        cost = _estimate_cost("gemini-3.1-pro-preview-customtools", payload)
+        assert pytest.approx(cost, 0.000001) == 0.800022
+
     def test_flash_pricing(self):
         payload = {"usageMetadata": {"promptTokenCount": 2_000_000, "candidatesTokenCount": 1_000_000}}
         cost = _estimate_cost("gemini-2.5-flash", payload)
@@ -76,6 +81,15 @@ class TestGeminiProviderOffline:
 
 
 class TestGeminiProviderRealCall:
+    @patch("urllib.request.urlopen")
+    def test_unknown_model_is_rejected_before_dispatch(self, mock_urlopen):
+        provider = GeminiProvider(api_key="g-test", offline=False, use_cli=False)
+
+        with pytest.raises(ValueError, match="pricing is not configured"):
+            provider.call("research", "prompt", model="gemini-unpriced-model")
+
+        mock_urlopen.assert_not_called()
+
     @patch("urllib.request.urlopen")
     @patch("urllib.request.Request")
     def test_research_stage_uses_current_pro_model_for_new_accounts(

@@ -2,7 +2,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
-from src.execution.providers.gemini import GeminiProvider, _STAGE_MODELS, _estimate_cost
+from src.execution.providers.gemini import GeminiProvider, _STAGE_MODELS
 from src.governance.audit import AuditLog
 from src.governance.budget import (
     BudgetExceeded,
@@ -74,6 +74,7 @@ def test_gemini_current_pro_budget_uses_documented_pricing():
     assert estimate_cost_usd("gemini-3.1-pro-preview", 200_000, 200_000) == 2.8
     assert estimate_cost_usd("gemini-3.1-pro-preview", 200_001, 1) == 0.800022
     assert estimate_cost_usd("gemini-3.1-pro-preview", 1_000_000, 1_000_000) == 22.0
+    assert estimate_cost_usd("gemini-3.1-pro-preview-customtools", 200_001, 1) == 0.800022
 
 
 def test_gemini_flash_budget_uses_documented_pricing():
@@ -87,22 +88,17 @@ def test_budget_uses_gemini_provider_effective_stage_model(monkeypatch):
     assert resolve_model(stage="research", provider=provider) == "gemini-override-model"
 
 
-def test_budget_prices_unknown_gemini_override_like_provider(monkeypatch):
+def test_budget_rejects_unknown_gemini_override(monkeypatch):
     monkeypatch.setitem(_STAGE_MODELS, "research", "gemini-override-model")
     provider = GeminiProvider(model="gemini-2.5-flash", offline=True, use_cli=False)
     budget = RunBudget(limit_usd=1.0)
-    payload = {
-        "usageMetadata": {
-            "promptTokenCount": 1_000,
-            "candidatesTokenCount": 1_500,
-        }
-    }
 
-    assert budget.estimate(
-        stage="research",
-        prompt="x" * 4_000,
-        provider=provider,
-    ) == _estimate_cost("gemini-override-model", payload)
+    with pytest.raises(ValueError, match="pricing is not configured"):
+        budget.estimate(
+            stage="research",
+            prompt="x" * 4_000,
+            provider=provider,
+        )
 
 
 def test_reconcile_unknown_reservation_raises():
