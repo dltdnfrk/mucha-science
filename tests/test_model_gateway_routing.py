@@ -372,7 +372,7 @@ class _BudgetTracker:
         self.calls: list[dict] = []
         self.next_id = 0
 
-    def estimate(self, stage, prompt, provider):
+    def estimate(self, stage, prompt, provider, model=None):
         return 0.01
 
     def reserve(self, stage, estimated_usd, **metadata):

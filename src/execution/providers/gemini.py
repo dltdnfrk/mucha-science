@@ -27,8 +27,19 @@ def _env_int(name: str, default: int) -> int:
 
 
 _DEFAULT_MODEL = os.environ.get("MUCHANIPO_GEMINI_MODEL", "gemini-2.5-flash")
-_RESEARCH_MODEL = os.environ.get("MUCHANIPO_GEMINI_RESEARCH_MODEL", "gemini-2.5-pro")
+_RESEARCH_MODEL = os.environ.get(
+    "MUCHANIPO_GEMINI_RESEARCH_MODEL", "gemini-3.1-pro-preview"
+)
 _HTTP_TIMEOUT_SEC = _env_int("MUCHANIPO_GEMINI_TIMEOUT_SEC", 30)
+_PRO_MODELS = frozenset({
+    "gemini-3.1-pro-preview",
+    "gemini-3.1-pro-preview-customtools",
+})
+_MODEL_PRICING = {
+    "gemini-3.1-pro-preview": (2.0, 12.0),
+    "gemini-3.1-pro-preview-customtools": (2.0, 12.0),
+    "gemini-2.5-flash": (0.30, 2.50),
+}
 
 # Stage → model mapping (PRD-v2 §8.1)
 _STAGE_MODELS: dict[str, str] = {
@@ -92,11 +103,15 @@ class GeminiProvider:
             )
         self.offline = offline
 
-    def call(self, stage: str, prompt: str, **kwargs: Any) -> ModelResult:
-        if self.offline:
-            return _mock_result(stage, prompt, model=self.model, provider=self.name)
+    def model_for_stage(self, stage: str) -> str:
+        return _STAGE_MODELS.get(stage, self.model)
 
-        model = kwargs.pop("model", _STAGE_MODELS.get(stage, self.model))
+    def call(self, stage: str, prompt: str, **kwargs: Any) -> ModelResult:
+        model = kwargs.pop("model", self.model_for_stage(stage))
+        _pricing_for_model(model, 0)
+        if self.offline:
+            return _mock_result(stage, prompt, model=model, provider=self.name)
+
         search_grounding = kwargs.pop("search_grounding", stage in ("research", "evidence", "intake"))
 
         if self.use_cli and self.gemini_bin:
@@ -204,17 +219,20 @@ def _estimate_cost(model: str, payload: dict[str, Any]) -> float:
     usage = payload.get("usageMetadata", {}) or {}
     input_tokens = int(usage.get("promptTokenCount", 0) or 0)
     output_tokens = int(usage.get("candidatesTokenCount", 0) or 0)
-
-    # Paid tier approximate pricing per 1M tokens (input / output)
-    # Gemini 2.5 Pro: $1.25 / $10, Flash: $0.15 / $0.60 (as of mid-2025)
-    pricing = {
-        "gemini-2.5-pro": (1.25, 10.0),
-        "gemini-2.5-flash": (0.15, 0.60),
-    }.get(model, (0.15, 0.60))
+    pricing = _pricing_for_model(model, input_tokens)
 
     return round(
         (input_tokens * pricing[0] + output_tokens * pricing[1]) / 1_000_000, 6
     )
+
+
+def _pricing_for_model(model: str, input_tokens: int) -> tuple[float, float]:
+    if model in _PRO_MODELS and input_tokens > 200_000:
+        return 4.0, 18.0
+    try:
+        return _MODEL_PRICING[model]
+    except KeyError as exc:
+        raise ValueError(f"Gemini model pricing is not configured: {model}") from exc
 
 
 def _mock_result(stage: str, prompt: str, *, model: str, provider: str) -> ModelResult:

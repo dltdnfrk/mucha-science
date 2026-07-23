@@ -6,67 +6,29 @@ import json
 import threading
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
+from math import isfinite
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from .budget_policy import (
+    GEMINI_PRO_MODELS,
+    PRICE_PER_M_INPUT,
+    PRICE_PER_M_OUTPUT,
+    PROVIDER_DEFAULT_MODELS,
+    STAGE_OUTPUT_MULTIPLIER,
+    STAGE_PROVIDER_MODELS,
+    UnpricedModelError,
+    estimate_cost_usd,
+    estimate_input_tokens,
+    estimate_output_tokens,
+    provider_name,
+    resolve_model,
+)
+
 
 class BudgetExceeded(ValueError):
     """Raised when a reservation would exceed the run budget."""
-
-
-PRICE_PER_M_INPUT = {
-    "claude-opus-4-7": 15.00,
-    "claude-sonnet-4-6": 3.00,
-    "claude-sonnet-4-5": 3.00,
-    "claude-haiku-4-5": 0.25,
-    "gemini-2.5-pro": 2.50,
-    "gemini-2.5-flash": 0.075,
-    "kimi-k2-0711-preview": 0.55,
-    "gpt-5.4": 2.00,
-    "gpt-5.5": 2.00,
-    "mock": 0.0,
-}
-
-PRICE_PER_M_OUTPUT = {
-    model: price * 4.0 for model, price in PRICE_PER_M_INPUT.items()
-}
-
-STAGE_OUTPUT_MULTIPLIER = {
-    "intake": 0.6,
-    "interview": 1.2,
-    "targeting": 0.8,
-    "research": 1.5,
-    "evidence": 1.0,
-    "council": 2.0,
-    "consensus": 1.6,
-    "report": 2.4,
-    "eval": 1.0,
-    "ingest": 0.5,
-}
-
-STAGE_PROVIDER_MODELS = {
-    ("intake", "gemini"): "gemini-2.5-flash",
-    ("interview", "anthropic"): "claude-sonnet-4-6",
-    ("targeting", "gemini"): "gemini-2.5-flash",
-    ("research", "gemini"): "gemini-2.5-flash",
-    ("research", "kimi"): "kimi-k2-0711-preview",
-    ("evidence", "kimi"): "kimi-k2-0711-preview",
-    ("council", "anthropic"): "claude-opus-4-7",
-    ("consensus", "anthropic"): "claude-opus-4-7",
-    ("report", "anthropic"): "claude-sonnet-4-6",
-    ("eval", "codex"): "gpt-5.4",
-    ("mock", "mock"): "mock",
-}
-
-PROVIDER_DEFAULT_MODELS = {
-    "anthropic": "claude-sonnet-4-6",
-    "gemini": "gemini-2.5-flash",
-    "kimi": "kimi-k2-0711-preview",
-    "codex": "gpt-5.4",
-    "openai": "gpt-5.5",
-    "mock": "mock",
-}
 
 
 @dataclass
@@ -124,8 +86,12 @@ class RunBudget:
             return estimate_cost_usd(resolved_model, input_tokens, output_tokens)
 
         if rate_per_1k_chars is None:
-            rate_per_1k_chars = float(getattr(provider, "rate_per_1k_chars", 0.0) or 0.0)
-        return round((max(len(prompt), 1) / 1000.0) * float(rate_per_1k_chars), 8)
+            rate_per_1k_chars = getattr(provider, "rate_per_1k_chars", 0.0) or 0.0
+        rate_per_1k_chars = float(rate_per_1k_chars)
+        if not isfinite(rate_per_1k_chars) or rate_per_1k_chars <= 0:
+            price_target = resolved_model or provider_name(provider) or "unresolved provider"
+            raise UnpricedModelError(f"Model pricing is not configured: {price_target}")
+        return round((max(len(prompt), 1) / 1000.0) * rate_per_1k_chars, 8)
 
     def reserve(
         self,
@@ -234,44 +200,3 @@ class RunBudget:
         payload["logged_at"] = datetime.now(timezone.utc).isoformat()
         with self.cost_log_path.open("a", encoding="utf-8") as f:
             f.write(json.dumps(payload, ensure_ascii=False, sort_keys=True) + "\n")
-
-
-def estimate_input_tokens(prompt: str) -> int:
-    return max(len(prompt) // 4, 1)
-
-
-def estimate_output_tokens(input_tokens: int, stage: str) -> int:
-    multiplier = STAGE_OUTPUT_MULTIPLIER.get(stage, 1.0)
-    return max(int(round(input_tokens * multiplier)), 1)
-
-
-def estimate_cost_usd(model: str, input_tokens: int, output_tokens: int) -> float:
-    input_price = PRICE_PER_M_INPUT.get(model, 0.0)
-    output_price = PRICE_PER_M_OUTPUT.get(model, input_price * 4.0)
-    cost = (input_tokens / 1_000_000.0) * input_price
-    cost += (output_tokens / 1_000_000.0) * output_price
-    return round(cost, 8)
-
-
-def provider_name(provider: Any) -> str | None:
-    if provider is None:
-        return None
-    if isinstance(provider, str):
-        return provider
-    return getattr(provider, "name", None)
-
-
-def resolve_model(*, stage: str, provider: Any = None, model: str | None = None) -> str | None:
-    if model:
-        return model
-    name = provider_name(provider)
-    if name:
-        stage_model = STAGE_PROVIDER_MODELS.get((stage, name))
-        if stage_model:
-            return stage_model
-    provider_model = getattr(provider, "model", None)
-    if provider_model:
-        return str(provider_model)
-    if name:
-        return PROVIDER_DEFAULT_MODELS.get(name)
-    return None

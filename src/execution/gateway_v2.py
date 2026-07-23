@@ -322,17 +322,17 @@ class GatewayV2(ModelGateway):
             )
 
         reservation_id = None
-        primary = chain_providers[0]
+        primary, budget_model = chain_providers[0], kwargs.get("model")
         if self.budget is not None:
             last_error: Exception | None = None
             first_fallback_reason: str | None = None
             for i, provider in enumerate(chain_providers):
-                estimated_usd = self.budget.estimate(stage=stage, prompt=prompt, provider=provider)
+                estimated_usd = self.budget.estimate(stage=stage, prompt=prompt, provider=provider, model=budget_model)
                 reservation_id = self.budget.reserve(
                     stage=stage,
                     estimated_usd=estimated_usd,
                     provider=provider_name(provider),
-                    model=resolve_model(stage=stage, provider=provider),
+                    model=resolve_model(stage=stage, provider=provider, model=budget_model),
                 )
                 if reservation_id is False:
                     error = BudgetExceeded("budget exceeded")

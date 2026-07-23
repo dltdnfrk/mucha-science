@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
 from pathlib import Path
 import subprocess
 import sys
+import threading
 
 import pytest
 
@@ -90,6 +92,63 @@ def test_build_is_deterministic_and_manifest_matches_artifact(tmp_path: Path) ->
     assert manifest["byte_length"] == first_artifact.stat().st_size
     assert manifest["pyinstaller_version"] == sidecar.PINNED_PYINSTALLER_VERSION
     assert (first_artifact.parent / f"{first_artifact.name}.sha256").read_text(encoding="ascii") == f"{digest}  {first_artifact.name}\n"
+
+
+def test_concurrent_builds_isolate_pyinstaller_workspaces_and_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    python = tmp_path / "python"
+    python.write_bytes(b"python")
+    build_temp_base = tmp_path / "tmp"
+    build_temp_base.mkdir()
+    target = "x86_64-unknown-linux-gnu"
+    workspaces: list[Path] = []
+    config_dirs: list[Path] = []
+    workspace_lock = threading.Lock()
+    build_barrier = threading.Barrier(2)
+
+    def fake_command_output(command: list[str]) -> str:
+        joined = " ".join(command)
+        if "-m PyInstaller --version" in joined:
+            return sidecar.PINNED_PYINSTALLER_VERSION
+        if "unicodedata2" in joined:
+            return sidecar.PINNED_UNICODE_VERSION
+        if command[-1] == "--version":
+            return "Python 3.11.14"
+        return "3.11"
+
+    def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        distpath = Path(command[command.index("--distpath") + 1])
+        artifact_name = command[command.index("--name") + 1]
+        environment = kwargs.get("env")
+        assert isinstance(environment, dict)
+        config_dir = environment.get("PYINSTALLER_CONFIG_DIR")
+        assert isinstance(config_dir, str)
+        with workspace_lock:
+            workspaces.append(distpath.parent)
+            config_dirs.append(Path(config_dir))
+        build_barrier.wait(timeout=2)
+        distpath.mkdir(parents=True, exist_ok=True)
+        (distpath / artifact_name).write_bytes(b"sidecar")
+        return subprocess.CompletedProcess(command, 0)
+
+    monkeypatch.setattr(sidecar, "host_target", lambda: target)
+    monkeypatch.setattr(sidecar.tempfile, "gettempdir", lambda: str(build_temp_base))
+    monkeypatch.setattr(sidecar, "command_output", fake_command_output)
+    monkeypatch.setattr(sidecar.subprocess, "run", fake_run)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        builds = [
+            pool.submit(sidecar.build, python, target, tmp_path / name, "-")
+            for name in ("output-a", "output-b")
+        ]
+        for build in builds:
+            build.result()
+
+    assert len(workspaces) == 2
+    assert workspaces[0] != workspaces[1]
+    assert len(config_dirs) == 2
+    assert config_dirs[0] != config_dirs[1]
 
 
 def test_source_manifest_rejects_symlinked_runtime_source(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

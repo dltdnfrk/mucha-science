@@ -52,15 +52,21 @@ class ModelGateway:
 
     def call(self, stage: str, prompt: str, **kwargs: Any) -> ModelResult:
         provider = self._provider_for(stage)
+        budget_model = kwargs.get("model")
         reservation_id = None
         estimated_usd = 0.0
         if self.budget is not None:
-            estimated_usd = self.budget.estimate(stage=stage, prompt=prompt, provider=provider)
+            estimated_usd = self.budget.estimate(
+                stage=stage,
+                prompt=prompt,
+                provider=provider,
+                model=budget_model,
+            )
             reservation_id = self.budget.reserve(
                 stage=stage,
                 estimated_usd=estimated_usd,
                 provider=provider_name(provider),
-                model=resolve_model(stage=stage, provider=provider),
+                model=resolve_model(stage=stage, provider=provider, model=budget_model),
             )
             if reservation_id is False:
                 if self.fallback_provider is None:
@@ -70,12 +76,17 @@ class ModelGateway:
                     stage=stage,
                     prompt=prompt,
                     provider=self.fallback_provider,
+                    model=budget_model,
                 )
                 reservation_id = self.budget.reserve(
                     stage=stage,
                     estimated_usd=fallback_estimated_usd,
                     provider=provider_name(self.fallback_provider),
-                    model=resolve_model(stage=stage, provider=self.fallback_provider),
+                    model=resolve_model(
+                        stage=stage,
+                        provider=self.fallback_provider,
+                        model=budget_model,
+                    ),
                 )
                 if reservation_id is False:
                     raise BudgetExceeded("budget exceeded")
@@ -109,12 +120,17 @@ class ModelGateway:
                     stage=stage,
                     prompt=prompt,
                     provider=self.fallback_provider,
+                    model=budget_model,
                 )
                 reservation_id = self.budget.reserve(
                     stage=stage,
                     estimated_usd=fallback_estimated_usd,
                     provider=provider_name(self.fallback_provider),
-                    model=resolve_model(stage=stage, provider=self.fallback_provider),
+                    model=resolve_model(
+                        stage=stage,
+                        provider=self.fallback_provider,
+                        model=budget_model,
+                    ),
                 )
                 if reservation_id is False:
                     raise BudgetExceeded("budget exceeded")

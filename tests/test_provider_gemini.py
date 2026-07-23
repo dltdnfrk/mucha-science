@@ -32,15 +32,30 @@ class TestResolveApiKey:
 
 
 class TestEstimateCost:
-    def test_pro_pricing(self):
+    def test_pro_short_context_pricing(self):
+        payload = {"usageMetadata": {"promptTokenCount": 200_000, "candidatesTokenCount": 200_000}}
+        cost = _estimate_cost("gemini-3.1-pro-preview", payload)
+        assert pytest.approx(cost, 0.001) == 2.8
+
+    def test_pro_long_context_pricing(self):
         payload = {"usageMetadata": {"promptTokenCount": 1_000_000, "candidatesTokenCount": 1_000_000}}
-        cost = _estimate_cost("gemini-2.5-pro", payload)
-        assert pytest.approx(cost, 0.001) == 11.25
+        cost = _estimate_cost("gemini-3.1-pro-preview", payload)
+        assert pytest.approx(cost, 0.001) == 22.0
+
+    def test_pro_long_context_pricing_starts_above_200k(self):
+        payload = {"usageMetadata": {"promptTokenCount": 200_001, "candidatesTokenCount": 1}}
+        cost = _estimate_cost("gemini-3.1-pro-preview", payload)
+        assert pytest.approx(cost, 0.000001) == 0.800022
+
+    def test_customtools_alias_uses_pro_pricing(self):
+        payload = {"usageMetadata": {"promptTokenCount": 200_001, "candidatesTokenCount": 1}}
+        cost = _estimate_cost("gemini-3.1-pro-preview-customtools", payload)
+        assert pytest.approx(cost, 0.000001) == 0.800022
 
     def test_flash_pricing(self):
         payload = {"usageMetadata": {"promptTokenCount": 2_000_000, "candidatesTokenCount": 1_000_000}}
         cost = _estimate_cost("gemini-2.5-flash", payload)
-        assert pytest.approx(cost, 0.001) == 0.9
+        assert pytest.approx(cost, 0.001) == 3.1
 
     def test_no_usage(self):
         cost = _estimate_cost("gemini-2.5-flash", {})
@@ -64,11 +79,35 @@ class TestGeminiProviderOffline:
         p = GeminiProvider()
         assert p.offline is True
 
+    def test_offline_research_reports_effective_stage_model(self):
+        provider = GeminiProvider(offline=True, use_cli=False)
+
+        result = provider.call("research", "prompt")
+
+        assert result.model == "gemini-3.1-pro-preview"
+
+    def test_offline_unknown_model_is_rejected(self):
+        provider = GeminiProvider(offline=True, use_cli=False)
+
+        with pytest.raises(ValueError, match="pricing is not configured"):
+            provider.call("research", "prompt", model="gemini-unpriced-model")
+
 
 class TestGeminiProviderRealCall:
     @patch("urllib.request.urlopen")
+    def test_unknown_model_is_rejected_before_dispatch(self, mock_urlopen):
+        provider = GeminiProvider(api_key="g-test", offline=False, use_cli=False)
+
+        with pytest.raises(ValueError, match="pricing is not configured"):
+            provider.call("research", "prompt", model="gemini-unpriced-model")
+
+        mock_urlopen.assert_not_called()
+
+    @patch("urllib.request.urlopen")
     @patch("urllib.request.Request")
-    def test_search_grounding_enabled_for_research(self, mock_request, mock_urlopen, monkeypatch):
+    def test_research_stage_uses_current_pro_model_for_new_accounts(
+        self, mock_request, mock_urlopen, monkeypatch
+    ):
         monkeypatch.setenv("GEMINI_API_KEY", "g-test")
         mock_resp = MagicMock()
         mock_resp.read.return_value = json.dumps({
@@ -80,7 +119,7 @@ class TestGeminiProviderRealCall:
         p = GeminiProvider(api_key="g-test", offline=False)
         result = p.call("research", "prompt text")
         assert result.text == "ok"
-        assert result.model == "gemini-2.5-pro"
+        assert result.model == "gemini-3.1-pro-preview"
 
         call_args = mock_request.call_args
         sent_body = json.loads(call_args[1]["data"].decode("utf-8"))
