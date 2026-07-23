@@ -27,7 +27,9 @@ def _env_int(name: str, default: int) -> int:
 
 
 _DEFAULT_MODEL = os.environ.get("MUCHANIPO_GEMINI_MODEL", "gemini-2.5-flash")
-_RESEARCH_MODEL = os.environ.get("MUCHANIPO_GEMINI_RESEARCH_MODEL", "gemini-2.5-pro")
+_RESEARCH_MODEL = os.environ.get(
+    "MUCHANIPO_GEMINI_RESEARCH_MODEL", "gemini-3.1-pro-preview"
+)
 _HTTP_TIMEOUT_SEC = _env_int("MUCHANIPO_GEMINI_TIMEOUT_SEC", 30)
 
 # Stage → model mapping (PRD-v2 §8.1)
@@ -205,10 +207,8 @@ def _estimate_cost(model: str, payload: dict[str, Any]) -> float:
     input_tokens = int(usage.get("promptTokenCount", 0) or 0)
     output_tokens = int(usage.get("candidatesTokenCount", 0) or 0)
 
-    # Paid tier approximate pricing per 1M tokens (input / output)
-    # Gemini 2.5 Pro: $1.25 / $10, Flash: $0.15 / $0.60 (as of mid-2025)
     pricing = {
-        "gemini-2.5-pro": (1.25, 10.0),
+        "gemini-3.1-pro-preview": (2.0, 12.0),
         "gemini-2.5-flash": (0.15, 0.60),
     }.get(model, (0.15, 0.60))
 
