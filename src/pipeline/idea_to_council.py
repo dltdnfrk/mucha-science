@@ -822,7 +822,11 @@ class IdeaToCouncilPipeline:
                 metadata={
                     "source_research": self.source_research,
                     "require_live": self.require_live,
-                    "offline_mock_continuation": not self.require_live and not self.source_research,
+                    # Offline continuation applies to every non-live run, including
+                    # source-research runs backed by mocked/offline runners: the final
+                    # knowledge-write gate double-guards with require_live, so live runs
+                    # stay strict while offline runs complete with a non-blocking record.
+                    "offline_mock_continuation": not self.require_live,
                 },
             )
         )

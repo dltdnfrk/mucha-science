@@ -187,7 +187,25 @@ def test_run_pipeline_returns_ten_rounds_six_chapter_report_and_progress():
         "finalize",
     ]
     completed = [event["stage"] for event in events if event["event"] == "stage_completed"]
-    assert completed == started
+    # Canonical GOALS artifact stages report completion-only events (they carry
+    # persisted artifacts, not lifecycle brackets), interleaved after the legacy
+    # stage that produces them. Legacy stages still complete in start order.
+    assert completed == [
+        "intake",
+        "interview",
+        "targeting",
+        "research",
+        "evidence",
+        "ontology_extraction",
+        "persona_generation",
+        "llm_council",
+        "council",
+        "report",
+        "final_report_html_yaml",
+        "vault",
+        "agents",
+        "finalize",
+    ]
     council_turn_idx = next(
         idx for idx, event in enumerate(events) if event["event"] == "council_turn"
     )
