@@ -114,14 +114,16 @@ def build(python: Path, target: str, output_dir: Path, signing_identity: str) ->
         raise ValueError(f"sidecar toolchain must use unicodedata2 pinned to Unicode {PINNED_UNICODE_VERSION}")
     output_dir.mkdir(parents=True, exist_ok=False)
     artifact_name = f"muchanipo-service-{target}" + (".exe" if target.endswith("windows-msvc") else "")
-    temporary_root = Path(tempfile.gettempdir()) / f"muchanipo-sidecar-build-{target}"
-    if temporary_root.exists():
-        shutil.rmtree(temporary_root)
-    temporary_root.mkdir()
-    try:
-        entrypoint = temporary_root / "entrypoint.py"
-        entrypoint.write_text("from muchanipo.__main__ import main\nraise SystemExit(main())\n", encoding="utf-8")
-        environment = os.environ | {"PYTHONHASHSEED": "0", "SOURCE_DATE_EPOCH": SOURCE_DATE_EPOCH}
+    with tempfile.TemporaryDirectory(
+        prefix=f"muchanipo-sidecar-build-{target}-"
+    ) as temporary_directory:
+        temporary_root = Path(temporary_directory)
+        entrypoint = module_source("muchanipo.__main__")
+        environment = os.environ | {
+            "PYINSTALLER_CONFIG_DIR": str(temporary_root / "pyinstaller-cache"),
+            "PYTHONHASHSEED": "0",
+            "SOURCE_DATE_EPOCH": SOURCE_DATE_EPOCH,
+        }
         subprocess.run(
             [
                 str(python), "-m", "PyInstaller", "--noconfirm", "--clean", "--onefile",
@@ -137,8 +139,6 @@ def build(python: Path, target: str, output_dir: Path, signing_identity: str) ->
         )
         artifact = output_dir / artifact_name
         shutil.copyfile(temporary_root / "dist" / artifact_name, artifact)
-    finally:
-        shutil.rmtree(temporary_root, ignore_errors=True)
     artifact.chmod(0o755)
     if target.endswith("apple-darwin"):
         subprocess.run(["codesign", "--force", "--sign", signing_identity, "--timestamp=none", str(artifact)], check=True)
