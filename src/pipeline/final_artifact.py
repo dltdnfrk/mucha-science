@@ -304,6 +304,11 @@ def final_report_event_metadata(final_artifact: Mapping[str, Any]) -> dict[str, 
     knowledge_write_ready = bool(downstream.get("knowledge_write_ready"))
     return {
         "artifact_ref": "state:final_report_html_yaml_artifact",
+        # Complete bundle payload: makes the final-report lifecycle event
+        # self-sufficient so the event-only replay gate (issue #44) can
+        # reconstruct the bundle without reading artifact files.
+        "final_bundle": {key: value for key, value in bundle.items()},
+        "report_id": str(bundle.get("report_id") or ""),
         "html_path": str(manifest.get("html_path") or ""),
         "yaml_path": str(manifest.get("yaml_path") or ""),
         "obsidian_write_status": str(manifest.get("obsidian_write_status") or ""),
