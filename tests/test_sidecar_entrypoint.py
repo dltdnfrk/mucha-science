@@ -109,5 +109,10 @@ def test_source_manifest_rejects_symlinked_runtime_source(tmp_path: Path, monkey
 
 def test_runtime_modules_are_a_closed_allowlist() -> None:
     assert "src.muchanipo.server" in sidecar.RUNTIME_MODULES
+    assert "src.muchanipo.web" in sidecar.RUNTIME_MODULES
+    assert "src.muchanipo.web.protocol_dispatch" in sidecar.RUNTIME_MODULES
+    assert "src.muchanipo.web.protocol_handler" in sidecar.RUNTIME_MODULES
+    assert "src.muchanipo.web.protocol_output" in sidecar.RUNTIME_MODULES
+    assert "src.muchanipo.web.scientific_config" in sidecar.RUNTIME_MODULES
     assert "src.pipeline.scientific_contracts" in sidecar.RUNTIME_MODULES
     assert all("*" not in module for module in sidecar.RUNTIME_MODULES)

@@ -63,7 +63,7 @@ jobs:
         run: |
           python -m venv .venv-sidecar
           .venv-sidecar/bin/python -m pip install --upgrade pip
-          .venv-sidecar/bin/python -m pip install 'pyinstaller==6.11.1' 'pytest>=8,<9' 'unicodedata2==15.1.0' 'httpx>=0.28'
+          .venv-sidecar/bin/python -m pip install -e . 'pyinstaller==6.11.1' 'pytest>=8,<9' 'unicodedata2==15.1.0' 'httpx>=0.28' 'websockets>=16.1,<17'
 
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -87,9 +87,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             app/muchanipo-tauri/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('app/muchanipo-tauri/Cargo.lock') }}
+          key: ${{ runner.os }}-${{ github.event.repository.name }}-cargo-${{ hashFiles('app/muchanipo-tauri/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-cargo-
+            ${{ runner.os }}-${{ github.event.repository.name }}-cargo-
 
       - name: Install npm dependencies
         run: npm ci
@@ -100,6 +100,10 @@ jobs:
           .venv-sidecar/bin/python -m pytest -q \
             tests/test_protocol_fixtures.py \
             tests/test_muchanipo_server.py \
+            tests/test_protocol_handler.py \
+            tests/test_websocket_server.py \
+            tests/test_websocket_origin.py \
+            tests/test_websocket_e2e.py \
             tests/test_cycle_repository.py \
             tests/test_scientific_contracts.py \
             tests/test_external_result_ingest.py \
