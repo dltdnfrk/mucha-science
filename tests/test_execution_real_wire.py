@@ -65,6 +65,7 @@ def test_gateway_budget_and_audit_hooks(tmp_path):
 def test_gateway_fallback_budget_records_actual_provider_metadata(tmp_path):
     class BrokenProvider:
         name = "broken"
+        rate_per_1k_chars = 0.1
 
         def call(self, stage, prompt, **kwargs):
             raise RuntimeError("primary failed")

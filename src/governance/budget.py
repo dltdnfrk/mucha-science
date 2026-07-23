@@ -88,8 +88,9 @@ class RunBudget:
         if rate_per_1k_chars is None:
             rate_per_1k_chars = getattr(provider, "rate_per_1k_chars", 0.0) or 0.0
         rate_per_1k_chars = float(rate_per_1k_chars)
-        if resolved_model and (not isfinite(rate_per_1k_chars) or rate_per_1k_chars <= 0):
-            raise UnpricedModelError(f"Model pricing is not configured: {resolved_model}")
+        if not isfinite(rate_per_1k_chars) or rate_per_1k_chars <= 0:
+            price_target = resolved_model or provider_name(provider) or "unresolved provider"
+            raise UnpricedModelError(f"Model pricing is not configured: {price_target}")
         return round((max(len(prompt), 1) / 1000.0) * rate_per_1k_chars, 8)
 
     def reserve(

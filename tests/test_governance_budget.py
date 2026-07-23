@@ -72,6 +72,14 @@ def test_estimate_uses_provider_rate():
     assert budget.estimate(stage="x", prompt="x" * 500, provider=provider) == 0.1
 
 
+def test_estimate_rejects_unpriced_provider_without_model_metadata():
+    provider = type("Provider", (), {"name": "custom"})()
+    budget = RunBudget(limit_usd=1.0)
+
+    with pytest.raises(UnpricedModelError, match="pricing is not configured"):
+        budget.estimate(stage="x", prompt="prompt", provider=provider)
+
+
 @pytest.mark.parametrize("stage", ["research", "evidence", "council", "consensus"])
 def test_gemini_pro_stage_budget_routes_current_pro_model(stage):
     provider = type("Provider", (), {"name": "gemini", "model": "gemini-2.5-flash"})()
