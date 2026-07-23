@@ -18,6 +18,8 @@ import {
   type PlanReviewEditState,
 } from "../components/PlannotatorPlanEditor";
 import EvidenceIndexPanel from "../components/EvidenceIndexPanel";
+import { FinalBundlePanel } from "../components/FinalBundlePanel";
+import { extractFinalBundleFromEvent } from "../lib/finalBundle";
 import SourceDiscoveryPanel, {
   buildDiscoveredSourceMap,
   buildKnowledgeGaps,
@@ -1425,6 +1427,7 @@ export default function RunProgress() {
   const [runWarnings, setRunWarnings] = useState<string[]>([]);
   const [reportPreview, setReportPreview] = useState("");
   const [finalReport, setFinalReport] = useState("");
+  const [finalBundle, setFinalBundle] = useState<unknown>(null);
   const [interviewPrompt, setInterviewPrompt] = useState<InterviewPrompt | null>(null);
   const [interviewClarity, setInterviewClarity] = useState<InterviewClarity | null>(null);
   const [interviewArtifacts, setInterviewArtifacts] = useState<DeepInterviewArtifacts | null>(null);
@@ -1510,6 +1513,13 @@ export default function RunProgress() {
         setPersonaPool(null);
         setReportPreview("");
         setFinalReport("");
+        setFinalBundle(null);
+        try {
+          const storedBundle = runId ? localStorage.getItem(`run:${runId}:final_bundle`) : null;
+          if (storedBundle) setFinalBundle(JSON.parse(storedBundle));
+        } catch {
+          /* ignore */
+        }
         setInterviewPrompt(null);
         setInterviewClarity(null);
         setInterviewArtifacts(null);
@@ -1876,6 +1886,20 @@ export default function RunProgress() {
           return next;
         });
         return;
+      }
+
+      // Issue #46: final-report lifecycle events embed the complete bundle;
+      // capture it before generic lifecycle handling consumes the event.
+      const embeddedBundle = extractFinalBundleFromEvent(event as Record<string, unknown>);
+      if (embeddedBundle !== null) {
+        setFinalBundle(embeddedBundle);
+        if (runId) {
+          try {
+            localStorage.setItem(`run:${runId}:final_bundle`, JSON.stringify(embeddedBundle));
+          } catch {
+            /* ignore */
+          }
+        }
       }
 
       const stageLifecycle = normalizeStageLifecycleEvent(event);
@@ -3683,6 +3707,8 @@ export default function RunProgress() {
         )}
 
         {/* Final report */}
+        {finalBundle !== null && <FinalBundlePanel bundle={finalBundle} />}
+
         {finalReport && (
           <div className="fade-in mt-8 rounded-lg border border-emerald-500/10 bg-emerald-500/[0.02] p-4 shadow-[var(--shadow-paper)]">
             <p className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-emerald-200">
