@@ -21,7 +21,7 @@ PRICE_PER_M_INPUT = {
     "claude-sonnet-4-5": 3.00,
     "claude-haiku-4-5": 0.25,
     "gemini-3.1-pro-preview": 2.00,
-    "gemini-2.5-flash": 0.075,
+    "gemini-2.5-flash": 0.30,
     "kimi-k2-0711-preview": 0.55,
     "gpt-5.4": 2.00,
     "gpt-5.5": 2.00,
@@ -30,7 +30,10 @@ PRICE_PER_M_INPUT = {
 
 PRICE_PER_M_OUTPUT = {
     model: price * 4.0 for model, price in PRICE_PER_M_INPUT.items()
-} | {"gemini-3.1-pro-preview": 12.00}
+} | {
+    "gemini-3.1-pro-preview": 12.00,
+    "gemini-2.5-flash": 2.50,
+}
 
 STAGE_OUTPUT_MULTIPLIER = {
     "intake": 0.6,
@@ -271,6 +274,11 @@ def resolve_model(*, stage: str, provider: Any = None, model: str | None = None)
     if model:
         return model
     name = provider_name(provider)
+    model_for_stage = getattr(provider, "model_for_stage", None)
+    if callable(model_for_stage):
+        resolved_model = model_for_stage(stage)
+        if resolved_model:
+            return str(resolved_model)
     if name:
         stage_model = STAGE_PROVIDER_MODELS.get((stage, name))
         if stage_model:

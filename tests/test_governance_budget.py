@@ -2,6 +2,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 
+from src.execution.providers.gemini import GeminiProvider, _STAGE_MODELS
 from src.governance.audit import AuditLog
 from src.governance.budget import (
     BudgetExceeded,
@@ -71,7 +72,19 @@ def test_gemini_pro_stage_budget_routes_current_pro_model(stage):
 
 def test_gemini_current_pro_budget_uses_documented_pricing():
     assert estimate_cost_usd("gemini-3.1-pro-preview", 200_000, 200_000) == 2.8
+    assert estimate_cost_usd("gemini-3.1-pro-preview", 200_001, 1) == 0.800022
     assert estimate_cost_usd("gemini-3.1-pro-preview", 1_000_000, 1_000_000) == 22.0
+
+
+def test_gemini_flash_budget_uses_documented_pricing():
+    assert estimate_cost_usd("gemini-2.5-flash", 2_000_000, 1_000_000) == 3.1
+
+
+def test_budget_uses_gemini_provider_effective_stage_model(monkeypatch):
+    monkeypatch.setitem(_STAGE_MODELS, "research", "gemini-override-model")
+    provider = GeminiProvider(model="gemini-2.5-flash", offline=True, use_cli=False)
+
+    assert resolve_model(stage="research", provider=provider) == "gemini-override-model"
 
 
 def test_reconcile_unknown_reservation_raises():

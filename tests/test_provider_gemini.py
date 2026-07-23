@@ -42,10 +42,15 @@ class TestEstimateCost:
         cost = _estimate_cost("gemini-3.1-pro-preview", payload)
         assert pytest.approx(cost, 0.001) == 22.0
 
+    def test_pro_long_context_pricing_starts_above_200k(self):
+        payload = {"usageMetadata": {"promptTokenCount": 200_001, "candidatesTokenCount": 1}}
+        cost = _estimate_cost("gemini-3.1-pro-preview", payload)
+        assert pytest.approx(cost, 0.000001) == 0.800022
+
     def test_flash_pricing(self):
         payload = {"usageMetadata": {"promptTokenCount": 2_000_000, "candidatesTokenCount": 1_000_000}}
         cost = _estimate_cost("gemini-2.5-flash", payload)
-        assert pytest.approx(cost, 0.001) == 0.9
+        assert pytest.approx(cost, 0.001) == 3.1
 
     def test_no_usage(self):
         cost = _estimate_cost("gemini-2.5-flash", {})

@@ -94,11 +94,14 @@ class GeminiProvider:
             )
         self.offline = offline
 
+    def model_for_stage(self, stage: str) -> str:
+        return _STAGE_MODELS.get(stage, self.model)
+
     def call(self, stage: str, prompt: str, **kwargs: Any) -> ModelResult:
         if self.offline:
             return _mock_result(stage, prompt, model=self.model, provider=self.name)
 
-        model = kwargs.pop("model", _STAGE_MODELS.get(stage, self.model))
+        model = kwargs.pop("model", self.model_for_stage(stage))
         search_grounding = kwargs.pop("search_grounding", stage in ("research", "evidence", "intake"))
 
         if self.use_cli and self.gemini_bin:
@@ -212,8 +215,8 @@ def _estimate_cost(model: str, payload: dict[str, Any]) -> float:
     else:
         pricing = {
             "gemini-3.1-pro-preview": (2.0, 12.0),
-            "gemini-2.5-flash": (0.15, 0.60),
-        }.get(model, (0.15, 0.60))
+            "gemini-2.5-flash": (0.30, 2.50),
+        }.get(model, (0.30, 2.50))
 
     return round(
         (input_tokens * pricing[0] + output_tokens * pricing[1]) / 1_000_000, 6
