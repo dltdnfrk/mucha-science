@@ -21,6 +21,7 @@ Required properties:
 - frames, objects, forms disabled by default
 - no wildcard source (`*`)
 - dev HTTP allowed only for the loopback Vite server: `http://127.0.0.1:1420`
+- production HTTP limited to Tauri's internal `ipc.localhost` and `asset.localhost` origins
 - provider/network origins must be named explicitly, not opened broadly
 
 ### Loopback-only dev server
@@ -41,11 +42,15 @@ The default desktop capability should stay minimal:
 ```json
 [
   "core:default",
-  "core:window:allow-start-dragging"
+  "core:window:allow-start-dragging",
+  {
+    "identifier": "shell:allow-spawn",
+    "allow": [{ "name": "muchanipo-service", "sidecar": true }]
+  }
 ]
 ```
 
-Avoid broad `shell`, `fs`, `http`, `process`, clipboard, or notification permissions in the default capability. Add narrower capabilities only when a concrete feature needs them and has tests.
+The shell permission is restricted to the packaged `muchanipo-service` sidecar. Avoid broad `shell`, `fs`, `http`, `process`, clipboard, or notification permissions in the default capability. Add narrower capabilities only when a concrete feature needs them and has tests.
 
 ### Renderer environment allowlist
 

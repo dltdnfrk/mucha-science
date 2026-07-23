@@ -23,7 +23,11 @@ def test_tauri_config_declares_strict_csp_instead_of_disabling_it() -> None:
     assert "base-uri 'self'" in csp
     assert "form-action 'none'" in csp
     assert "*" not in csp
-    assert "http:" not in csp.replace("http://127.0.0.1:1420", "")
+    internal_origins = ("http://ipc.localhost", "http://asset.localhost")
+    external_sources = csp
+    for origin in internal_origins:
+        external_sources = external_sources.replace(origin, "")
+    assert "http:" not in external_sources
 
 
 def test_tauri_dev_server_is_bound_to_loopback_only() -> None:
@@ -36,14 +40,18 @@ def test_tauri_dev_server_is_bound_to_loopback_only() -> None:
     assert "--host 0.0.0.0" not in build["beforeDevCommand"]
 
 
-def test_default_tauri_capability_stays_minimal() -> None:
+def test_default_tauri_capability_scopes_shell_access_to_the_sidecar() -> None:
     capability = json.loads((TAURI_ROOT / "capabilities" / "default.json").read_text(encoding="utf-8"))
-    permissions = set(capability["permissions"])
 
     assert capability["windows"] == ["main"]
-    assert permissions == {"core:default", "core:window:allow-start-dragging"}
-    forbidden_fragments = ("shell", "fs", "http", "process", "clipboard", "notification")
-    assert not any(any(fragment in permission for fragment in forbidden_fragments) for permission in permissions)
+    assert capability["permissions"] == [
+        "core:default",
+        "core:window:allow-start-dragging",
+        {
+            "identifier": "shell:allow-spawn",
+            "allow": [{"name": "muchanipo-service", "sidecar": True}],
+        },
+    ]
 
 
 def test_muchanipo_security_baseline_document_exists() -> None:
