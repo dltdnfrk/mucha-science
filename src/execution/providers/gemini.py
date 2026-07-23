@@ -107,11 +107,11 @@ class GeminiProvider:
         return _STAGE_MODELS.get(stage, self.model)
 
     def call(self, stage: str, prompt: str, **kwargs: Any) -> ModelResult:
-        if self.offline:
-            return _mock_result(stage, prompt, model=self.model, provider=self.name)
-
         model = kwargs.pop("model", self.model_for_stage(stage))
         _pricing_for_model(model, 0)
+        if self.offline:
+            return _mock_result(stage, prompt, model=model, provider=self.name)
+
         search_grounding = kwargs.pop("search_grounding", stage in ("research", "evidence", "intake"))
 
         if self.use_cli and self.gemini_bin:

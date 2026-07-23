@@ -79,6 +79,19 @@ class TestGeminiProviderOffline:
         p = GeminiProvider()
         assert p.offline is True
 
+    def test_offline_research_reports_effective_stage_model(self):
+        provider = GeminiProvider(offline=True, use_cli=False)
+
+        result = provider.call("research", "prompt")
+
+        assert result.model == "gemini-3.1-pro-preview"
+
+    def test_offline_unknown_model_is_rejected(self):
+        provider = GeminiProvider(offline=True, use_cli=False)
+
+        with pytest.raises(ValueError, match="pricing is not configured"):
+            provider.call("research", "prompt", model="gemini-unpriced-model")
+
 
 class TestGeminiProviderRealCall:
     @patch("urllib.request.urlopen")

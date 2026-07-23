@@ -4,7 +4,8 @@ import pytest
 
 from src.eval.budget_simulator import render_markdown_report
 from src.execution.gateway_v2 import GatewayV2
-from src.execution.models import ModelResult
+from src.execution.models import ModelGateway, ModelResult
+from src.execution.providers.gemini import GeminiProvider
 from src.governance.budget import RunBudget
 from src.governance.cost_simulator import simulate_research_cost
 
@@ -55,6 +56,38 @@ def test_budget_limit_triggers_gateway_fallback_chain(tmp_path):
     assert result.is_fallback is True
     assert "budget exceeded" in (result.fallback_reason or "")
     assert gateway.fallback_events[0]["provider"] == "anthropic"
+
+
+def test_model_gateway_budget_uses_explicit_gemini_model_override(tmp_path):
+    budget = RunBudget(max_usd=1.0, cost_log_path=tmp_path / "cost-log.jsonl")
+    provider = GeminiProvider(offline=True, use_cli=False)
+    gateway = ModelGateway(provider=provider, budget=budget)
+
+    result = gateway.call(
+        "research",
+        "x" * 400_000,
+        model="gemini-2.5-flash",
+    )
+
+    assert result.model == "gemini-2.5-flash"
+    assert budget.records[0].model == "gemini-2.5-flash"
+    assert budget.records[0].estimated_usd == pytest.approx(0.405)
+
+
+def test_gateway_v2_rejects_unpriced_gemini_model_before_reservation(tmp_path):
+    budget = RunBudget(max_usd=1.0, cost_log_path=tmp_path / "cost-log.jsonl")
+    provider = GeminiProvider(offline=True, use_cli=False)
+    gateway = GatewayV2(
+        providers={"gemini": provider},
+        stage_routes={"research": "gemini"},
+        fallback_chain={"research": ["gemini"]},
+        budget=budget,
+    )
+
+    with pytest.raises(ValueError, match="pricing is not configured"):
+        gateway.call("research", "prompt", model="gemini-unpriced-model")
+
+    assert budget.records == []
 
 
 def test_reserve_reconcile_status_uses_actual_cost_for_remaining_budget(tmp_path):
