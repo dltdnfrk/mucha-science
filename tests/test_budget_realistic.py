@@ -17,7 +17,7 @@ def test_run_budget_estimates_model_prices_by_stage():
     research = budget.estimate(stage="research", prompt=prompt, provider="gemini")
 
     assert council == pytest.approx(0.135)
-    assert research == pytest.approx(0.000525)
+    assert research == pytest.approx(0.02)
 
 
 @pytest.mark.parametrize(
@@ -38,11 +38,11 @@ def test_research_cost_scenarios_fit_half_dollar_goal(brief):
 
 
 def test_budget_limit_triggers_gateway_fallback_chain(tmp_path):
-    budget = RunBudget(max_usd=0.001, cost_log_path=tmp_path / "cost-log.jsonl")
+    budget = RunBudget(max_usd=0.01, cost_log_path=tmp_path / "cost-log.jsonl")
     gateway = GatewayV2(
         providers={
             "anthropic": _SuccessProvider("anthropic", "claude-opus-4-7"),
-            "gemini": _SuccessProvider("gemini", "gemini-2.5-flash"),
+            "gemini": _SuccessProvider("gemini", "gemini-3.1-pro-preview"),
         },
         stage_routes={"council": "anthropic"},
         fallback_chain={"council": ["anthropic", "gemini"]},
