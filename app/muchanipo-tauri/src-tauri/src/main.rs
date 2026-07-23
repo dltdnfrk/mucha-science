@@ -22,7 +22,7 @@ fn ping() -> &'static str {
 }
 
 fn main() {
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .manage(PythonBridge::default())
         .manage(ScientificBridge::default())
@@ -38,12 +38,24 @@ fn main() {
             start_scientific_sidecar,
             write_envelope,
             stop_scientific_sidecar
-        ])
+        ]);
+
+    #[cfg(debug_assertions)]
+    {
+        builder = builder.plugin(tauri_plugin_mcp_bridge::init());
+    }
+
+    builder
         .build(tauri::generate_context!())
         .expect("error while building Muchanipo Tauri app")
         .run(|app, event| {
-            if matches!(event, tauri::RunEvent::Exit | tauri::RunEvent::ExitRequested { .. }) {
-                if let Err(error) = shutdown_bridge_for_exit(app.state::<ScientificBridge>().inner()) {
+            if matches!(
+                event,
+                tauri::RunEvent::Exit | tauri::RunEvent::ExitRequested { .. }
+            ) {
+                if let Err(error) =
+                    shutdown_bridge_for_exit(app.state::<ScientificBridge>().inner())
+                {
                     eprintln!("failed to stop scientific sidecar during app exit: {error}");
                 }
             }
