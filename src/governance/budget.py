@@ -124,10 +124,17 @@ class RunBudget:
         rate_per_1k_chars: float | None = None,
     ) -> float:
         resolved_model = resolve_model(stage=stage, provider=provider, model=model)
-        if resolved_model in PRICE_PER_M_INPUT:
+        if resolved_model in PRICE_PER_M_INPUT or (
+            resolved_model and provider_name(provider) == "gemini"
+        ):
+            pricing_model = (
+                resolved_model
+                if resolved_model in PRICE_PER_M_INPUT
+                else PROVIDER_DEFAULT_MODELS["gemini"]
+            )
             input_tokens = estimate_input_tokens(prompt)
             output_tokens = estimate_output_tokens(input_tokens, stage)
-            return estimate_cost_usd(resolved_model, input_tokens, output_tokens)
+            return estimate_cost_usd(pricing_model, input_tokens, output_tokens)
 
         if rate_per_1k_chars is None:
             rate_per_1k_chars = float(getattr(provider, "rate_per_1k_chars", 0.0) or 0.0)
