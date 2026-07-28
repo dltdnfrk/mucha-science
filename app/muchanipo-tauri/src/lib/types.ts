@@ -125,6 +125,36 @@ export interface ResearchProgressEvent extends BackendEventEnvelope {
   gap_count?: number;
 }
 
+export type ResearchProviderKind = "model" | "academic_source";
+export type ResearchProviderAttemptOutcome = "success" | "empty" | "failed";
+export type AcademicRouteOutcome = "success" | "empty" | "failed" | "partial";
+
+export interface ResearchProviderFailure {
+  readonly code: string;
+  readonly message: string;
+}
+
+export interface ResearchProviderAttemptEvent extends BackendEventEnvelope {
+  readonly event: "provider_attempt";
+  readonly schema_version: "research-event.v1";
+  readonly provider_kind: ResearchProviderKind;
+  readonly attempt_id: string;
+  readonly route_id: string;
+  readonly provider: string;
+  readonly outcome: ResearchProviderAttemptOutcome;
+  readonly count: number;
+  readonly failure?: ResearchProviderFailure;
+}
+
+export interface AcademicRouteSummaryEvent extends BackendEventEnvelope {
+  readonly event: "academic_route_summary";
+  readonly schema_version: "research-event.v1";
+  readonly route_id: string;
+  readonly attempt_ids: readonly string[];
+  readonly outcome: AcademicRouteOutcome;
+  readonly count: number;
+}
+
 export interface PipelineErrorEvent extends BackendEventEnvelope {
   type: "pipeline_error";
   event?: "pipeline_error" | "error";
@@ -143,6 +173,8 @@ export type BackendEvent =
   | InterviewOntologyDeltaEvent
   | InterviewQuestionEvent
   | ResearchProgressEvent
+  | ResearchProviderAttemptEvent
+  | AcademicRouteSummaryEvent
   | CouncilRoundStartEvent
   | CouncilTokenEvent
   | CouncilRoundEndEvent

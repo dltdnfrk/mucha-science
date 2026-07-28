@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import ChapterCard from "../components/ChapterCard";
 import EvidenceIndexPanel from "../components/EvidenceIndexPanel";
+import { SafeReportMarkdown } from "../components/SafeReportMarkdown";
 import SourceDiscoveryPanel, {
   type DiscoveredSource,
   type KnowledgeGap,
@@ -16,6 +15,13 @@ import {
   type BackendEvent,
   type Chapter,
 } from "../lib/tauriClient";
+import { sanitizeMarkdownExternalReferences } from "../lib/safeExternalUrl";
+import {
+  hasReadyStoredReport,
+  persistPendingReport,
+  persistReportReadiness,
+  promotePendingReport,
+} from "./runProgressStorage";
 
 export default function ReportView() {
   const { runId } = useParams<{ runId: string }>();
@@ -38,23 +44,38 @@ export default function ReportView() {
       setChapters(parseChapterMarkdown(md));
     };
     const appendChunk = (chunk: string) => {
-      const key = chunk.trim();
+      const safeChunk = sanitizeMarkdownExternalReferences(chunk);
+      const key = safeChunk.trim();
       if (!key || finalReportReceivedRef.current || chunkKeysRef.current.has(key)) return;
       chunkKeysRef.current.add(key);
-      const current = localStorage.getItem(`run:${runId}:report`) || "";
-      const next = `${current}${current ? "\n\n" : ""}${chunk}`;
-      localStorage.setItem(`run:${runId}:report`, next);
-      applyMarkdown(next);
+      const current = localStorage.getItem(`run:${runId}:report_pending`) || "";
+      const next = `${current}${current ? "\n\n" : ""}${safeChunk}`;
+      localStorage.setItem(`run:${runId}:report_pending`, next);
     };
     const handleEvent = (event: BackendEvent) => {
       if (!runId) return;
       if (event.event === "final_report") {
-        const md = String(event.markdown ?? "");
-        if (md) {
+        const markdown = String(event.markdown ?? "");
+        if (markdown) {
           finalReportReceivedRef.current = true;
           chunkKeysRef.current.clear();
-          localStorage.setItem(`run:${runId}:report`, md);
-          applyMarkdown(md);
+          persistPendingReport(runId, {
+            chapterCount: Number(event.chapter_count ?? 0),
+            markdown,
+            reportPath: String(event.report_path ?? ""),
+            vaultPath: String(event.vault_path ?? ""),
+          });
+        }
+        return;
+      }
+      if (event.event === "done") {
+        const readiness = persistReportReadiness(
+          runId,
+          event.research_quality_readiness,
+        );
+        if (readiness === "ready" || readiness === "legacy") {
+          const promoted = promotePendingReport(runId);
+          if (promoted) applyMarkdown(promoted);
         }
         return;
       }
@@ -65,7 +86,9 @@ export default function ReportView() {
       }
     };
     try {
-      const md = localStorage.getItem(`run:${runId}:report`) || "";
+      const md = hasReadyStoredReport(runId)
+        ? localStorage.getItem(`run:${runId}:report`) || ""
+        : "";
       applyMarkdown(md);
       setTopic(localStorage.getItem(`run:${runId}:topic`) || "");
       const rawSources = localStorage.getItem(`run:${runId}:sources`);
@@ -103,32 +126,7 @@ export default function ReportView() {
       unlisten = cleanup;
       try {
         const history = await getBufferedEvents(runId);
-        const finalReports = history.filter((event) => event.event === "final_report");
-        const latestFinal = finalReports[finalReports.length - 1];
-        if (latestFinal) {
-          handleEvent(latestFinal);
-          return;
-        }
-
-        const chunks = history
-          .filter((event) => event.event === "report_chunk")
-          .map((event) => String(event.markdown ?? event.delta ?? ""))
-          .filter(Boolean);
-        if (chunks.length > 0) {
-          chunkKeysRef.current.clear();
-          const uniqueChunks: string[] = [];
-          for (const chunk of chunks) {
-            const key = chunk.trim();
-            if (!key || chunkKeysRef.current.has(key)) continue;
-            chunkKeysRef.current.add(key);
-            uniqueChunks.push(chunk);
-          }
-          const rebuilt = uniqueChunks.join("\n\n");
-          const current = localStorage.getItem(`run:${runId}:report`) || "";
-          if (current.length >= rebuilt.length) return;
-          localStorage.setItem(`run:${runId}:report`, rebuilt);
-          applyMarkdown(rebuilt);
-        }
+        for (const event of history) handleEvent(event);
       } catch {
         /* non-fatal */
       }
@@ -205,7 +203,7 @@ export default function ReportView() {
             <EvidenceIndexPanel markdown={markdown} compact />
             <div className="chapter-card p-6 md:p-8">
               <div className="report-prose max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>{markdown}</ReactMarkdown>
+            <SafeReportMarkdown markdown={markdown} />
               </div>
             </div>
           </div>

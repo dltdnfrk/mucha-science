@@ -1,24 +1,25 @@
+import { lazy, Suspense } from "react";
 import { HashRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import IdeaSubmit from "./pages/IdeaSubmit";
-import StudioSession from "./pages/StudioSession";
-import BrowserHome from "./pages/BrowserHome";
-import RunProgress from "./pages/RunProgress";
-import ReportView from "./pages/ReportView";
-import Settings from "./pages/Settings";
-import ScientificPage from "./pages/ScientificPage";
 import Sidebar from "./components/Sidebar";
-import { listRuns } from "./lib/runsIndex";
+import {
+  AiScientistWorkspace,
+  type AiScientistWorkspaceView,
+} from "./pages/AiScientistWorkspace";
+
+const BrowserHome = lazy(() => import("./pages/BrowserHome"));
+const IdeaSubmit = lazy(() => import("./pages/IdeaSubmit"));
+const ReportView = lazy(() => import("./pages/ReportView"));
+const RunProgress = lazy(() => import("./pages/RunProgress"));
+const Settings = lazy(() => import("./pages/Settings"));
+const StudioSession = lazy(() => import("./pages/StudioSession"));
+const DesignSystemShowcase = lazy(async () => {
+  const module = await import("./pages/DesignSystemShowcase");
+  return { default: module.DesignSystemShowcase };
+});
 
 function HomeRedirect() {
-  // Dev autostart is used for desktop E2E verification when macOS UI automation
-  // cannot click through the Tauri window. It must take precedence over the
-  // existing run index; otherwise returning users land on BrowserHome and the
-  // IdeaSubmit autostart hook never gets a chance to seed /browser/:runId.
-  const autostartTopic = import.meta.env.DEV
-    ? (import.meta.env.VITE_MUCHANIPO_AUTOSTART_TOPIC || "").trim()
-    : "";
-  const hasRun = listRuns().length > 0;
-  return <Navigate to={autostartTopic ? "/studio" : hasRun ? "/browser" : "/studio"} replace />;
+  const autostartTopic = (import.meta.env.VITE_MUCHANIPO_AUTOSTART_TOPIC || "").trim();
+  return <Navigate to={autostartTopic ? "/studio" : "/scientific"} replace />;
 }
 
 function BackButton() {
@@ -35,12 +36,13 @@ function BackButton() {
       className="sticky top-0 z-30 flex items-center border-b border-white/5 bg-transparent pl-[88px] pr-4 py-2.5 backdrop-blur-xl supports-[backdrop-filter]:bg-black/20"
     >
       <button
+        type="button"
         onClick={goBack}
-        className="flex h-7 w-7 items-center justify-center rounded-md text-tertiary transition hover:bg-white/5 hover:text-white"
+        className="flex size-7 items-center justify-center rounded-md text-tertiary transition hover:bg-white/5 hover:text-white"
         title="뒤로"
         aria-label="뒤로"
       >
-        <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+        <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
         </svg>
       </button>
@@ -50,26 +52,62 @@ function BackButton() {
 
 export default function App() {
   return (
-    <HashRouter>
-      <div className="flex h-screen">
-        <Sidebar />
-        <main className="app-workspace flex-1 overflow-y-auto">
-          <BackButton />
-          <Routes>
-            <Route path="/" element={<HomeRedirect />} />
-            <Route path="/studio" element={<IdeaSubmit />} />
-            <Route path="/studio/:studioId" element={<StudioSession />} />
-            <Route path="/browser" element={<BrowserHome />} />
-            <Route path="/browser/:runId" element={<RunProgress />} />
-            <Route path="/browser/:runId/report" element={<ReportView />} />
-            <Route path="/run/:runId" element={<RunProgress />} />
-            <Route path="/report/:runId" element={<ReportView />} />
-            <Route path="/scientific" element={<ScientificPage />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </main>
-      </div>
+    <HashRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
+      <Suspense fallback={<RouteFallback />}>
+        <AppRoutes />
+      </Suspense>
     </HashRouter>
   );
+}
+
+function RouteFallback() {
+  return (
+    <main className="app-workspace flex min-h-dvh items-center justify-center p-6">
+      <p role="status" className="text-sm text-secondary">화면을 불러오는 중입니다.</p>
+    </main>
+  );
+}
+
+function AppRoutes() {
+  const location = useLocation();
+  const scientificView = scientificWorkspaceView(location.pathname);
+
+  if (location.pathname === "/") {
+    return <HomeRedirect />;
+  }
+
+  if (scientificView) {
+    return <AiScientistWorkspace view={scientificView} />;
+  }
+
+  if (location.pathname === "/design-system") {
+    return import.meta.env.DEV ? <DesignSystemShowcase /> : <Navigate to="/" replace />;
+  }
+
+  return (
+    <div className="flex h-dvh">
+      <Sidebar />
+      <main className="app-workspace flex-1 overflow-y-auto">
+        <BackButton />
+        <Routes>
+          <Route path="/studio" element={<IdeaSubmit />} />
+          <Route path="/studio/:studioId" element={<StudioSession />} />
+          <Route path="/browser" element={<BrowserHome />} />
+          <Route path="/browser/:runId" element={<RunProgress />} />
+          <Route path="/browser/:runId/report" element={<ReportView />} />
+          <Route path="/run/:runId" element={<RunProgress />} />
+          <Route path="/report/:runId" element={<ReportView />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </main>
+    </div>
+  );
+}
+
+function scientificWorkspaceView(pathname: string): AiScientistWorkspaceView | undefined {
+  if (pathname === "/scientific") return "chat";
+  if (pathname === "/scientific/sources") return "sources";
+  if (pathname === "/scientific/validation") return "validation";
+  return undefined;
 }

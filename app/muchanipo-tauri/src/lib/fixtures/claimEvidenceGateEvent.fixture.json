@@ -1,0 +1,64 @@
+{
+  "app_run_id": "app-run-uncertainty",
+  "event": "research_progress",
+  "generation": 7,
+  "partial_count": 0,
+  "passed": false,
+  "row_count": 2,
+  "rows": [
+    {
+      "canonical_ids": [
+        "10.1000/directional"
+      ],
+      "claim": "assay detects target marker",
+      "claim_id": "claim-directional",
+      "claim_type": "source_says",
+      "confidence": 0.9,
+      "contradiction_relationship_id": null,
+      "evidence_ids": [
+        "directional"
+      ],
+      "missing_requirements": [],
+      "reason": "claim has at least one source-decision accepted strict citation",
+      "refuting_evidence_ids": [],
+      "stance": "supports_claim",
+      "status": "supported",
+      "support_reason": "claim has at least one source-decision accepted strict citation",
+      "support_status": "supported",
+      "supporting_evidence_ids": [
+        "directional"
+      ],
+      "supporting_source_ids": [
+        "directional"
+      ],
+      "uncertainty": "moderate"
+    },
+    {
+      "canonical_ids": [],
+      "claim": "insufficient evidence claim",
+      "claim_id": "claim-insufficient",
+      "claim_type": "unsupported",
+      "confidence": 0.99,
+      "contradiction_relationship_id": null,
+      "evidence_ids": [],
+      "missing_requirements": [
+        "citation"
+      ],
+      "reason": "claim has no citation",
+      "refuting_evidence_ids": [],
+      "stance": "inconclusive",
+      "status": "unsupported",
+      "support_reason": "claim has no citation",
+      "support_status": "unsupported",
+      "supporting_evidence_ids": [],
+      "supporting_source_ids": [],
+      "uncertainty": "unknown"
+    }
+  ],
+  "stage": "quality_gate",
+  "status": "claim_evidence_gate",
+  "supported_count": 1,
+  "supported_ratio": 0.5,
+  "topic_anchor": "ordinal uncertainty contract",
+  "unsupported_count": 1
+}

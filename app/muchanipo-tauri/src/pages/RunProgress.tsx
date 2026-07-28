@@ -30,6 +30,15 @@ import {
   type PersonaPoolSummary,
 } from "../components/PersonaPoolCard";
 import { clearPendingRun, getPendingRunAutostartDecision } from "../lib/pendingRun";
+import { sanitizeMarkdownExternalReferences } from "../lib/safeExternalUrl";
+import {
+  hasReadyStoredReport,
+  persistPendingReport,
+  persistReportReadiness,
+  promotePendingReport,
+  readStoredReportReadiness,
+} from "./runProgressStorage";
+import { readCredentialSetting } from "../lib/sessionCredentials";
 
 type BackendMode = "offline" | "cli" | "api";
 
@@ -39,7 +48,7 @@ function readBackendMode(): BackendMode {
 }
 
 function readCredential(k: string): string {
-  return localStorage.getItem(`credential:${k}`) || sessionStorage.getItem(k) || "";
+  return readCredentialSetting(k);
 }
 
 function readEnvsFromSettings(): Record<string, string> {
@@ -57,7 +66,7 @@ function readEnvsFromSettings(): Record<string, string> {
     const opencodeGoKey = readCredential("opencode_api_key").trim();
     if (!mimoKey && !opencodeGoKey) {
       throw new Error(
-        "API 실행 모드인데 MiMo 또는 OpenCode Go API Key가 앱 설정/localStorage에 없습니다. 설정에서 둘 중 하나 이상을 저장한 뒤 다시 시작하세요.",
+        "API 실행 모드인데 현재 세션에 MiMo 또는 OpenCode Go API Key가 없습니다. 설정에서 둘 중 하나 이상을 저장한 뒤 다시 시작하세요.",
       );
     }
     envs.MUCHANIPO_ONLINE = "1";
@@ -1308,7 +1317,19 @@ export default function RunProgress() {
         setRuntimeEvidence(null);
         setHasReceivedHeartbeat(false);
         try {
-          for (const suffix of ["report", "report_path", "vault_path", "chapter_count", "pending", "pending_at"]) {
+          for (const suffix of [
+            "report",
+            "report_path",
+            "vault_path",
+            "chapter_count",
+            "report_pending",
+            "report_path_pending",
+            "vault_path_pending",
+            "chapter_count_pending",
+            "quality_readiness",
+            "pending",
+            "pending_at",
+          ]) {
             localStorage.removeItem(`run:${runId}:${suffix}`);
           }
           sessionStorage.removeItem(`run:${runId}:pending_session`);
@@ -1504,6 +1525,16 @@ export default function RunProgress() {
       }
 
       if (event.event === "research_quality_ready") {
+        if (runId) {
+          const readiness = persistReportReadiness(
+            runId,
+            event.research_quality_readiness,
+          );
+          if (readiness === "ready" || readiness === "legacy") {
+            const promoted = promotePendingReport(runId);
+            if (promoted) setFinalReport(promoted);
+          }
+        }
         const activity = normalizeResearchQualityReadyActivity(event);
         if (!activity) return;
         const copy = researchActivityCopy(activity);
@@ -1883,7 +1914,9 @@ export default function RunProgress() {
       }
 
       if (event.event === "report_chunk" && runId) {
-        const chunk = String(event.markdown ?? event.delta ?? "");
+        const chunk = sanitizeMarkdownExternalReferences(
+          String(event.markdown ?? event.delta ?? ""),
+        );
         const key = chunk.trim();
         if (!key || finalReportReceivedRef.current || chunkKeysRef.current.has(key)) return;
         chunkKeysRef.current.add(key);
@@ -1901,7 +1934,7 @@ export default function RunProgress() {
         setReportPreview((prev) => {
           const next = `${prev}${prev ? "\n\n" : ""}${chunk}`;
           try {
-            localStorage.setItem(`run:${runId}:report`, next);
+            localStorage.setItem(`run:${runId}:report_pending`, next);
           } catch {
             /* ignore */
           }
@@ -1911,7 +1944,7 @@ export default function RunProgress() {
       }
 
       if (event.event === "final_report" && runId) {
-        const markdown = (event.markdown as string) || "";
+        const markdown = String(event.markdown ?? "");
         const reportPath = (event.report_path as string) || "";
         const vaultPath = (event.vault_path as string) || "";
         const chapterCount = (event.chapter_count as number) || 0;
@@ -1921,28 +1954,38 @@ export default function RunProgress() {
           ...prev,
           report: {
             ...prev.report,
-            status: "completed",
-            completedAt: Date.now(),
-            durationMs: prev.report.startedAt ? Date.now() - prev.report.startedAt : prev.report.durationMs,
+            status: "active",
+            startedAt: prev.report.startedAt ?? Date.now(),
             lastEventAt: Date.now(),
             lastSignal: "final_report",
-            message: "최종 보고서 수신",
+            message: "최종 보고서 수신 · 품질 판정 대기",
           },
         }));
-        try {
-          if (markdown) localStorage.setItem(`run:${runId}:report`, markdown);
-          localStorage.setItem(`run:${runId}:report_path`, reportPath);
-          if (vaultPath) localStorage.setItem(`run:${runId}:vault_path`, vaultPath);
-          localStorage.setItem(`run:${runId}:chapter_count`, String(chapterCount));
-        } catch {
-          /* ignore */
+        persistPendingReport(runId, {
+          chapterCount,
+          markdown,
+          reportPath,
+          vaultPath,
+        });
+        const storedReadiness = readStoredReportReadiness(runId);
+        if (storedReadiness === "ready" || storedReadiness === "legacy") {
+          const promoted = promotePendingReport(runId);
+          if (promoted) setFinalReport(promoted);
         }
-        if (markdown) setFinalReport(markdown);
         return;
       }
 
       if (event.event === "done" && runId && !runErrorRef.current) {
         const qualityReadyActivity = normalizeResearchQualityReadyActivity(event);
+        const readiness = persistReportReadiness(
+          runId,
+          event.research_quality_readiness,
+        );
+        const reportCanBeShown = readiness === "ready" || readiness === "legacy";
+        if (reportCanBeShown) {
+          const promoted = promotePendingReport(runId);
+          if (promoted) setFinalReport(promoted);
+        }
         setInterviewSubmitting(false);
         setInterviewPrompt(null);
         setHitlSubmitting(false);
@@ -1984,9 +2027,11 @@ export default function RunProgress() {
           return;
         }
         markRunDone(runId);
-        setTimeout(() => {
-          if (mounted) navigate(`/browser/${runId}/report`);
-        }, 600);
+        if (reportCanBeShown) {
+          setTimeout(() => {
+            if (mounted) navigate(`/browser/${runId}/report`);
+          }, 600);
+        }
         return;
       }
     };
@@ -2031,8 +2076,7 @@ export default function RunProgress() {
           return;
         }
 
-        const report = localStorage.getItem(`run:${runId}:report`);
-        const reportPath = localStorage.getItem(`run:${runId}:report_path`);
+        const hasReadyReport = hasReadyStoredReport(runId);
         const isRunningEntry = listRuns().some(
           (entry) => entry.runId === runId && entry.status === "running",
         );
@@ -2052,7 +2096,7 @@ export default function RunProgress() {
         } catch {
           /* Older app runtimes do not expose this command; fall back to replay evidence. */
         }
-        if (isRunningEntry && !hasRuntimeEvidence && report && reportPath) {
+        if (isRunningEntry && !hasRuntimeEvidence && hasReadyReport) {
           markRunDone(runId);
           navigate(`/browser/${runId}/report`);
           return;
@@ -2064,7 +2108,7 @@ export default function RunProgress() {
 
         if (shouldRecoverStaleRun) {
           failRun("이전 실행의 백엔드가 종료되었습니다. 자동 재시작하지 않았으니 다시 시작을 눌러주세요.");
-        } else if (isRunningEntry && !hasRuntimeEvidence && !report) {
+        } else if (isRunningEntry && !hasRuntimeEvidence && !hasReadyReport) {
           failRun("이전 실행의 백엔드가 종료되어 실행을 계속할 수 없습니다. 다시 시작하세요.");
         }
       } catch (err) {
@@ -2118,9 +2162,7 @@ export default function RunProgress() {
       }
       if (runtimeRunning || cancelled || runErrorRef.current) return;
 
-      const report = localStorage.getItem(`run:${runId}:report`);
-      const reportPath = localStorage.getItem(`run:${runId}:report_path`);
-      if (report && reportPath) {
+      if (hasReadyStoredReport(runId)) {
         markRunDone(runId);
         navigate(`/browser/${runId}/report`);
         return;

@@ -1,5 +1,14 @@
-import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import type { PipelineRuntimeStatus } from "./pipelineExecutionClient";
+import { isTauriRuntime, tauriOnlyError } from "./tauriRuntime";
+import {
+  getWebPipelineRuntimeStatus,
+  sendWebPipelineAction,
+  subscribeWebPipeline,
+} from "./webPipelineClient";
+export { cancelPipeline, submitIdea } from "./pipelineExecutionClient";
+export type { PipelineCancellationAcknowledgement, PipelineMode, PipelineRuntimeStatus, ResearchDepth } from "./pipelineExecutionClient";
+
+export type UnlistenFn = () => void;
 
 // Backend event shape — matches src-tauri/src/events.rs BackendEvent.
 // Server emits flat JSON-line objects with `event` + arbitrary other fields.
@@ -123,22 +132,6 @@ export type BackendAction =
 // Pipeline mode passed to the Python pipeline.
 //   - "stub" : legacy 4-phase placeholder (interview Q&A, single chapter).
 //   - "full" : PRD-v2 §2.1 8-stage MBB pipeline (10 council rounds → 6 chapters).
-export type PipelineMode = "stub" | "full";
-export type ResearchDepth = "shallow" | "deep" | "max" | "superdeep";
-
-function isTauriRuntime(): boolean {
-  if (typeof window === "undefined") return false;
-  const tauriWindow = window as Window & {
-    __TAURI__?: unknown;
-    __TAURI_INTERNALS__?: unknown;
-  };
-  return Boolean(tauriWindow.__TAURI__ || tauriWindow.__TAURI_INTERNALS__);
-}
-
-function tauriOnlyError(action: string): Error {
-  return new Error(`${action}은 Tauri 데스크톱 앱에서만 사용할 수 있습니다.`);
-}
-
 export interface SCR {
   situation: string;
   complication: string;
@@ -162,34 +155,6 @@ export interface FinalReport {
   markdown: string;
 }
 
-export interface PipelineRuntimeStatus {
-  running: boolean;
-  stdin_open?: boolean;
-  child_tracked?: boolean;
-  buffered_event_count?: number;
-  child_pid?: number | null;
-  app_run_id?: string | null;
-  runtime_age_ms?: number | null;
-  last_event_elapsed_ms?: number | null;
-  app_binary_path?: string | null;
-  workspace_root?: string;
-}
-
-/**
- * Start the Python pipeline. Defaults to the full PRD-v2 pipeline so the UI
- * gets a real 6-chapter MBB report.
- */
-export async function submitIdea(
-  topic: string,
-  pipeline: PipelineMode = "full",
-  depth: ResearchDepth = "deep",
-  envs?: Record<string, string>,
-  appRunId?: string,
-): Promise<void> {
-  if (!isTauriRuntime()) throw tauriOnlyError("리서치 실행");
-  return invoke("start_pipeline", { topic, pipeline, depth, envs, appRunId });
-}
-
 /**
  * Subscribe to backend events emitted by the Python pipeline.
  * Each line emitted by the server arrives here as a `BackendEvent`.
@@ -199,9 +164,10 @@ export async function onBackendEvent(
   appRunId?: string,
 ): Promise<UnlistenFn> {
   if (!isTauriRuntime()) {
-    void handler;
-    return () => {};
+    if (!appRunId) throw new Error("웹 연구 이벤트 구독에는 실행 ID가 필요합니다.");
+    return subscribeWebPipeline(appRunId, handler);
   }
+  const { listen } = await import("@tauri-apps/api/event");
   return listen<BackendEvent>("backend_event", ({ payload }) => {
     if (appRunId && !isBackendEventForAppRunId(payload, appRunId)) return;
     handler(payload);
@@ -216,8 +182,18 @@ function isBackendEventForAppRunId(event: BackendEvent, appRunId: string): boole
  * Send a user action back into the Python pipeline (e.g. interview answer,
  * approval, or abort). Mirrors the JSON-line action protocol.
  */
-export async function sendAction(action: BackendAction): Promise<void> {
-  if (!isTauriRuntime()) throw tauriOnlyError("파이프라인 응답 전송");
+export async function sendAction(
+  action: BackendAction,
+  appRunId?: string,
+  generation?: number,
+): Promise<void> {
+  if (!isTauriRuntime()) {
+    if (!appRunId || generation === undefined) {
+      throw new Error("웹 연구 응답에는 실행 ID와 세대가 필요합니다.");
+    }
+    return sendWebPipelineAction(appRunId, generation, action);
+  }
+  const { invoke } = await import("@tauri-apps/api/core");
   return invoke("send_action", { action });
 }
 
@@ -259,6 +235,7 @@ export async function checkCliStatus(): Promise<CliStatus[]> {
       smoke_supported: false,
     }));
   }
+  const { invoke } = await import("@tauri-apps/api/core");
   return invoke<CliStatus[]>("check_cli_status");
 }
 
@@ -273,12 +250,14 @@ export async function checkCliSmoke(name: string): Promise<CliSmokeResult> {
       timed_out: false,
     };
   }
+  const { invoke } = await import("@tauri-apps/api/core");
   return invoke<CliSmokeResult>("check_cli_smoke", { name });
 }
 
 /** Open the provider's interactive CLI auth flow in Terminal. */
 export async function openCliAuth(name: string): Promise<CliAuthLaunch> {
   if (!isTauriRuntime()) throw tauriOnlyError(`${name} CLI 연결`);
+  const { invoke } = await import("@tauri-apps/api/core");
   return invoke<CliAuthLaunch>("open_cli_auth", { name });
 }
 
@@ -290,6 +269,7 @@ export async function openCliAuth(name: string): Promise<CliAuthLaunch> {
  */
 export async function getBufferedEvents(appRunId?: string): Promise<BackendEvent[]> {
   if (!isTauriRuntime()) return [];
+  const { invoke } = await import("@tauri-apps/api/core");
   const lines = await invoke<string[]>("get_buffered_events", { appRunId });
   const out: BackendEvent[] = [];
   for (const line of lines) {
@@ -297,8 +277,8 @@ export async function getBufferedEvents(appRunId?: string): Promise<BackendEvent
       const event = JSON.parse(line) as BackendEvent;
       if (appRunId && !isBackendEventForAppRunId(event, appRunId)) continue;
       out.push(event);
-    } catch {
-      /* skip malformed lines */
+    } catch (error) {
+      if (!(error instanceof SyntaxError)) throw error;
     }
   }
   return out;
@@ -306,16 +286,9 @@ export async function getBufferedEvents(appRunId?: string): Promise<BackendEvent
 
 export async function getPipelineRuntimeStatus(): Promise<PipelineRuntimeStatus> {
   if (!isTauriRuntime()) {
-    return {
-      running: false,
-      stdin_open: false,
-      child_tracked: false,
-      buffered_event_count: 0,
-      child_pid: null,
-      runtime_age_ms: null,
-      last_event_elapsed_ms: null,
-    };
+    return getWebPipelineRuntimeStatus();
   }
+  const { invoke } = await import("@tauri-apps/api/core");
   return invoke<PipelineRuntimeStatus>("pipeline_runtime_status");
 }
 

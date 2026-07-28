@@ -1,0 +1,89 @@
+.ms-workflow-fields {
+  display: grid;
+  gap: var(--ms-space-3);
+}
+
+.ms-workflow-fields label {
+  color: var(--ms-blue);
+  font: var(--ms-type-kicker)/1.4 var(--ms-font-mono);
+}
+
+.ms-workflow-fields select,
+.ms-workflow-fields textarea {
+  inline-size: 100%;
+  min-block-size: var(--ms-touch-target);
+  padding: var(--ms-space-3);
+  border: var(--ms-rule-thin) solid var(--ms-ink);
+  border-radius: 0;
+  box-shadow: none;
+  background: var(--ms-paper-raised);
+  color: var(--ms-ink);
+}
+
+.ms-runtime .ms-workflow-fields textarea {
+  min-block-size: 8rem;
+  padding: var(--ms-space-3);
+  font: var(--ms-type-kicker)/1.55 var(--ms-font-mono);
+  letter-spacing: 0;
+}
+
+.ms-workflow-fields select:disabled {
+  border-style: dashed;
+  color: var(--ms-annotation);
+}
+
+.ms-workflow-fields select:focus-visible,
+.ms-workflow-fields textarea:focus-visible {
+  outline: var(--ms-focus-ring) solid var(--ms-blue);
+  outline-offset: var(--ms-focus-offset);
+}
+
+.ms-workflow-fields p,
+.ms-boundary-copy,
+.ms-diagnostics {
+  margin: 0;
+  color: var(--ms-graphite);
+  font-size: var(--ms-type-body);
+  line-height: 1.6;
+}
+
+.ms-workflow-fields [role="alert"],
+.ms-error-copy {
+  color: var(--ms-error);
+}
+
+.ms-diagnostics {
+  display: grid;
+  gap: var(--ms-space-3);
+}
+
+.ms-diagnostics p,
+.ms-diagnostics ul {
+  margin: 0;
+}
+
+.ms-diagnostics pre {
+  max-inline-size: 100%;
+  margin-block-start: var(--ms-space-3);
+  padding: var(--ms-space-4);
+  border: var(--ms-rule-thin) solid var(--ms-rule);
+  border-radius: 0;
+  overflow: auto;
+  background: var(--ms-paper-raised);
+  color: var(--ms-ink);
+  font: var(--ms-type-kicker)/1.55 var(--ms-font-mono);
+}
+
+.ms-diagnostics summary {
+  display: flex;
+  align-items: center;
+  min-block-size: var(--ms-touch-target);
+  color: var(--ms-blue);
+  cursor: pointer;
+  font: var(--ms-type-kicker)/1.4 var(--ms-font-mono);
+}
+
+.ms-diagnostics summary:focus-visible {
+  outline: var(--ms-focus-ring) solid var(--ms-blue);
+  outline-offset: var(--ms-focus-offset);
+}
