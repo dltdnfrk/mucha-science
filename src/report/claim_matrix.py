@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from src.evidence.artifact import EvidenceRef, Finding
+from src.pipeline.scientific_contracts import derive_evidence_stance
 from src.research.source_decision_ledger import SourceDecisionLedger
 
 
@@ -17,6 +18,8 @@ class ClaimEvidenceRow:
     confidence: float
     claim_type: str
     supporting_source_ids: tuple[str, ...] = ()
+    refuting_source_ids: tuple[str, ...] = ()
+    stance: str = "inconclusive"
     canonical_ids: tuple[str, ...] = ()
     missing_requirements: tuple[str, ...] = ()
 
@@ -39,6 +42,8 @@ class ClaimEvidenceRow:
             "support_reason": self.support_reason,
             "confidence": self.confidence,
             "supporting_source_ids": list(self.supporting_source_ids),
+            "refuting_evidence_ids": list(self.refuting_source_ids),
+            "stance": self.stance,
             "canonical_ids": list(self.canonical_ids),
             "missing_requirements": list(self.missing_requirements),
         }
@@ -135,6 +140,8 @@ def build_claim_evidence_matrix(
                 confidence=float(finding.confidence or 0.0),
                 claim_type=_claim_type_for_status(status),
                 supporting_source_ids=usable_ids,
+                refuting_source_ids=(),
+                stance=derive_evidence_stance(usable_ids, ()).value,
                 canonical_ids=canonical_ids,
                 missing_requirements=missing_requirements,
             )

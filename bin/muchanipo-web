@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+PROJECT_PYTHON="${MUCHA_SCIENCE_PYTHON:-${REPO_ROOT}/.venv/bin/python}"
+
+if [[ ! -x "${PROJECT_PYTHON}" ]]; then
+  echo "Mucha Science Python 환경이 없습니다. 저장소 루트에서 'uv sync --extra test'를 실행하세요." >&2
+  exit 1
+fi
+
+export PYTHONPATH="${REPO_ROOT}${PYTHONPATH:+:${PYTHONPATH}}"
+exec "${PROJECT_PYTHON}" -m src.muchanipo.web.websocket_server "$@"

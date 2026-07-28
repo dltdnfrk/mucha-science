@@ -1,0 +1,56 @@
+{
+  "schema_version": "research-quality-benchmark.v1",
+  "rankings": [
+    {
+      "provider": "academic",
+      "papers": [
+        {"paper_id": "academic:A", "doi": "DOI:10.1000/ALPHA", "title": "Alpha trial"},
+        {"paper_id": "beta", "doi": null, "title": "Beta study"},
+        {"paper_id": "gamma", "doi": null, "title": "Gamma study"}
+      ]
+    },
+    {
+      "provider": "web",
+      "papers": [
+        {"paper_id": "web-alpha", "doi": "https://doi.org/10.1000/alpha", "title": "Alpha publisher page"},
+        {"paper_id": "delta", "doi": null, "title": "Delta study"},
+        {"paper_id": "beta", "doi": null, "title": "Beta mirror"}
+      ]
+    },
+    {
+      "provider": "exa",
+      "papers": [
+        {"paper_id": "epsilon", "doi": null, "title": "Epsilon study"},
+        {"paper_id": "exa-alpha", "doi": "10.1000/alpha", "title": "Alpha index"},
+        {"paper_id": "gamma", "doi": null, "title": "Gamma mirror"}
+      ]
+    }
+  ],
+  "retrieval": {
+    "run": ["alpha", "beta", "gamma", "epsilon", "delta"],
+    "relevance": {"beta": 3, "delta": 2, "zeta": 1},
+    "expected": {
+      "recall_at_5": 0.6666666666666666,
+      "recall_at_10": 0.6666666666666666,
+      "mrr": 0.5,
+      "ndcg_at_10": 0.5937604413238652
+    }
+  },
+  "claims": [
+    {
+      "label": "SUPPORTS",
+      "claim": "Drug X reduces systolic blood pressure by 10 mmHg.",
+      "evidence": "In adults, Drug X reduced systolic blood pressure by 10 mmHg versus placebo."
+    },
+    {
+      "label": "REFUTES",
+      "claim": "Drug X reduces systolic blood pressure by 10 mmHg.",
+      "evidence": "In adults, Drug X increased systolic blood pressure by 10 mmHg versus placebo."
+    },
+    {
+      "label": "INSUFFICIENT_EVIDENCE",
+      "claim": "Drug X reduces systolic blood pressure by 10 mmHg.",
+      "evidence": "Drug X was associated with blood pressure, but the direction and magnitude were unclear."
+    }
+  ]
+}

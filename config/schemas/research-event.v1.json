@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://muchanipo.local/schemas/research-event.v1.json",
+  "title": "Muchanipo research provider event",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event",
+        "schema_version",
+        "provider_kind",
+        "attempt_id",
+        "route_id",
+        "provider",
+        "outcome",
+        "count"
+      ],
+      "properties": {
+        "event": { "const": "provider_attempt" },
+        "schema_version": { "const": "research-event.v1" },
+        "provider_kind": { "enum": ["model", "academic_source"] },
+        "attempt_id": { "type": "string", "minLength": 1 },
+        "route_id": { "type": "string", "minLength": 1 },
+        "provider": { "type": "string", "minLength": 1 },
+        "outcome": { "enum": ["success", "empty", "failed"] },
+        "count": { "type": "integer", "minimum": 0 },
+        "failure": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["code", "message"],
+          "properties": {
+            "code": { "type": "string", "minLength": 1 },
+            "message": { "type": "string", "minLength": 1 }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "outcome": { "const": "failed" } },
+            "required": ["outcome"]
+          },
+          "then": { "required": ["failure"] },
+          "else": { "not": { "required": ["failure"] } }
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event",
+        "schema_version",
+        "route_id",
+        "attempt_ids",
+        "outcome",
+        "count"
+      ],
+      "properties": {
+        "event": { "const": "academic_route_summary" },
+        "schema_version": { "const": "research-event.v1" },
+        "route_id": { "type": "string", "minLength": 1 },
+        "attempt_ids": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "outcome": { "enum": ["success", "empty", "failed", "partial"] },
+        "count": { "type": "integer", "minimum": 0 }
+      }
+    }
+  ]
+}

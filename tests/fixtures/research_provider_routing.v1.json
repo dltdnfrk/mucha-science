@@ -1,0 +1,74 @@
+{
+  "schema_version": "research-provider-routing-fixture.v1",
+  "cases": [
+    {
+      "id": "zero_sources",
+      "connected_source_ids": [],
+      "renderer_environment": {
+        "MUCHANIPO_SOURCE_RESEARCH": "0"
+      },
+      "expected_academic_providers": []
+    },
+    {
+      "id": "opencode_only",
+      "provider_credentials": ["opencode"],
+      "renderer_environment": {
+        "MUCHANIPO_PROVIDER_CHAIN": "opencode",
+        "MUCHANIPO_SOURCE_RESEARCH": "0"
+      },
+      "expected_model_chain": ["opencode"]
+    },
+    {
+      "id": "both_providers_three_sources",
+      "connected_source_ids": [
+        "semantic-scholar",
+        "openalex",
+        "crossref"
+      ],
+      "provider_credentials": [
+        "mimo",
+        "opencode"
+      ],
+      "renderer_environment": {
+        "MUCHANIPO_PROVIDER_CHAIN": "mimo,opencode",
+        "MUCHANIPO_SOURCE_RESEARCH": "1",
+        "MUCHANIPO_ACADEMIC_SOURCES": "openalex,crossref,semantic_scholar"
+      },
+      "expected_model_chain": [
+        "mimo",
+        "opencode"
+      ],
+      "expected_academic_providers": [
+        "openalex",
+        "crossref",
+        "semantic_scholar"
+      ]
+    },
+    {
+      "id": "mixed_academic_outcomes",
+      "route_id": "route:fixture:mixed",
+      "attempts": [
+        {
+          "provider": "openalex",
+          "outcome": "success",
+          "count": 2
+        },
+        {
+          "provider": "crossref",
+          "outcome": "empty",
+          "count": 0
+        },
+        {
+          "provider": "semantic_scholar",
+          "outcome": "failed",
+          "count": 0,
+          "failure": {
+            "code": "authentication",
+            "message": "HTTP 401 unauthorized"
+          }
+        }
+      ],
+      "expected_summary_outcome": "partial"
+    }
+  ]
+}

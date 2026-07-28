@@ -62,6 +62,8 @@ def test_server_rejects_non_loopback_bind(tmp_path: Path) -> None:
 @pytest.mark.parametrize("origin", [
     Origin("http://127.0.0.1:1420"),
     Origin("http://localhost:1420"),
+    Origin("http://127.0.0.1:4173"),
+    Origin("http://localhost:4173"),
     Origin("http://tauri.localhost"),
     Origin("https://tauri.localhost"),
     Origin("tauri://localhost"),

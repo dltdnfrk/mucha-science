@@ -197,6 +197,92 @@ class Support(StrEnum): UNSUPPORTED = "unsupported"; PENDING = "pending"; DISPUT
 class AssessmentState(StrEnum): PENDING = "pending"; DISPUTED = "disputed"; ACCEPTED = "accepted"; REJECTED = "rejected"
 class EvidenceQuality(StrEnum): LOW = "low"; MODERATE = "moderate"; HIGH = "high"; UNKNOWN = "unknown"
 class ValidationLevel(StrEnum): V0 = "V0"; V1 = "V1"; V2 = "V2"; V3 = "V3"
+class EvidenceStance(StrEnum):
+    SUPPORTS_CLAIM = "supports_claim"
+    REFUTES_CLAIM = "refutes_claim"
+    MIXED = "mixed"
+    INCONCLUSIVE = "inconclusive"
+
+
+class UncertaintyLevel(StrEnum):
+    LOW = "low"
+    MODERATE = "moderate"
+    HIGH = "high"
+    UNKNOWN = "unknown"
+    NOT_CHECKED = "not_checked"
+
+
+@dataclass(frozen=True)
+class OrdinalUncertainty:
+    evidence_coverage: UncertaintyLevel
+    measurement: UncertaintyLevel
+    population_applicability: UncertaintyLevel
+    causal_identification: UncertaintyLevel
+    publication_integrity: UncertaintyLevel
+
+    def __post_init__(self) -> None:
+        if not all(
+            isinstance(value, UncertaintyLevel)
+            for value in (
+                self.evidence_coverage,
+                self.measurement,
+                self.population_applicability,
+                self.causal_identification,
+                self.publication_integrity,
+            )
+        ):
+            raise ContractError("ordinal uncertainty fields must use UncertaintyLevel")
+
+
+def derive_evidence_stance(
+    supporting_evidence_ids: Sequence[str],
+    refuting_evidence_ids: Sequence[str],
+) -> EvidenceStance:
+    """Project explicitly adjudicated polarity without inferring stance from text."""
+    supporting = _normalized_polarity_ids(supporting_evidence_ids)
+    refuting = _normalized_polarity_ids(refuting_evidence_ids)
+    if supporting and refuting:
+        return EvidenceStance.MIXED
+    if supporting:
+        return EvidenceStance.SUPPORTS_CLAIM
+    if refuting:
+        return EvidenceStance.REFUTES_CLAIM
+    return EvidenceStance.INCONCLUSIVE
+
+
+def _normalized_polarity_ids(values: Sequence[str]) -> tuple[str, ...]:
+    if not isinstance(values, (list, tuple)):
+        raise ContractError("evidence polarity IDs must be a list or tuple")
+    if any(not isinstance(value, str) or not value.strip() for value in values):
+        raise ContractError("evidence polarity IDs must be non-empty strings")
+    return tuple(sorted(set(values)))
+
+
+def contradiction_relationship_id(
+    claim_id: str,
+    supporting_evidence_ids: Sequence[str],
+    refuting_evidence_ids: Sequence[str],
+) -> str:
+    """Return an order-independent identity for an adjudicated contradiction."""
+    canonical_id_array((claim_id,), nonempty=True)
+    supporting = canonical_id_array(
+        tuple(sorted(set(supporting_evidence_ids))),
+        nonempty=True,
+    )
+    refuting = canonical_id_array(
+        tuple(sorted(set(refuting_evidence_ids))),
+        nonempty=True,
+    )
+    return deterministic_id(
+        "contradiction",
+        {
+            "claim_id": claim_id,
+            "supporting_evidence_ids": supporting,
+            "refuting_evidence_ids": refuting,
+        },
+    )
+
+
 class Responsibility(StrEnum):
     QUESTION_SELECTION = "question_selection"; SAFETY_ETHICS_REVIEW = "safety_ethics_review"; EXECUTION_ACCOUNTABILITY = "execution_accountability"; EXCEPTION_INTERPRETATION = "exception_interpretation"; NOVELTY_VALUE_JUDGMENT = "novelty_value_judgment"; FINAL_ACCOUNTABILITY = "final_accountability"
 

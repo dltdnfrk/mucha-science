@@ -295,6 +295,7 @@ def run_pipeline(
         "council_persona_pool_size": len(result.council.personas),
         "active_council_persona_count": int(result.state.artifacts.get("active_council_persona_count") or profile.active_persona_count),
         "council_turn_transcript": list(result.council.turn_transcript),
+        "artifacts": dict(result.state.artifacts),
     }
 
 

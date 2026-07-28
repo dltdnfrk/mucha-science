@@ -1,252 +1,43 @@
-"""Terminal-first Muchanipo runtime.
-
-The Python pipeline is the product core. Tauri can remain a viewer/control
-shell, but local personal usage should also work directly from a terminal:
-
-    python3 -m muchanipo run "topic"
-    python3 -m muchanipo tui "topic"
-"""
+"""Compatibility facade for the terminal-native Muchanipo runtime."""
 
 from __future__ import annotations
 
-import json
-import os
-import shutil
 import subprocess
-import sys
-import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, IO
 
-from src.research.depth import normalize_depth
 from src.runtime.live_mode import assert_mimo_opencode_policy_credentials
 
-
-JSON_SCHEMA_VERSION = 1
-HOME_RECENT_RUN_LIMIT = 3
-HOME_FAILURE_SCAN_LIMIT = 50
-DEMO_TOPIC = "저비용 분자진단 키트 시장성"
-CLI_JSON_CONTRACTS_V1: dict[str, dict[str, Any]] = {
-    "muchanipo doctor": {
-        "schema_version": JSON_SCHEMA_VERSION,
-        "description": "Local runtime readiness for the TUI-first CLI.",
-        "required_top_level_keys": (
-            "schema_version",
-            "command",
-            "ok",
-            "status",
-            "runs_dir",
-            "checks",
-            "cli_statuses",
-            "recommendations",
-        ),
-        "compatibility": "Consumers may ignore additive fields; required keys are stable for schema_version 1.",
-    },
-    "muchanipo status": {
-        "schema_version": JSON_SCHEMA_VERSION,
-        "description": "Installed/version status for provider CLIs.",
-        "required_top_level_keys": (
-            "schema_version",
-            "command",
-            "providers",
-        ),
-        "compatibility": "Consumers may ignore additive fields; required keys are stable for schema_version 1.",
-    },
-    "muchanipo runs": {
-        "schema_version": JSON_SCHEMA_VERSION,
-        "description": "Recent terminal run summaries loaded from summary.json artifacts.",
-        "required_top_level_keys": (
-            "schema_version",
-            "command",
-            "runs_dir",
-            "limit",
-            "runs",
-        ),
-        "compatibility": "Consumers may ignore additive fields; required keys are stable for schema_version 1.",
-    },
-    "muchanipo references": {
-        "schema_version": JSON_SCHEMA_VERSION,
-        "description": "Reference-project implementation inventory and six-stage readiness.",
-        "required_top_level_keys": (
-            "schema_version",
-            "command",
-            "stages",
-            "references",
-            "gaps",
-            "not_ready_references",
-            "license_warnings",
-        ),
-        "compatibility": "Consumers may ignore additive fields; required keys are stable for schema_version 1.",
-    },
-    "muchanipo guard": {
-        "schema_version": JSON_SCHEMA_VERSION,
-        "description": "Autoresearch completion-artifact guard for local product review, verification, and security barriers.",
-        "required_top_level_keys": (
-            "schema_version",
-            "command",
-            "status",
-            "passed",
-            "summary",
-            "autoresearch",
-            "checks",
-            "warnings",
-            "blockers",
-        ),
-        "compatibility": "Consumers may ignore additive fields; required keys are stable for schema_version 1.",
-    },
-    "muchanipo orchestrate": {
-        "schema_version": JSON_SCHEMA_VERSION,
-        "description": "tmux/smux operator hub and worker-window orchestration status.",
-        "required_top_level_keys": (
-            "schema_version",
-            "command",
-            "session",
-            "ok",
-            "tmux_available",
-            "plan",
-            "windows",
-            "panes",
-            "operators",
-            "warnings",
-        ),
-        "compatibility": "Consumers may ignore additive fields; required keys are stable for schema_version 1.",
-    },
-}
-
-STAGE_LABELS: dict[str, str] = {
-    "intake": "아이디어 접수",
-    "interview": "인터뷰 / 요구사항 정리",
-    "targeting": "목표 설정 / 연구 지도",
-    "research": "자료 수집 / 자동 연구",
-    "evidence": "근거 검증 / 지식 정리",
-    "council": "Council / 다중 관점 토론",
-    "report": "보고서 작성",
-    "vault": "학습 축적 / Vault",
-    "agents": "에이전트 기록",
-    "finalize": "완료",
-}
-
-STAGE_ORDER: tuple[str, ...] = tuple(STAGE_LABELS)
+from .terminal_runtime import doctor as _doctor
+from .terminal_runtime import events as _events
+from .terminal_runtime import home as _home
+from .terminal_runtime import interview as _interview
+from .terminal_runtime import lifecycle as _lifecycle
+from .terminal_runtime import orchestration as _orchestration
+from .terminal_runtime import paths as _paths
+from .terminal_runtime import providers as _providers
+from .terminal_runtime import quality as _quality
+from .terminal_runtime import reports as _reports
+from .terminal_runtime import runs as _runs
+from .terminal_runtime.contracts import (
+    CLI_JSON_CONTRACTS_V1,
+    DEMO_TOPIC,
+    HOME_FAILURE_SCAN_LIMIT,
+    HOME_RECENT_RUN_LIMIT,
+    JSON_SCHEMA_VERSION,
+    STAGE_LABELS,
+    STAGE_ORDER,
+    InterviewCapture,
+    TerminalRunPaths,
+    TerminalRunResult,
+)
 
 
 def run_pipeline(*args: Any, **kwargs: Any) -> dict[str, Any]:
-    """Lazy pipeline import so lightweight CLI inspection commands start fast."""
-    from src.pipeline.runner import run_pipeline as _run_pipeline
+    """Import the heavy pipeline only when a run starts."""
+    from src.pipeline.runner import run_pipeline as pipeline_runner
 
-    return _run_pipeline(*args, **kwargs)
-
-
-@dataclass
-class TerminalRunPaths:
-    run_id: str
-    run_dir: Path
-    events_path: Path
-    report_path: Path
-    summary_path: Path
-
-
-@dataclass
-class TerminalRunResult:
-    topic: str
-    run_id: str
-    report_path: Path
-    events_path: Path
-    summary_path: Path
-    offline: bool | None
-    stage_status: dict[str, str] = field(default_factory=dict)
-
-
-@dataclass
-class InterviewCapture:
-    original_topic: str
-    pipeline_input: str
-    mode: str
-    answered: int
-
-
-def terminal_app(
-    *,
-    stdin: IO[str] | None = None,
-    stdout: IO[str] | None = None,
-) -> int:
-    """Interactive Muchanipo home for `muchanipo` with no arguments."""
-    inp = stdin or sys.stdin
-    out = stdout or sys.stdout
-    _render_home(out)
-    while True:
-        raw_choice = _read_prompt(inp, out, "muchanipo> ")
-        if raw_choice is None:
-            out.write("bye\n")
-            out.flush()
-            return 0
-        topic_or_choice = raw_choice.strip()
-        choice = topic_or_choice.lower()
-        if choice == "":
-            _render_home(out)
-            continue
-        command = _normalize_home_command(choice)
-        if command == "exit":
-            out.write("bye\n")
-            out.flush()
-            return 0
-        if command == "new":
-            raw_topic = _read_prompt(inp, out, "topic> ")
-            if raw_topic is None:
-                out.write("bye\n")
-                out.flush()
-                return 0
-            topic = raw_topic.strip()
-            if not topic:
-                out.write("topic is required\n")
-                out.flush()
-                continue
-            raw_mode = _read_prompt(inp, out, "mode [auto/offline/online] (auto)> ")
-            mode = (raw_mode or "").strip().lower()
-            offline = _offline_from_mode(mode)
-            _run_from_app(topic, inp=inp, out=out, offline=offline, interview=True, depth="deep")
-            _render_home(out)
-            continue
-        if command == "demo":
-            _run_from_app(DEMO_TOPIC, inp=inp, out=out, offline=True, interview=False, depth="shallow")
-            _render_home(out)
-            continue
-        if command == "runs":
-            render_runs(stdout=out)
-            continue
-        if command == "status":
-            render_cli_status(stdout=out)
-            continue
-        if command == "references":
-            render_references(stdout=out)
-            continue
-        if command == "guard":
-            render_guard(stdout=out)
-            continue
-        if command == "orchestrate":
-            render_orchestration(stdout=out)
-            continue
-        if command == "contracts":
-            render_json_contracts(stdout=out)
-            continue
-        if command == "doctor":
-            render_doctor(stdout=out)
-            continue
-        if command == "help":
-            _render_help(out)
-            continue
-        if command == "home":
-            _render_home(out)
-            continue
-        if choice.startswith("/"):
-            out.write(f"unknown command: {topic_or_choice}\n")
-            out.write("type /help for commands\n")
-            out.flush()
-            continue
-        _run_from_app(topic_or_choice, inp=inp, out=out, offline=None, interview=True, depth="deep")
-        _render_home(out)
+    return pipeline_runner(*args, **kwargs)
 
 
 def terminal_run(
@@ -262,220 +53,20 @@ def terminal_run(
     require_live: bool = False,
     depth: str = "deep",
 ) -> TerminalRunResult:
-    """Run the full pipeline as a terminal-native command.
-
-    `jsonl=True` preserves the machine-readable event stream for scripts.
-    `dashboard=True` redraws a compact terminal dashboard without adding a
-    dependency on a TUI framework.
-    """
-    out = stdout or sys.stdout
-    normalized_depth = normalize_depth(depth)
-    pipeline_topic = pipeline_input or topic
-    paths = _resolve_paths(topic=topic, run_dir=run_dir, report_path=report_path)
-    paths.run_dir.mkdir(parents=True, exist_ok=True)
-    events_file = paths.events_path.open("w", encoding="utf-8")
-    status = {stage: "pending" for stage in STAGE_ORDER}
-    started_at = time.time()
-
-    def emit_terminal(event: dict[str, Any]) -> None:
-        _write_event(events_file, event)
-        stage = str(event.get("stage") or "")
-        if stage in status:
-            if event.get("event") == "stage_started":
-                status[stage] = "active"
-            elif event.get("event") == "stage_completed":
-                status[stage] = "done"
-        if jsonl:
-            out.write(json.dumps(event, ensure_ascii=False) + "\n")
-            out.flush()
-        elif dashboard:
-            _render_dashboard(out, topic=topic, paths=paths, status=status, event=event)
-        else:
-            _render_plain_event(out, event)
-
-    _write_event(
-        events_file,
-        {
-            "event": "terminal_run_started",
-            "topic": topic,
-            "run_id": paths.run_id,
-            "report_path": str(paths.report_path),
-            "events_path": str(paths.events_path),
-            "offline": offline,
-            "require_live": require_live,
-            "depth": normalized_depth,
-            "pipeline_input": pipeline_topic if pipeline_topic != topic else None,
-            "created_at": _now_iso(),
-        },
-    )
-    if not jsonl and not dashboard:
-        out.write(f"Muchanipo run started: {topic}\n")
-        out.write(f"Run dir: {paths.run_dir}\n")
-        out.flush()
-    if dashboard:
-        _render_dashboard(out, topic=topic, paths=paths, status=status, event=None)
-
-    try:
-        if require_live:
-            assert_mimo_opencode_policy_credentials()
-        result = run_pipeline(
-            pipeline_topic,
-            progress_callback=emit_terminal,
-            offline=offline,
-            require_live=require_live,
-            depth=normalized_depth,
-        )
-    except KeyboardInterrupt as exc:
-        status["finalize"] = "error"
-        _record_terminal_failure(
-            paths=paths,
-            events_file=events_file,
-            out=out,
-            status=status,
-            started_at=started_at,
-            topic=topic,
-            offline=offline,
-            jsonl=jsonl,
-            dashboard=dashboard,
-            require_live=require_live,
-            depth=normalized_depth,
-            event_name="terminal_run_interrupted",
-            error_type="KeyboardInterrupt",
-            message="interrupted by user",
-        )
-        raise exc
-    except Exception as exc:
-        status["finalize"] = "error"
-        _record_terminal_failure(
-            paths=paths,
-            events_file=events_file,
-            out=out,
-            status=status,
-            started_at=started_at,
-            topic=topic,
-            offline=offline,
-            jsonl=jsonl,
-            dashboard=dashboard,
-            require_live=require_live,
-            depth=normalized_depth,
-            event_name="terminal_run_error",
-            error_type=type(exc).__name__,
-            message=str(exc),
-        )
-        raise
-    finally:
-        events_file.flush()
-        events_file.close()
-
-    research_quality_only = bool(result.get("research_quality_only"))
-    research_quality_snapshot = _research_quality_snapshot(result) if research_quality_only else {}
-    report_md = str(result.get("report_md") or "")
-    if not research_quality_only:
-        paths.report_path.parent.mkdir(parents=True, exist_ok=True)
-        paths.report_path.write_text(report_md, encoding="utf-8")
-    if research_quality_only:
-        readiness = str(research_quality_snapshot.get("research_quality_readiness") or "ready")
-        terminal_status = "research_quality_ready" if readiness == "ready" else "research_quality_needs_review"
-    else:
-        terminal_status = "completed"
-    summary = {
-        "topic": topic,
-        "run_id": paths.run_id,
-        "status": terminal_status,
-        "pipeline_input": pipeline_topic if pipeline_topic != topic else None,
-        "report_path": None if research_quality_only else str(paths.report_path),
-        "events_path": str(paths.events_path),
-        "offline": offline,
-        "require_live": require_live,
-        "depth": normalized_depth,
-        "target_runtime_seconds": getattr(result.get("depth_profile"), "target_runtime_seconds", None),
-        "council_persona_pool_size": int(result.get("council_persona_pool_size") or 0),
-        "active_council_persona_count": int(result.get("active_council_persona_count") or 0),
-        "council_turn_count": len(result.get("council_turn_transcript") or []),
-        "duration_sec": round(time.time() - started_at, 3),
-        "round_count": len(result.get("rounds") or []),
-        "executed_council_round_count": int(result.get("executed_council_round_count") or 0),
-        "brief_id": getattr(result.get("brief"), "id", None),
-        "vault_path": str(result.get("vault_path") or ""),
-        "completed_at": _now_iso(),
-    }
-    if research_quality_only:
-        summary.update(
-            {
-                "research_quality_only": True,
-                "research_quality_stop": str(
-                    research_quality_snapshot.get("research_quality_stop")
-                    or result.get("research_quality_only_stop")
-                    or "before_council"
-                ),
-                "research_quality_snapshot": research_quality_snapshot,
-                **_research_quality_iteration_counts(research_quality_snapshot),
-            }
-        )
-    paths.summary_path.write_text(
-        json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
-
-    chapter_count = sum(1 for line in report_md.splitlines() if line.startswith("## "))
-    done_event = {
-        "event": "done",
-        "pipeline": "terminal",
-        "report_path": summary["report_path"],
-        "vault_path": str(result.get("vault_path") or ""),
-        "status": terminal_status,
-        "depth": normalized_depth,
-        "council_persona_pool_size": summary["council_persona_pool_size"],
-        "active_council_persona_count": summary["active_council_persona_count"],
-        "council_turn_count": summary["council_turn_count"],
-    }
-    if research_quality_only:
-        done_event.update(
-            {
-                "research_quality_only": True,
-                "research_quality_stop": summary["research_quality_stop"],
-                "research_quality_snapshot": research_quality_snapshot,
-            }
-        )
-    final_report_event = {
-        "event": "final_report",
-        "report_path": str(paths.report_path),
-        "vault_path": str(result.get("vault_path") or ""),
-        "chapter_count": chapter_count,
-    }
-    terminal_done_event = {"event": "terminal_run_done", **summary}
-    completion_events = (
-        [done_event, terminal_done_event]
-        if research_quality_only
-        else [final_report_event, done_event, terminal_done_event]
-    )
-    with paths.events_path.open("a", encoding="utf-8") as append_events:
-        for event in completion_events:
-            _write_event(append_events, event)
-    if jsonl:
-        for event in completion_events:
-            out.write(json.dumps(event, ensure_ascii=False) + "\n")
-    elif dashboard:
-        status.update({stage: "done" for stage in STAGE_ORDER})
-        _render_dashboard(out, topic=topic, paths=paths, status=status, event=terminal_done_event)
-        out.write("\n")
-    else:
-        if research_quality_only:
-            out.write("Research quality snapshot ready before council.\n")
-        else:
-            out.write(f"Report: {paths.report_path}\n")
-        out.write(f"Events: {paths.events_path}\n")
-        out.write("Muchanipo run completed.\n")
-    out.flush()
-
-    return TerminalRunResult(
-        topic=topic,
-        run_id=paths.run_id,
-        report_path=paths.report_path,
-        events_path=paths.events_path,
-        summary_path=paths.summary_path,
+    return _lifecycle.terminal_run(
+        topic,
+        pipeline_runner=run_pipeline,
+        credential_check=assert_mimo_opencode_policy_credentials,
+        path_resolver=_resolve_paths,
+        stdout=stdout,
+        report_path=report_path,
+        run_dir=run_dir,
         offline=offline,
-        stage_status=dict(status),
+        jsonl=jsonl,
+        dashboard=dashboard,
+        pipeline_input=pipeline_input,
+        require_live=require_live,
+        depth=depth,
     )
 
 
@@ -485,409 +76,33 @@ def conduct_interview(
     stdin: IO[str] | None = None,
     stdout: IO[str] | None = None,
 ) -> InterviewCapture:
-    """Run the show-me-the-prd style intake interview before research starts."""
-    from src.intake.idea_dump import IdeaDump
-    from src.intent.interview_prompts import forcing_questions_korean, merge_answers_to_text
-    from src.interview.session import InterviewSession
-
-    inp = stdin or sys.stdin
-    out = stdout or sys.stdout
-    session = InterviewSession.from_idea(IdeaDump(raw_text=topic))
-    plan = session.plan
-    mode = plan.mode if plan is not None else "deep"
-    question_bank = {item["id"]: item["question"] for item in forcing_questions_korean()}
-    if mode == "quick":
-        questions = session.clarifications_for_quick_mode()
-    else:
-        questions = []
-
-    out.write("\n아이디어 심층 인터뷰\n")
-    out.write("------------------\n")
-    out.write("show-me-the-prd 방식으로 PRD, 기능명세, 유저플로우 seed를 먼저 좁힌 뒤 리서치를 시작합니다.\n")
-    out.write("빈 줄 또는 'skip'은 해당 질문을 건너뜁니다.\n\n")
-    out.flush()
-
-    qa_pairs: list[dict[str, str]] = []
-    asked: set[str] = set()
-    for idx in range(1, 7):
-        if mode == "quick":
-            if idx > len(questions):
-                break
-            q = questions[idx - 1]
-            qid = str(q.get("id") or f"Q{idx}")
-            question = str(q.get("question") or "").strip()
-        else:
-            next_item = session.next_question()
-            if next_item is None:
-                break
-            if next_item.dimension_id in asked and session.rubric is not None:
-                next_item = next(
-                    (candidate for candidate in session.rubric.items if candidate.dimension_id not in asked),
-                    None,
-                )
-                if next_item is None:
-                    break
-            qid = next_item.dimension_id
-            question = question_bank.get(qid, next_item.research_question).strip()
-            asked.add(qid)
-        out.write(f"{question}\n")
-        answer = _read_prompt(inp, out, "answer> ")
-        if answer is None:
-            out.write("\n인터뷰 입력이 종료되어 현재 답변까지만 반영합니다.\n")
-            out.flush()
-            break
-        cleaned = answer.strip()
-        if not cleaned or cleaned.lower() in {"skip", "pass", "건너뛰기"}:
-            if mode != "quick" and session.rubric is not None:
-                try:
-                    session.rubric.update(qid, "skipped", quality=0.7)
-                except KeyError:
-                    pass
-            out.write("skipped\n\n")
-            out.flush()
-            continue
-        label = _interview_answer_label(qid)
-        if label:
-            session.answer(label, cleaned)
-        qa_pairs.append({"id": qid, "answer": cleaned})
-        out.write("\n")
-        out.flush()
-
-    if not qa_pairs:
-        out.write("인터뷰 답변이 없어 원 토픽으로 진행합니다.\n\n")
-        out.flush()
-        return InterviewCapture(original_topic=topic, pipeline_input=topic, mode=mode, answered=0)
-
-    pipeline_input = merge_answers_to_text(topic, qa_pairs)
-    out.write(f"인터뷰 반영 완료: {len(qa_pairs)}개 답변, coverage={session.coverage_score:.2f}\n")
-    out.write("이제 리서치 파이프라인을 시작합니다.\n\n")
-    out.flush()
-    return InterviewCapture(
-        original_topic=topic,
-        pipeline_input=pipeline_input,
-        mode=mode,
-        answered=len(qa_pairs),
-    )
+    return _interview.conduct_interview(topic, stdin=stdin, stdout=stdout)
 
 
-def _run_from_app(
-    topic: str,
+def terminal_app(
     *,
-    inp: IO[str],
-    out: IO[str],
-    offline: bool | None,
-    interview: bool,
-    depth: str,
-    require_live: bool = False,
-) -> None:
-    try:
-        capture = conduct_interview(topic, stdin=inp, stdout=out) if interview else None
-        terminal_run(
-            topic,
-            stdout=out,
-            offline=offline,
-            dashboard=_supports_dashboard(out),
-            pipeline_input=capture.pipeline_input if capture else None,
-            require_live=require_live,
-            depth=depth,
-        )
-    except KeyboardInterrupt:
-        out.write("\nRun interrupted; returning to Muchanipo home.\n")
-        out.flush()
-    except Exception as exc:
-        out.write(f"\nRun failed; returning to Muchanipo home: {type(exc).__name__}: {exc}\n")
-    out.flush()
-
-
-def _interview_answer_label(qid: str) -> str | None:
-    return {
-        "Q1_research_question": "research_question",
-        "Q2_purpose": "purpose",
-        "Q3_context": "context",
-        "Q4_known": "known",
-        "Q5_deliverable": "deliverable_type",
-        "Q6_quality": "quality_bar",
-        "clarify_timeframe": "quality_bar",
-        "clarify_domain": "context",
-        "clarify_evaluation": "quality_bar",
-        "clarify_comparison": "context",
-    }.get(qid)
-
-
-def _normalize_home_command(choice: str) -> str | None:
-    slash_aliases = {
-        "/q": "exit",
-        "/quit": "exit",
-        "/exit": "exit",
-        "/bye": "exit",
-        "/new": "new",
-        "/run": "new",
-        "/demo": "demo",
-        "/runs": "runs",
-        "/history": "runs",
-        "/status": "status",
-        "/references": "references",
-        "/refs": "references",
-        "/guard": "guard",
-        "/audit": "guard",
-        "/orchestrate": "orchestrate",
-        "/orchestration": "orchestrate",
-        "/ops": "orchestrate",
-        "/contracts": "contracts",
-        "/doctor": "doctor",
-        "/help": "help",
-        "/h": "help",
-        "/?": "help",
-        "/clear": "home",
-        "/home": "home",
-    }
-    plain_aliases = {
-        "q": "exit",
-        "quit": "exit",
-        "exit": "exit",
-        "1": "new",
-        "new": "new",
-        "n": "new",
-        "2": "demo",
-        "demo": "demo",
-        "3": "runs",
-        "runs": "runs",
-        "r": "runs",
-        "4": "status",
-        "status": "status",
-        "s": "status",
-        "5": "references",
-        "references": "references",
-        "refs": "references",
-        "6": "guard",
-        "guard": "guard",
-        "audit": "guard",
-        "7": "orchestrate",
-        "orchestrate": "orchestrate",
-        "orchestration": "orchestrate",
-        "ops": "orchestrate",
-        "8": "contracts",
-        "contracts": "contracts",
-        "9": "doctor",
-        "doctor": "doctor",
-        "d": "doctor",
-        "10": "help",
-        "help": "help",
-        "h": "help",
-        "?": "help",
-    }
-    return slash_aliases.get(choice) or plain_aliases.get(choice)
-
-
-def _research_quality_snapshot(result: dict[str, Any]) -> dict[str, Any]:
-    artifacts = _as_dict(result.get("artifacts"))
-    source_audit = _parse_artifact(artifacts.get("source_audit_summary"))
-    claim_matrix = _parse_artifact(artifacts.get("claim_evidence_matrix_summary"))
-    benchmark_metrics = _parse_artifact(artifacts.get("max_plus_benchmark_metrics"))
-    evidence_ledger_metrics = _parse_artifact(artifacts.get("evidence_ledger_readiness_metrics"))
-    evidence_count = _coerce_int(
-        artifacts.get("evidence_count"),
-        default=_coerce_int(result.get("evidence_count"), default=0),
+    stdin: IO[str] | None = None,
+    stdout: IO[str] | None = None,
+) -> int:
+    actions = _home.HomeActions(
+        terminal_run=terminal_run,
+        conduct_interview=conduct_interview,
+        render_runs=render_runs,
+        render_cli_status=render_cli_status,
+        render_references=render_references,
+        render_guard=render_guard,
+        render_orchestration=render_orchestration,
+        render_json_contracts=render_json_contracts,
+        render_doctor=render_doctor,
     )
-    benchmark_decision = str(
-        artifacts.get("max_plus_benchmark_decision")
-        or result.get("max_plus_benchmark_decision")
-        or ""
-    )
-    readiness = str(artifacts.get("research_quality_readiness") or "ready")
-    quality_stop = str(
-        result.get("research_quality_only_stop")
-        or artifacts.get("research_quality_only_stop")
-        or "before_council"
-    )
-    review_reasons: list[str] = []
-    if benchmark_decision == "blocked":
-        readiness = "needs_review"
-        quality_stop = "needs_review_before_council"
-        review_reasons.append("max_plus_benchmark_decision=blocked")
-    snapshot = {
-        "research_quality_stop": quality_stop,
-        "research_quality_readiness": readiness,
-        "evidence_ledger_readiness": str(
-            artifacts.get("evidence_ledger_readiness") or ""
-        ),
-        "evidence_ledger_metrics": evidence_ledger_metrics,
-        "source_audit_summary": source_audit,
-        "claim_evidence_matrix_summary": claim_matrix,
-        "max_plus_benchmark_metrics": benchmark_metrics,
-        "max_plus_benchmark_decision": benchmark_decision,
-        "evidence_count": evidence_count,
-    }
-    if review_reasons:
-        snapshot["research_quality_review_reasons"] = review_reasons
-    snapshot.update(_research_quality_iteration_counts(snapshot))
-    return snapshot
+    return _home.terminal_app(actions, stdin=stdin, stdout=stdout)
 
-
-def _research_quality_iteration_counts(snapshot: dict[str, Any]) -> dict[str, Any]:
-    source_audit = _as_dict(snapshot.get("source_audit_summary"))
-    benchmark_metrics = _as_dict(snapshot.get("max_plus_benchmark_metrics"))
-    counts: dict[str, Any] = {}
-    for key in (
-        "accepted_source_count",
-        "rejected_source_count",
-        "weak_source_count",
-        "weak_source_flag_count",
-        "gap_count",
-    ):
-        if key in source_audit:
-            counts[key] = _coerce_int(source_audit.get(key), default=0)
-    if "evidence_count" in snapshot:
-        counts["evidence_count"] = _coerce_int(snapshot.get("evidence_count"), default=0)
-    if "max_plus_benchmark_decision" in snapshot:
-        counts["max_plus_benchmark_decision"] = str(snapshot.get("max_plus_benchmark_decision") or "")
-    for key in (
-        "weak_source_penalty",
-        "expected_claim_recall",
-        "evidence_quote_coverage",
-        "claim_traceability",
-        "source_authority_score",
-    ):
-        if key in benchmark_metrics:
-            counts[key] = _coerce_float(benchmark_metrics.get(key), default=0.0)
-    return counts
-
-
-def _parse_artifact(value: Any) -> Any:
-    if isinstance(value, str):
-        text = value.strip()
-        if not text:
-            return {}
-        try:
-            return json.loads(text)
-        except json.JSONDecodeError:
-            return text
-    if isinstance(value, (dict, list)):
-        return value
-    return {} if value is None else value
-
-
-def _as_dict(value: Any) -> dict[str, Any]:
-    return value if isinstance(value, dict) else {}
-
-
-def _coerce_int(value: Any, *, default: int) -> int:
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def _coerce_float(value: Any, *, default: float) -> float:
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return default
-
-
-def _record_terminal_failure(
-    *,
-    paths: TerminalRunPaths,
-    events_file: IO[str],
-    out: IO[str],
-    status: dict[str, str],
-    started_at: float,
-    topic: str,
-    offline: bool | None,
-    jsonl: bool,
-    dashboard: bool,
-    require_live: bool,
-    depth: str,
-    event_name: str,
-    error_type: str,
-    message: str,
-) -> None:
-    event = {
-        "event": event_name,
-        "topic": topic,
-        "run_id": paths.run_id,
-        "message": message,
-        "error_type": error_type,
-        "created_at": _now_iso(),
-    }
-    _write_event(events_file, event)
-    failure_status = "interrupted" if event_name == "terminal_run_interrupted" else "failed"
-    done_event = {
-        "event": "done",
-        "pipeline": "terminal",
-        "run_id": paths.run_id,
-        "aborted": True,
-        "status": failure_status,
-        "error_type": error_type,
-    }
-    _write_event(events_file, done_event)
-    summary = {
-        "topic": topic,
-        "run_id": paths.run_id,
-        "status": failure_status,
-        "report_path": str(paths.report_path),
-        "events_path": str(paths.events_path),
-        "offline": offline,
-        "require_live": require_live,
-        "depth": depth,
-        "duration_sec": round(time.time() - started_at, 3),
-        "error_type": error_type,
-        "message": message,
-        "completed_at": _now_iso(),
-    }
-    paths.summary_path.write_text(
-        json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
-    )
-    if jsonl:
-        out.write(json.dumps(event, ensure_ascii=False) + "\n")
-        out.write(json.dumps(done_event, ensure_ascii=False) + "\n")
-    elif dashboard:
-        _render_dashboard(out, topic=topic, paths=paths, status=status, event=done_event)
-        out.write("\n")
-    elif event_name == "terminal_run_interrupted":
-        out.write("\nINTERRUPTED: run stopped by user. Partial artifacts were saved.\n")
-    else:
-        out.write(f"\nERROR: {error_type}: {message}\n")
-        out.write("Partial artifacts were saved.\n")
-    out.flush()
 
 def cli_statuses() -> list[dict[str, Any]]:
-    """Return installed/version status for local provider CLIs."""
-    specs = [
-        ("claude", "CLAUDE_BIN", ["--version"]),
-        ("codex", "CODEX_BIN", ["--version"]),
-        ("gemini", "GEMINI_BIN", ["--version"]),
-        ("kimi", "KIMI_BIN", ["--version"]),
-        ("opencode", "OPENCODE_BIN", ["--version"]),
-    ]
-    statuses: list[dict[str, Any]] = []
-    for name, env_var, version_args in specs:
-        path = _resolve_cli_path(name, env_var)
-        record: dict[str, Any] = {
-            "name": name,
-            "installed": bool(path),
-            "path": path,
-            "version": None,
-            "error": None,
-        }
-        if path:
-            try:
-                proc = subprocess.run(
-                    [path, *version_args],
-                    capture_output=True,
-                    text=True,
-                    timeout=5,
-                )
-                text = (proc.stdout or proc.stderr or "").strip()
-                if proc.returncode == 0:
-                    record["version"] = text.splitlines()[0] if text else "installed"
-                else:
-                    record["error"] = _first_error_line(text) or f"exit {proc.returncode}"
-            except Exception as exc:  # pragma: no cover - host CLI behavior varies.
-                record["error"] = _first_error_line(str(exc))
-        statuses.append(record)
-    return statuses
+    return _providers.cli_statuses(
+        path_resolver=_resolve_cli_path,
+        run_command=subprocess.run,
+    )
 
 
 def cli_prompt_probes(
@@ -895,56 +110,12 @@ def cli_prompt_probes(
     *,
     timeout_sec: int | None = None,
 ) -> list[dict[str, Any]]:
-    """Run an opt-in real prompt smoke against installed local providers.
-
-    Version checks are cheap and safe for every status call. Prompt probes can
-    consume provider quota, so they only run when callers explicitly ask for
-    them, e.g. ``muchanipo status --probe --json``.
-    """
-    timeout = timeout_sec or int(os.environ.get("MUCHANIPO_PROVIDER_PROBE_TIMEOUT_SEC", "90"))
-    records = list(records if records is not None else cli_statuses())
-
-    def probe_one(item: dict[str, Any]) -> dict[str, Any]:
-        name = str(item.get("name") or "")
-        path = item.get("path")
-        record: dict[str, Any] = {
-            "name": name,
-            "installed": bool(item.get("installed")),
-            "prompt_ok": False,
-            "json_ok": False,
-            "latency_ms": None,
-            "provider": None,
-            "model": None,
-            "error": None,
-        }
-        if not path:
-            record["error"] = "not installed"
-            return record
-        prompt = (
-            'Return exactly this JSON and nothing else: '
-            f'{{"ok":true,"provider":"{name}","probe":"muchanipo"}}'
-        )
-        started = time.monotonic()
-        try:
-            result = _call_provider_probe(name=name, path=str(path), prompt=prompt, timeout=timeout)
-            record["latency_ms"] = round((time.monotonic() - started) * 1000)
-            record["prompt_ok"] = bool(str(result.text or "").strip())
-            record["provider"] = result.provider
-            record["model"] = result.model
-            payload = _extract_json_object(result.text)
-            record["json_ok"] = bool(payload and payload.get("ok") is True)
-        except Exception as exc:  # pragma: no cover - host CLI behavior varies.
-            record["latency_ms"] = round((time.monotonic() - started) * 1000)
-            record["error"] = _first_error_line(str(exc)) or type(exc).__name__
-        return record
-
-    probes: list[dict[str, Any] | None] = [None] * len(records)
-    max_workers = max(1, min(5, len(records)))
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_map = {executor.submit(probe_one, item): idx for idx, item in enumerate(records)}
-        for future in as_completed(future_map):
-            probes[future_map[future]] = future.result()
-    return [item for item in probes if item is not None]
+    return _providers.cli_prompt_probes(
+        records,
+        timeout_sec=timeout_sec,
+        status_loader=cli_statuses,
+        probe_caller=_call_provider_probe,
+    )
 
 
 def render_cli_status(
@@ -952,138 +123,52 @@ def render_cli_status(
     stdout: IO[str] | None = None,
     probe: bool = False,
 ) -> list[dict[str, Any]]:
-    out = stdout or sys.stdout
-    statuses = cli_statuses()
-    out.write("\nCLI status\n")
-    out.write("----------\n")
-    for item in statuses:
-        marker = "OK" if item["installed"] else "--"
-        detail = item.get("version")
-        if not detail and item["installed"] and item.get("error"):
-            detail = f"installed; version probe failed: {item['error']}"
-        detail = detail or "not found"
-        path = item.get("path") or "-"
-        out.write(f"[{marker}] {item['name']:<8} {detail}\n")
-        out.write(f"     {path}\n")
-    if probe:
-        out.write("\nPrompt probes\n")
-        for item in cli_prompt_probes(statuses):
-            marker = "OK" if item.get("prompt_ok") and item.get("json_ok") else "WARN"
-            detail = (
-                f"prompt={item.get('prompt_ok')} json={item.get('json_ok')}"
-                f" latency={item.get('latency_ms')}ms"
-            )
-            if item.get("error"):
-                detail += f" error={item['error']}"
-            out.write(f"[{marker}] {item['name']:<8} {detail}\n")
-    out.write("\n")
-    out.flush()
-    return statuses
-
-
-def status_report(*, probe: bool = False) -> dict[str, Any]:
-    """Return provider CLI status in a stable JSON shape."""
-    providers = cli_statuses()
-    report: dict[str, Any] = {
-        "schema_version": JSON_SCHEMA_VERSION,
-        "command": "muchanipo status",
-        "providers": providers,
-        "probe_requested": bool(probe),
-    }
-    if probe:
-        report["prompt_probes"] = cli_prompt_probes(providers)
-    return {
-        **report,
-    }
-
-
-def json_contracts_report() -> dict[str, Any]:
-    """Return the documented CLI JSON contracts in a stable JSON shape."""
-    contracts: dict[str, Any] = {}
-    for command, contract in CLI_JSON_CONTRACTS_V1.items():
-        contracts[command] = {
-            "schema_version": contract["schema_version"],
-            "description": contract["description"],
-            "required_top_level_keys": list(contract["required_top_level_keys"]),
-            "compatibility": contract["compatibility"],
-        }
-    return {
-        "schema_version": JSON_SCHEMA_VERSION,
-        "command": "muchanipo contracts",
-        "contracts": contracts,
-    }
-
-
-def render_json_contracts(*, stdout: IO[str] | None = None) -> dict[str, Any]:
-    out = stdout or sys.stdout
-    report = json_contracts_report()
-    out.write("\nCLI JSON contracts\n")
-    out.write("------------------\n")
-    for command, contract in report["contracts"].items():
-        keys = ", ".join(contract["required_top_level_keys"])
-        out.write(f"{command} --json\n")
-        out.write(f"  schema_version: {contract['schema_version']}\n")
-        out.write(f"  required keys: {keys}\n")
-        out.write(f"  compatibility: {contract['compatibility']}\n")
-    out.write("\n")
-    out.flush()
-    return report
-
-
-def references_report() -> dict[str, Any]:
-    """Return six-stage reference implementation readiness."""
-    from src.pipeline.reference_inventory import reference_readiness_report
-
-    return reference_readiness_report(repo_root=_repo_root())
-
-
-def render_references(*, stdout: IO[str] | None = None) -> dict[str, Any]:
-    out = stdout or sys.stdout
-    report = references_report()
-    out.write("\nReference runtime readiness\n")
-    out.write("---------------------------\n")
-    for stage in report["stages"]:
-        out.write(
-            f"{stage['step']}. {stage['name']}: "
-            f"{stage['ready_count']}/{stage['reference_count']} ready, "
-            f"{stage['product_standard_covered_count']}/{stage['reference_count']} product-standard covered, "
-            f"{stage['implemented_count']}/{stage['reference_count']} runtime-backed"
-        )
-        if stage["license_blocked_count"]:
-            out.write(f", {stage['license_blocked_count']} license boundary")
-        if stage["gap_count"]:
-            out.write(f", {stage['gap_count']} gap(s)")
-        out.write("\n")
-    if report["license_warnings"]:
-        out.write("\nLicense warnings\n")
-        for item in report["license_warnings"]:
-            out.write(f"- {item['name']}: {item['warning']}\n")
-    if report["gaps"]:
-        out.write("\nKnown gaps\n")
-        for item in report["gaps"]:
-            out.write(f"- {item['name']}: {item['gap']}\n")
-    out.write("\n")
-    out.flush()
-    return report
-
-
-def guard_report(*, strict: bool = False, include_untracked: bool = True) -> dict[str, Any]:
-    """Return Autoresearch product guard status and write its completion artifact."""
-    from src.governance.autoresearch_guard import run_product_guard
-
-    return run_product_guard(
-        repo_root=_repo_root(),
-        strict=strict,
-        include_untracked=include_untracked,
+    return _providers.render_cli_status(
+        stdout=stdout,
+        probe=probe,
+        status_loader=cli_statuses,
+        prompt_loader=cli_prompt_probes,
     )
 
 
-def render_guard(*, stdout: IO[str] | None = None, strict: bool = False) -> dict[str, Any]:
-    from src.governance.autoresearch_guard import render_product_guard
+def status_report(*, probe: bool = False) -> dict[str, Any]:
+    return _providers.status_report(
+        probe=probe,
+        status_loader=cli_statuses,
+        prompt_loader=cli_prompt_probes,
+    )
 
-    report = guard_report(strict=strict)
-    render_product_guard(report, stdout=stdout)
-    return report
+
+def doctor_report(*, runs_dir: Path | None = None) -> dict[str, Any]:
+    return _doctor.doctor_report(runs_dir=runs_dir, status_loader=cli_statuses)
+
+
+def render_doctor(
+    *,
+    stdout: IO[str] | None = None,
+    runs_dir: Path | None = None,
+) -> dict[str, Any]:
+    return _doctor.render_doctor(
+        stdout=stdout,
+        runs_dir=runs_dir,
+        report_loader=doctor_report,
+    )
+
+
+def references_report() -> dict[str, Any]:
+    return _reports.references_report()
+
+
+def render_references(*, stdout: IO[str] | None = None) -> dict[str, Any]:
+    return _reports.render_references(stdout=stdout, report_loader=references_report)
+
+
+def guard_report(*, strict: bool = False, include_untracked: bool = True) -> dict[str, Any]:
+    return _reports.guard_report(strict=strict, include_untracked=include_untracked)
+
+
+def render_guard(*, stdout: IO[str] | None = None, strict: bool = False) -> dict[str, Any]:
+    return _reports.render_guard(stdout=stdout, strict=strict)
 
 
 def orchestration_report(
@@ -1094,40 +179,13 @@ def orchestration_report(
     dry_run: bool = False,
     force: bool = False,
 ) -> dict[str, Any]:
-    """Return tmux/smux orchestration status in a stable JSON shape."""
-    from src.muchanipo.orchestration import (
-        DEFAULT_OPERATORS,
-        cleanup_workers_report,
-        orchestration_plan,
-        orchestration_status,
+    return _orchestration.orchestration_report(
+        session=session,
+        include_capture=include_capture,
+        cleanup_workers=cleanup_workers,
+        dry_run=dry_run,
+        force=force,
     )
-
-    if cleanup_workers:
-        cleanup = cleanup_workers_report(session=session, dry_run=dry_run, force=force)
-        actions = list(cleanup.get("actions") or [])
-        return {
-            "schema_version": JSON_SCHEMA_VERSION,
-            "command": "muchanipo orchestrate",
-            "session": session,
-            "ok": bool(cleanup.get("ok")),
-            "tmux_available": bool(cleanup.get("ok")) or bool(actions),
-            "plan": orchestration_plan(),
-            "windows": [],
-            "panes": [],
-            "operators": [operator.to_dict() for operator in DEFAULT_OPERATORS],
-            "warnings": list(cleanup.get("warnings") or []),
-            "cleanup": {
-                "dry_run": bool(cleanup.get("dry_run")),
-                "force": bool(cleanup.get("force")),
-                "actions": actions,
-            },
-        }
-    report = orchestration_status(session=session, include_capture=include_capture)
-    return {
-        "schema_version": JSON_SCHEMA_VERSION,
-        "command": "muchanipo orchestrate",
-        **report,
-    }
 
 
 def render_orchestration(
@@ -1139,224 +197,21 @@ def render_orchestration(
     dry_run: bool = False,
     force: bool = False,
 ) -> dict[str, Any]:
-    out = stdout or sys.stdout
-    report = orchestration_report(
+    return _orchestration.render_orchestration(
+        stdout=stdout,
         session=session,
         include_capture=include_capture,
         cleanup_workers=cleanup_workers,
         dry_run=dry_run,
         force=force,
     )
-    out.write("\nOperator orchestration\n")
-    out.write("----------------------\n")
-    out.write(f"Session: {report['session']}\n")
-    out.write(f"Status : {'OK' if report.get('ok') else 'WARN'}\n")
-    if cleanup_workers:
-        out.write(f"Cleanup: {'dry run' if dry_run else 'forced' if force else 'requires force'}\n")
-        cleanup = report.get("cleanup") if isinstance(report.get("cleanup"), dict) else {}
-        for action in cleanup.get("actions", []):
-            out.write(f"- {action['status']}: {action['target']} {action['action']}\n")
-    else:
-        plan = report.get("plan") or {}
-        out.write(f"Protected window: {plan.get('protected_window')}\n")
-        out.write(f"Worker windows  : {', '.join(str(item) for item in plan.get('worker_windows', []))}\n")
-        out.write("\nOperators\n")
-        for operator in report.get("operators", []):
-            marker = "OK" if operator.get("operator_pane_present") and operator.get("worker_window_present") else "WARN"
-            out.write(
-                f"[{marker}] {operator['agent']:<8} pane={operator['pane']} "
-                f"worker={operator['assigned_window']} mode={operator['mode']}\n"
-            )
-            if operator.get("model_requirement"):
-                out.write(f"       model: {operator['model_requirement']}\n")
-        if report.get("windows"):
-            out.write("\nWindows\n")
-            for window in report["windows"]:
-                active = " active" if window.get("active") else ""
-                out.write(f"- {window['index']}: {window['name']} panes={window['pane_count']}{active}\n")
-        if include_capture and report.get("captures"):
-            out.write("\nCaptures\n")
-            for target, capture in report["captures"].items():
-                snippet = str(capture).strip().splitlines()[-1:] or [""]
-                out.write(f"- window {target}: {snippet[0]}\n")
-    if report.get("warnings"):
-        out.write("\nWarnings\n")
-        for warning in report["warnings"]:
-            out.write(f"- {warning}\n")
-    out.write("\n")
-    out.flush()
-    return report
-
-
-def doctor_report(*, runs_dir: Path | None = None) -> dict[str, Any]:
-    """Return local readiness checks for the TUI-first CLI runtime."""
-    root = runs_dir or _default_runs_dir()
-    cli_records = cli_statuses()
-    installed_clis = [item["name"] for item in cli_records if item.get("installed")]
-    checks = [
-        _python_check(),
-        _entrypoint_check(),
-        _runs_dir_check(root),
-        {
-            "name": "provider_clis",
-            "ok": bool(installed_clis),
-            "severity": "warning",
-            "detail": ", ".join(installed_clis) if installed_clis else "no provider CLIs found; offline mode remains available",
-            "hint": "Install/login to claude, codex, gemini, kimi, or opencode for online runs.",
-        },
-        _provider_probe_check(cli_records),
-        _execution_mode_check(cli_records),
-    ]
-    status = _overall_status(checks)
-    return {
-        "schema_version": JSON_SCHEMA_VERSION,
-        "command": "muchanipo doctor",
-        "ok": all(item["ok"] or item["severity"] != "error" for item in checks),
-        "status": status,
-        "runs_dir": str(root),
-        "checks": checks,
-        "cli_statuses": cli_records,
-        "recommendations": _doctor_recommendations(checks),
-    }
-
-
-def render_doctor(
-    *,
-    stdout: IO[str] | None = None,
-    runs_dir: Path | None = None,
-) -> dict[str, Any]:
-    out = stdout or sys.stdout
-    report = doctor_report(runs_dir=runs_dir)
-    out.write("\nDoctor\n")
-    out.write("------\n")
-    out.write(f"Runs dir: {report['runs_dir']}\n")
-    for item in report["checks"]:
-        marker = "OK" if item["ok"] else "WARN" if item["severity"] == "warning" else "FAIL"
-        out.write(f"[{marker}] {item['name']}: {item['detail']}\n")
-        if not item["ok"] and item.get("hint"):
-            out.write(f"       {item['hint']}\n")
-    out.write("\n")
-    out.flush()
-    return report
-
-
-def _python_check() -> dict[str, Any]:
-    ok = sys.version_info >= (3, 11)
-    return {
-        "name": "python",
-        "ok": ok,
-        "severity": "warning",
-        "detail": sys.version.split()[0] if ok else f"{sys.version.split()[0]} works for tests; package target is 3.11+",
-        "hint": "Use Python 3.11 or newer for packaged installs.",
-    }
-
-
-def _entrypoint_check() -> dict[str, Any]:
-    installed = shutil.which("muchanipo")
-    local_script = _repo_root() / "bin" / "muchanipo"
-    ok = bool(installed or local_script.exists())
-    detail = installed or (str(local_script) if local_script.exists() else "not found")
-    return {
-        "name": "entrypoint",
-        "ok": ok,
-        "severity": "warning",
-        "detail": detail,
-        "hint": "Install the package or run via bin/muchanipo / python3 -m muchanipo.",
-    }
-
-
-def _provider_probe_check(records: list[dict[str, Any]]) -> dict[str, Any]:
-    failed = [
-        f"{item['name']}: {item['error']}"
-        for item in records
-        if item.get("installed") and item.get("error")
-    ]
-    return {
-        "name": "provider_probe",
-        "ok": not failed,
-        "severity": "warning",
-        "detail": "; ".join(failed) if failed else "installed provider CLIs responded to version probes",
-        "hint": "Run the affected provider CLI directly and complete login/setup.",
-    }
-
-
-def _execution_mode_check(records: list[dict[str, Any]]) -> dict[str, Any]:
-    try:
-        from src.muchanipo.server import _detect_offline_mode
-
-        offline_default = _detect_offline_mode()
-    except Exception:
-        offline_default = True
-    installed = [item["name"] for item in records if item.get("installed")]
-    api_envs = [
-        key
-        for key in (
-            "ANTHROPIC_API_KEY",
-            "ANTHROPIC_AUTH_TOKEN",
-            "GEMINI_API_KEY",
-            "GOOGLE_API_KEY",
-            "OPENAI_API_KEY",
-            "KIMI_API_KEY",
-            "MOONSHOT_API_KEY",
-            "XIAOMI_MIMO_API_KEY",
-            "MIMO_API_KEY",
-        )
-        if os.environ.get(key)
-    ]
-    if offline_default:
-        detail = "default mode is offline/mock; online runs need provider CLI or API setup"
-    else:
-        sources = installed or api_envs
-        detail = "default mode is online-capable"
-        if sources:
-            detail += f" via {', '.join(sources)}"
-    return {
-        "name": "execution_mode",
-        "ok": True,
-        "severity": "info",
-        "detail": detail,
-        "hint": "Use --offline for deterministic mock runs or --online to require live providers.",
-    }
-
-
-def _overall_status(checks: list[dict[str, Any]]) -> str:
-    if any(not item["ok"] and item["severity"] == "error" for item in checks):
-        return "fail"
-    if any(not item["ok"] and item["severity"] == "warning" for item in checks):
-        return "warning"
-    return "ok"
-
-
-def _doctor_recommendations(checks: list[dict[str, Any]]) -> list[str]:
-    return [
-        str(item.get("hint") or "")
-        for item in checks
-        if not item.get("ok") and item.get("hint")
-    ]
 
 
 def list_runs(*, runs_dir: Path | None = None, limit: int = 10) -> list[dict[str, Any]]:
-    root = runs_dir or _default_runs_dir()
-    if not root.exists():
-        return []
-    records: list[dict[str, Any]] = []
-    for summary_path in root.glob("*/summary.json"):
-        try:
-            summary = json.loads(summary_path.read_text(encoding="utf-8"))
-        except Exception:
-            continue
-        if isinstance(summary, dict):
-            summary.setdefault("run_dir", str(summary_path.parent))
-            records.append(summary)
-    records.sort(key=lambda item: str(item.get("completed_at") or item.get("run_id") or ""), reverse=True)
-    return records[:limit]
+    return _runs.list_runs(runs_dir=runs_dir, limit=limit)
 
 
-def runs_report(
-    *,
-    runs_dir: Path | None = None,
-    limit: int = 10,
-) -> dict[str, Any]:
+def runs_report(*, runs_dir: Path | None = None, limit: int = 10) -> dict[str, Any]:
     root = runs_dir or _default_runs_dir()
     safe_limit = max(1, limit)
     return {
@@ -1374,18 +229,11 @@ def home_snapshot(
     recent_limit: int = HOME_RECENT_RUN_LIMIT,
     failure_scan_limit: int = HOME_FAILURE_SCAN_LIMIT,
 ) -> dict[str, Any]:
-    """Return the run summary shown on the terminal home screen."""
-    root = runs_dir or _default_runs_dir()
-    safe_recent_limit = max(1, recent_limit)
-    safe_scan_limit = max(safe_recent_limit, failure_scan_limit)
-    scanned_runs = list_runs(runs_dir=root, limit=safe_scan_limit)
-    return {
-        "schema_version": JSON_SCHEMA_VERSION,
-        "command": "muchanipo home",
-        "runs_dir": str(root),
-        "recent_runs": scanned_runs[:safe_recent_limit],
-        "last_failure": _first_failed_run(scanned_runs),
-    }
+    return _runs.home_snapshot(
+        runs_dir=runs_dir,
+        recent_limit=recent_limit,
+        failure_scan_limit=failure_scan_limit,
+    )
 
 
 def render_runs(
@@ -1394,136 +242,42 @@ def render_runs(
     runs_dir: Path | None = None,
     limit: int = 10,
 ) -> list[dict[str, Any]]:
-    out = stdout or sys.stdout
-    records = list_runs(runs_dir=runs_dir, limit=limit)
-    out.write("\nRuns\n")
-    out.write("----\n")
-    if not records:
-        out.write("No runs yet.\n\n")
-        out.flush()
-        return records
-    for idx, item in enumerate(records, start=1):
-        out.write(f"{idx}. {item.get('topic', '(untitled)')}\n")
-        out.write(f"   run: {item.get('run_id', '-')}\n")
-        out.write(f"   report: {item.get('report_path', '-')}\n")
-    out.write("\n")
-    out.flush()
-    return records
+    return _runs.render_runs(stdout=stdout, runs_dir=runs_dir, limit=limit)
 
 
-def _first_failed_run(records: list[dict[str, Any]]) -> dict[str, Any] | None:
-    for item in records:
-        if str(item.get("status") or "").lower() == "failed":
-            return item
-    return None
-
-
-def _resolve_cli_path(name: str, env_var: str) -> str | None:
-    explicit = os.environ.get(env_var)
-    if explicit:
-        return explicit
-    if name == "codex":
-        for candidate in ("/opt/homebrew/bin/codex", "/usr/local/bin/codex", shutil.which("codex")):
-            if candidate and Path(candidate).exists():
-                return candidate
-        return None
-    return shutil.which(name)
-
-
-def _first_error_line(text: str) -> str:
-    for line in text.splitlines():
-        line = line.strip()
-        if line:
-            return line[:160]
-    return ""
-
-
-def _call_provider_probe(*, name: str, path: str, prompt: str, timeout: int):
-    if name == "claude":
-        from src.execution.providers.anthropic import AnthropicProvider
-
-        return AnthropicProvider(
-            offline=False,
-            use_cli=True,
-            claude_bin=path,
-        ).call("eval", prompt, timeout=timeout, allow_fallback=False)
-    if name == "codex":
-        from src.execution.providers.codex import CodexProvider
-
-        return CodexProvider(
-            offline=False,
-            use_cli=True,
-            codex_bin=path,
-        ).call("eval", prompt, timeout=timeout)
-    if name == "gemini":
-        from src.execution.providers.gemini import GeminiProvider
-
-        return GeminiProvider(
-            offline=False,
-            use_cli=True,
-            gemini_bin=path,
-        ).call("eval", prompt, timeout=timeout, search_grounding=False)
-    if name == "kimi":
-        from src.execution.providers.kimi import KimiProvider
-
-        return KimiProvider(
-            offline=False,
-            use_cli=True,
-            kimi_bin=path,
-        ).call("eval", prompt, timeout=timeout)
-    if name == "opencode":
-        from src.execution.providers.opencode import OpenCodeProvider
-
-        return OpenCodeProvider(
-            offline=False,
-            use_cli=True,
-            opencode_bin=path,
-        ).call("eval", prompt, timeout=timeout)
-    raise ValueError(f"unsupported provider probe {name!r}")
-
-
-def _extract_json_object(text: str) -> dict[str, Any] | None:
-    stripped = text.strip()
-    candidates = [stripped]
-    start = stripped.find("{")
-    end = stripped.rfind("}")
-    if start >= 0 and end > start:
-        candidates.append(stripped[start : end + 1])
-    for candidate in candidates:
-        try:
-            payload = json.loads(candidate)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(payload, dict):
-            return payload
-    return None
-
-
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[2]
-
-
-def _runs_dir_check(root: Path) -> dict[str, Any]:
-    try:
-        root.mkdir(parents=True, exist_ok=True)
-        probe = root / ".muchanipo-write-test"
-        probe.write_text("ok", encoding="utf-8")
-        probe.unlink(missing_ok=True)
-    except Exception as exc:
-        return {
-            "name": "runs_dir",
-            "ok": False,
-            "severity": "error",
-            "detail": f"{root} is not writable: {_first_error_line(str(exc))}",
-            "hint": "Set MUCHANIPO_RUNS_DIR to a writable directory.",
-        }
-    return {
-        "name": "runs_dir",
-        "ok": True,
-        "severity": "error",
-        "detail": f"{root} is writable",
-        "hint": "",
-    }
+json_contracts_report = _reports.json_contracts_report
+render_json_contracts = _reports.render_json_contracts
+_normalize_home_command = _home.normalize_home_command
+_research_quality_snapshot = _quality.research_quality_snapshot
+_research_quality_iteration_counts = _quality.research_quality_iteration_counts
+_parse_artifact = _quality.parse_artifact
+_as_dict = _quality.as_dict
+_coerce_int = _quality.coerce_int
+_coerce_float = _quality.coerce_float
+_interview_answer_label = _interview.interview_answer_label
+_read_prompt = _interview.read_prompt
+_offline_from_mode = _home.offline_from_mode
+_truncate = _home.truncate
+_render_help = _home.render_help
+_first_failed_run = _runs.first_failed_run
+_resolve_cli_path = _providers.resolve_cli_path
+_first_error_line = _providers.first_error_line
+_call_provider_probe = _providers.call_provider_probe
+_extract_json_object = _providers.extract_json_object
+_repo_root = _paths.repo_root
+_runs_dir_check = _doctor.runs_dir_check
+_python_check = _doctor.python_check
+_entrypoint_check = _doctor.entrypoint_check
+_provider_probe_check = _doctor.provider_probe_check
+_execution_mode_check = _doctor.execution_mode_check
+_overall_status = _doctor.overall_status
+_doctor_recommendations = _doctor.doctor_recommendations
+_default_runs_dir = _paths.default_runs_dir
+_new_run_id = _paths.new_run_id
+_now_iso = _paths.now_iso
+_write_event = _events.write_event
+_render_plain_event = _events.render_plain_event
+_render_dashboard = _events.render_dashboard
 
 
 def _resolve_paths(
@@ -1532,173 +286,16 @@ def _resolve_paths(
     run_dir: Path | None,
     report_path: Path | None,
 ) -> TerminalRunPaths:
-    run_id = _new_run_id(topic)
-    base = run_dir or _default_runs_dir() / run_id
-    report = report_path or base / "REPORT.md"
-    return TerminalRunPaths(
-        run_id=run_id,
-        run_dir=base,
-        events_path=base / "events.jsonl",
-        report_path=report,
-        summary_path=base / "summary.json",
-    )
+    return _paths.resolve_paths(topic=topic, run_dir=run_dir, report_path=report_path)
 
 
 def _render_home(out: IO[str], *, runs_dir: Path | None = None) -> None:
-    snapshot = home_snapshot(runs_dir=runs_dir)
-    out.write("\nMuchanipo\n")
-    out.write("---------\n")
-    out.write(f"Runs dir: {snapshot['runs_dir']}\n")
-    out.write("Tip: type a topic directly to start research.\n\n")
-    _render_home_runs(out, snapshot=snapshot)
-    out.write("1. New research\n")
-    out.write("2. Demo run\n")
-    out.write("3. Runs\n")
-    out.write("4. CLI status\n")
-    out.write("5. Reference readiness\n")
-    out.write("6. Autoresearch product guard\n")
-    out.write("7. Operator orchestration\n")
-    out.write("8. JSON contracts\n")
-    out.write("9. Doctor\n")
-    out.write("10. Help\n")
-    out.write("q. Quit\n\n")
-    out.flush()
+    _home.render_home(out, runs_dir=runs_dir)
 
 
 def _render_home_runs(out: IO[str], *, snapshot: dict[str, Any]) -> None:
-    recent_runs = list(snapshot.get("recent_runs") or [])
-    last_failure = snapshot.get("last_failure")
-    if not recent_runs:
-        out.write("Recent runs: none yet\n\n")
-        return
-
-    out.write("Recent runs\n")
-    for idx, item in enumerate(recent_runs, start=1):
-        status = str(item.get("status") or "unknown")
-        topic = _truncate(str(item.get("topic") or "(untitled)"), 72)
-        completed_at = str(item.get("completed_at") or "-")
-        out.write(f"{idx}. [{status}] {topic}\n")
-        out.write(f"   run: {item.get('run_id', '-')} | completed: {completed_at}\n")
-
-    if isinstance(last_failure, dict):
-        topic = _truncate(str(last_failure.get("topic") or "(untitled)"), 72)
-        error_type = str(last_failure.get("error_type") or "Error")
-        message = _truncate(str(last_failure.get("message") or "no error message recorded"), 96)
-        out.write("\nLast failure\n")
-        out.write(f"[failed] {topic}\n")
-        out.write(f"   {error_type}: {message}\n")
-        out.write(f"   run: {last_failure.get('run_id', '-')}\n")
-    out.write("\n")
-
-
-def _truncate(text: str, limit: int) -> str:
-    if len(text) <= limit:
-        return text
-    return text[: max(0, limit - 3)].rstrip() + "..."
-
-
-def _render_help(out: IO[str]) -> None:
-    out.write("\nCommands\n")
-    out.write("--------\n")
-    out.write("muchanipo                         open this terminal app\n")
-    out.write("muchanipo demo                    run a deterministic offline demo\n")
-    out.write("muchanipo \"topic\"                 start a dashboard run\n")
-    out.write("muchanipo run \"topic\"             line-by-line run\n")
-    out.write("muchanipo tui \"topic\"             dashboard run\n")
-    out.write("muchanipo runs                    list previous runs\n")
-    out.write("muchanipo status                  show local CLI provider status\n\n")
-    out.write("muchanipo orchestrate             show tmux/smux operator status\n")
-    out.write("muchanipo contracts               show CLI JSON contracts\n")
-    out.write("muchanipo references              show reference runtime readiness\n")
-    out.write("muchanipo guard                   run Autoresearch product/security guard\n")
-    out.write("muchanipo doctor                  check local runtime readiness\n\n")
-    out.write("Interactive slash commands\n")
-    out.write("  /new, /run        start a new research run\n")
-    out.write("  /demo             run the deterministic offline demo\n")
-    out.write("  /runs, /history   list previous runs\n")
-    out.write("  /status           show local CLI provider status\n")
-    out.write("  /references       show reference runtime readiness\n")
-    out.write("  /guard, /audit    run Autoresearch product/security guard\n")
-    out.write("  /orchestrate      show tmux/smux operator status\n")
-    out.write("  /contracts        show CLI JSON contracts\n")
-    out.write("  /doctor           check local runtime readiness\n")
-    out.write("  /help             show this help\n")
-    out.write("  /clear, /home     redraw the home screen\n")
-    out.write("  /exit, /quit, /q  exit Muchanipo\n\n")
-    out.flush()
-
-
-def _read_prompt(inp: IO[str], out: IO[str], prompt: str) -> str | None:
-    out.write(prompt)
-    out.flush()
-    line = inp.readline()
-    return line if line else None
-
-
-def _offline_from_mode(mode: str) -> bool | None:
-    if mode in {"offline", "off", "mock", "m"}:
-        return True
-    if mode in {"online", "live", "on", "l"}:
-        return False
-    return None
+    _home.render_home_runs(out, snapshot=snapshot)
 
 
 def _supports_dashboard(out: IO[str]) -> bool:
-    return bool(getattr(out, "isatty", lambda: False)())
-
-
-def _default_runs_dir() -> Path:
-    return Path(os.environ.get("MUCHANIPO_RUNS_DIR", Path.home() / ".local" / "share" / "muchanipo" / "runs"))
-
-
-def _new_run_id(topic: str) -> str:
-    ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    slug = "".join(ch.lower() if ch.isalnum() else "-" for ch in topic).strip("-")
-    slug = "-".join(part for part in slug.split("-") if part)[:48] or "run"
-    return f"{ts}-{slug}"
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-def _write_event(stream: IO[str], event: dict[str, Any]) -> None:
-    stream.write(json.dumps(event, ensure_ascii=False) + "\n")
-    stream.flush()
-
-
-def _render_plain_event(out: IO[str], event: dict[str, Any]) -> None:
-    stage = str(event.get("stage") or "")
-    if not stage:
-        return
-    label = STAGE_LABELS.get(stage, stage)
-    if event.get("event") == "stage_started":
-        out.write(f"[>] {label}\n")
-    elif event.get("event") == "stage_completed":
-        out.write(f"[✓] {label}\n")
-    out.flush()
-
-
-def _render_dashboard(
-    out: IO[str],
-    *,
-    topic: str,
-    paths: TerminalRunPaths,
-    status: dict[str, str],
-    event: dict[str, Any] | None,
-) -> None:
-    if hasattr(out, "isatty") and out.isatty():
-        out.write("\x1b[2J\x1b[H")
-    out.write("Muchanipo Terminal Core\n")
-    out.write(f"Topic : {topic}\n")
-    out.write(f"Run   : {paths.run_id}\n")
-    out.write(f"Report: {paths.report_path}\n\n")
-    for stage in STAGE_ORDER:
-        marker = {"pending": " ", "active": ">", "done": "✓", "error": "!"}.get(status.get(stage, "pending"), " ")
-        out.write(f"[{marker}] {STAGE_LABELS[stage]}\n")
-    if event:
-        out.write(f"\nLast event: {event.get('event')}")
-        if event.get("stage"):
-            out.write(f" / {event.get('stage')}")
-        out.write("\n")
-    out.flush()
+    return _home.supports_dashboard(out)

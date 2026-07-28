@@ -1544,9 +1544,9 @@ def serve_full(
         )
         emit_scoped("done", pipeline="full", aborted=True)
         return 1
+    artifacts = pipeline_result.get("artifacts") or {}
+    readiness, readiness_reasons = _research_readiness_projection(artifacts)
     if pipeline_result.get("research_quality_only"):
-        artifacts = pipeline_result.get("artifacts") or {}
-        readiness = str(artifacts.get("research_quality_readiness") or "ready")
         terminal_status = "research_quality_ready" if readiness == "ready" else "research_quality_needs_review"
         heartbeat.update(stage="quality_gate", detail=terminal_status)
         heartbeat.stop()
@@ -1646,11 +1646,38 @@ def serve_full(
         vault_path=vault_path_str,
         pipeline="full",
         depth=depth,
+        research_quality_readiness=readiness,
+        research_readiness_reasons=readiness_reasons,
         council_persona_pool_size=int(pipeline_result.get("council_persona_pool_size") or 0),
         active_council_persona_count=int(pipeline_result.get("active_council_persona_count") or 0),
         council_turn_count=len(turn_transcript),
     )
     return 0
+
+
+def _research_readiness_projection(
+    artifacts: Mapping[str, Any],
+) -> tuple[str, list[str]]:
+    readiness = str(artifacts.get("research_quality_readiness") or "").strip()
+    raw_decision = artifacts.get("research_readiness_decision")
+    decision: Mapping[str, Any] = {}
+    if isinstance(raw_decision, str):
+        try:
+            parsed = json.loads(raw_decision)
+        except json.JSONDecodeError:
+            parsed = {}
+        if isinstance(parsed, dict):
+            decision = parsed
+    elif isinstance(raw_decision, dict):
+        decision = raw_decision
+    reasons = [
+        str(reason)
+        for reason in decision.get("reasons", [])
+        if isinstance(reason, str) and reason.strip()
+    ] if isinstance(decision.get("reasons"), list) else []
+    if readiness not in {"ready", "needs_review", "blocked"}:
+        return "blocked", [*reasons, "research_quality_readiness=missing"]
+    return readiness, reasons
 
 
 # ---- entrypoint ---------------------------------------------------------

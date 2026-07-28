@@ -13,6 +13,7 @@ from src.pipeline.scientific_contracts import (
     AssessmentState,
     AuthorityKind,
     ExternalReference,
+    EvidenceStance,
     Outcome,
     ValidationLevel,
     actor_assertion_from_mapping,
@@ -39,6 +40,17 @@ class SupportStatus(StrEnum):
     DISPUTED = "disputed"
     WITHDRAWN = "withdrawn"
     SUPERSEDED = "superseded"
+
+
+def stance_from_lifecycle(status: SupportStatus) -> EvidenceStance:
+    """Project lifecycle state to claim stance without discarding lifecycle detail."""
+    if not isinstance(status, SupportStatus):
+        raise ValidationError("support lifecycle status must use SupportStatus")
+    return {
+        SupportStatus.SUPPORTING: EvidenceStance.SUPPORTS_CLAIM,
+        SupportStatus.REFUTING: EvidenceStance.REFUTES_CLAIM,
+        SupportStatus.MIXED: EvidenceStance.MIXED,
+    }.get(status, EvidenceStance.INCONCLUSIVE)
 
 
 class PolicyDisposition(StrEnum):

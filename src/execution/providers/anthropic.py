@@ -16,7 +16,11 @@ import subprocess
 from typing import Any, Callable
 
 from src.execution.models import ModelResult
-from src.execution.providers.cli_policy import cli_requested, prefer_cli_default
+from src.execution.providers.cli_policy import (
+    assert_cli_prompt_safe,
+    cli_requested,
+    prefer_cli_default,
+)
 
 try:  # pragma: no cover - availability depends on local environment.
     from anthropic import Anthropic
@@ -111,6 +115,7 @@ class AnthropicProvider:
         allow_fallback = kwargs.pop("allow_fallback", True)
 
         if self.use_cli and self.claude_bin:
+            assert_cli_prompt_safe(prompt)
             try:
                 return self._call_cli(stage, prompt, stream_callback=stream_callback, **kwargs)
             except Exception as exc:

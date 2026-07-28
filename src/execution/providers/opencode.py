@@ -15,7 +15,11 @@ from pathlib import Path
 from typing import Any
 
 from src.execution.models import ModelResult
-from src.execution.providers.cli_policy import cli_requested, prefer_cli_default
+from src.execution.providers.cli_policy import (
+    assert_cli_prompt_safe,
+    cli_requested,
+    prefer_cli_default,
+)
 
 
 def _env_int(name: str, default: int) -> int:
@@ -125,6 +129,7 @@ class OpenCodeProvider:
             return _mock_result(stage, prompt, model=self.model, provider=self.name)
         model = kwargs.pop("model", self.model)
         if self.use_cli and self.opencode_bin:
+            assert_cli_prompt_safe(prompt)
             try:
                 return self._call_cli(stage, prompt, model=model, **kwargs)
             except Exception:

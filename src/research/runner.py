@@ -31,6 +31,11 @@ from src.runtime.live_mode import live_requested_from_env, source_research_reque
 
 from .academic import sync_search as academic_sync_search
 from . import public_web
+from .evaluation import (
+    ProviderRanking,
+    RankedPaper,
+    reciprocal_rank_fusion,
+)
 from .max_plus_benchmark import MaxPlusBenchmarkFixture, selected_max_plus_benchmark_fixture
 from .planner import ResearchPlan, source_route_for_query
 from .synthesis import finding_from_query
@@ -348,6 +353,93 @@ def _is_unsafe_research_hit(*, source: str = "", text: str = "") -> bool:
     return False
 
 
+def _ranked_paper_from_hit(
+    hit: dict,
+    *,
+    provider: str,
+    rank: int,
+) -> RankedPaper:
+    existing = hit.get("evidence_ref")
+    if isinstance(existing, EvidenceRef):
+        provenance = (
+            existing.provenance if isinstance(existing.provenance, dict) else {}
+        )
+        metadata = (
+            provenance.get("metadata")
+            if isinstance(provenance.get("metadata"), dict)
+            else {}
+        )
+        doi = provenance.get("doi") or metadata.get("doi")
+        source_url = str(existing.source_url or "")
+        if not doi and "doi.org/" in source_url.casefold():
+            doi = source_url
+        return RankedPaper(
+            paper_id=existing.id,
+            doi=str(doi) if doi else None,
+            title=existing.source_title,
+        )
+
+    source_url = str(hit.get("url") or hit.get("source_url") or "")
+    doi = hit.get("doi")
+    if not doi and "doi.org/" in source_url.casefold():
+        doi = source_url
+    paper_id = str(
+        hit.get("paper_id")
+        or hit.get("id")
+        or source_url
+        or hit.get("source")
+        or hit.get("title")
+        or f"{provider}:{rank}"
+    )
+    return RankedPaper(
+        paper_id=paper_id,
+        doi=str(doi) if doi else None,
+        title=str(hit.get("title") or "") or None,
+    )
+
+
+def _fuse_provider_hits(
+    rankings: list[ProviderRanking],
+    hits_by_provider: dict[str, list[dict]],
+) -> list[dict]:
+    if not rankings:
+        return []
+    ranked_lookup: dict[tuple[str, str], dict] = {}
+    for ranking in rankings:
+        provider_hits = hits_by_provider.get(ranking.provider, [])
+        for paper, hit in zip(ranking.papers, provider_hits, strict=False):
+            ranked_lookup.setdefault((ranking.provider, paper.paper_id), hit)
+
+    fused_hits: list[dict] = []
+    fused_papers = reciprocal_rank_fusion(rankings)
+    for fused in fused_papers:
+        representative_provider = rankings[fused.source_priority].provider
+        representative = ranked_lookup.get(
+            (representative_provider, fused.paper_id)
+        )
+        if representative is None:
+            continue
+        hit = dict(representative)
+        hit["_rrf_score"] = fused.score
+        hit["_rrf_canonical_id"] = fused.canonical_id
+        hit["_rrf_contributions"] = [
+            {"provider": item.provider, "rank": item.rank}
+            for item in fused.contributions
+        ]
+        fused_hits.append(hit)
+    return fused_hits
+
+
+def _attach_rrf_metadata(ref: EvidenceRef, hit: dict) -> None:
+    provenance = dict(ref.provenance or {})
+    provenance["rrf_score"] = float(hit.get("_rrf_score") or 0.0)
+    provenance["rrf_contributions"] = list(
+        hit.get("_rrf_contributions") or []
+    )
+    provenance["canonical_id"] = str(hit.get("_rrf_canonical_id") or "")
+    ref.provenance = provenance
+
+
 class WebResearchRunner:
     """Real-wire runner. All network access is delegated to injected callables
     so tests can exercise the integration with stubs and zero API usage."""
@@ -385,7 +477,8 @@ class WebResearchRunner:
         self.last_backend_trace: list[dict[str, Any]] = []
 
     def _gather(self, query: str, route: dict[str, Any] | None = None) -> list[dict]:
-        hits: list[dict] = []
+        rankings: list[ProviderRanking] = []
+        hits_by_provider: dict[str, list[dict]] = {}
         route = route or source_route_for_query(query)
         for backend, kind in (
             (self.insight_forge_search, "insight_forge"),
@@ -428,6 +521,7 @@ class WebResearchRunner:
                     "authority_requirement": route.get("authority_requirement"),
                 }
             )
+            accepted_hits: list[dict] = []
             for item in raw:
                 if isinstance(item, EvidenceRef):
                     _attach_query_metadata(item, query)
@@ -448,7 +542,9 @@ class WebResearchRunner:
                     ):
                         continue
                     score = 0.55 if kind == "academic" and _is_local_source_channel_query(query) else 1.0
-                    hits.append({"kind": kind, "score": score, "evidence_ref": item})
+                    accepted_hits.append(
+                        {"kind": kind, "score": score, "evidence_ref": item}
+                    )
                     continue
                 if not isinstance(item, dict):
                     continue
@@ -462,14 +558,24 @@ class WebResearchRunner:
                     or not _has_required_domain_concepts(query, haystack)
                 ):
                     continue
-                hits.append(item)
-        # Stable sort: highest score first; cap per query
-        hits.sort(key=lambda h: float(h.get("score") or 0.0), reverse=True)
-        return hits[: self.per_query_cap]
+                accepted_hits.append(item)
+            if accepted_hits:
+                hits_by_provider[kind] = accepted_hits
+                rankings.append(
+                    ProviderRanking(
+                        provider=kind,
+                        papers=tuple(
+                            _ranked_paper_from_hit(hit, provider=kind, rank=rank)
+                            for rank, hit in enumerate(accepted_hits, start=1)
+                        ),
+                    )
+                )
+        return _fuse_provider_hits(rankings, hits_by_provider)[: self.per_query_cap]
 
     def _to_evidence(self, hit: dict, query: str, idx: int, sub_idx: int, plan: ResearchPlan) -> EvidenceRef:
         existing = hit.get("evidence_ref")
         if isinstance(existing, EvidenceRef):
+            _attach_rrf_metadata(existing, hit)
             return existing
         route = source_route_for_query(query)
         kind = hit.get("kind") or "web"
@@ -490,6 +596,11 @@ class WebResearchRunner:
                 "source_text": (hit.get("text") or "")[:280],
             },
         ).as_dict()
+        provenance["rrf_score"] = float(hit.get("_rrf_score") or 0.0)
+        provenance["rrf_contributions"] = list(
+            hit.get("_rrf_contributions") or []
+        )
+        provenance["canonical_id"] = str(hit.get("_rrf_canonical_id") or "")
         stable_key = "|".join(
             [
                 str(kind),

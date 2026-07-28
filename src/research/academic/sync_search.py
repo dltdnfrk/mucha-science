@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import threading
 from typing import Awaitable, Callable, List
 
@@ -17,6 +18,14 @@ from .unpaywall import search as unpaywall_search
 
 DEFAULT_LIMIT = 2
 AsyncSearchFn = Callable[[str, int], Awaitable[List[EvidenceRef]]]
+ACADEMIC_SOURCE_NAMES = (
+    "openalex",
+    "semantic_scholar",
+    "crossref",
+    "core",
+    "arxiv",
+    "unpaywall",
+)
 DEFAULT_SEARCH_FNS = (
     openalex_search,
     semantic_scholar_search,
@@ -27,6 +36,26 @@ DEFAULT_SEARCH_FNS = (
 )
 
 
+def _selected_search_fns() -> tuple[AsyncSearchFn, ...]:
+    raw_allowlist = os.environ.get("MUCHANIPO_ACADEMIC_SOURCES")
+    if raw_allowlist is None:
+        return tuple(DEFAULT_SEARCH_FNS)
+    selected = {
+        item.strip().casefold().replace("-", "_")
+        for item in raw_allowlist.split(",")
+        if item.strip()
+    }
+    return tuple(
+        search_fn
+        for source_name, search_fn in zip(
+            ACADEMIC_SOURCE_NAMES,
+            DEFAULT_SEARCH_FNS,
+            strict=False,
+        )
+        if source_name in selected
+    )
+
+
 async def _search_one(search_fn: AsyncSearchFn, query: str, limit: int) -> list[EvidenceRef]:
     try:
         return await search_fn(query, limit=limit)
@@ -35,7 +64,12 @@ async def _search_one(search_fn: AsyncSearchFn, query: str, limit: int) -> list[
 
 
 async def _search_all(query: str, limit: int) -> list[EvidenceRef]:
-    batches = await asyncio.gather(*(_search_one(search_fn, query, limit) for search_fn in DEFAULT_SEARCH_FNS))
+    batches = await asyncio.gather(
+        *(
+            _search_one(search_fn, query, limit)
+            for search_fn in _selected_search_fns()
+        )
+    )
     evidence: list[EvidenceRef] = []
     for batch in batches:
         evidence.extend(batch)
