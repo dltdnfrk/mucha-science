@@ -38,6 +38,8 @@ const VALIDATION_DIMENSIONS = [
 ] as const;
 
 interface ScientificCycleViewProps {
+  hasActiveCycle?: boolean;
+  isBrowserPreview?: boolean;
   state: ScientificState;
   responses: readonly ScientificEnvelope[];
   errors: readonly ScientificEnvelope[];
@@ -47,7 +49,7 @@ interface ScientificCycleViewProps {
   recoveryUnavailableReason?: string;
   abortUnavailableReason?: string;
   exportUnavailableReason?: string;
-  onStart: () => void;
+  onStart?: () => void;
   onReset: () => void;
   onRecover: () => void;
   onAbort: () => void;
@@ -312,4 +314,3 @@ export function ScientificCycleView({
     </div>
   );
 }
-

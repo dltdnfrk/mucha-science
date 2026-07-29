@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from ipaddress import ip_address
 import json
 import logging
+from pathlib import Path
 from socket import SHUT_RDWR, socket as Socket
 from threading import Lock
 from typing import Protocol
@@ -17,6 +18,11 @@ from websockets.typing import Origin
 from src.pipeline.cycle_repository import CycleRepository
 
 from .protocol_handler import ProtocolHandler
+from .pipeline_protocol import (
+    is_pipeline_message,
+    serve_pipeline_connection,
+)
+from .pipeline_runtime import PipelineRuntime
 from .scientific_config import ScientificConfig, _load_scientific_config
 
 
@@ -29,6 +35,8 @@ ALLOWED_ORIGINS: tuple[Origin | None, ...] = (
     None,
     Origin("http://127.0.0.1:1420"),
     Origin("http://localhost:1420"),
+    Origin("http://127.0.0.1:4173"),
+    Origin("http://localhost:4173"),
     Origin("http://tauri.localhost"),
     Origin("https://tauri.localhost"),
     Origin("tauri://localhost"),
@@ -83,10 +91,15 @@ class WebSocketServer:
         host: str,
         port: int,
         handler_factory: _HandlerFactory,
+        workspace_root: Path,
     ) -> None:
         self._repository = repository
         self._scientific_config = scientific_config
         self._handler_factory = handler_factory
+        self._pipeline_runtime = PipelineRuntime(
+            repository.home,
+            workspace_root,
+        )
         self._accepted_sockets: set[Socket] = set()
         self._socket_lock = Lock()
         self._shutting_down = False
@@ -116,6 +129,7 @@ class WebSocketServer:
                 return
             self._shutting_down = True
             sockets = tuple(self._accepted_sockets)
+        self._pipeline_runtime.shutdown()
         self._server.shutdown()
         for accepted_socket in sockets:
             self._close_socket(accepted_socket)
@@ -154,7 +168,11 @@ class WebSocketServer:
                 repository=self._repository,
                 scientific_config=self._scientific_config,
             )
-            serve_websocket_connection(connection, handler)
+            serve_websocket_connection(
+                connection,
+                handler,
+                pipeline_runtime=self._pipeline_runtime,
+            )
         except ConnectionClosed:
             with self._socket_lock:
                 if not self._shutting_down:
@@ -164,10 +182,16 @@ class WebSocketServer:
 def serve_websocket_connection(
     connection: _Connection,
     handler: _MessageHandler,
+    *,
+    pipeline_runtime: PipelineRuntime | None = None,
 ) -> None:
-    for message in connection:
+    messages = iter(connection)
+    for message in messages:
         if isinstance(message, bytes):
             connection.close(BINARY_CLOSE_CODE, BINARY_CLOSE_REASON)
+            return
+        if pipeline_runtime is not None and is_pipeline_message(message):
+            serve_pipeline_connection(connection, message, pipeline_runtime)
             return
         for response in handler.handle_line(message):
             connection.send(response)
@@ -180,6 +204,7 @@ def create_websocket_server(
     host: str = DEFAULT_HOST,
     port: int = DEFAULT_PORT,
     handler_factory: _HandlerFactory | None = None,
+    workspace_root: Path | None = None,
 ) -> WebSocketServer:
     _require_loopback_host(host)
     resolved_factory = handler_factory or ProtocolHandler
@@ -189,6 +214,7 @@ def create_websocket_server(
         host=host,
         port=port,
         handler_factory=resolved_factory,
+        workspace_root=workspace_root or Path.cwd(),
     )
 
 

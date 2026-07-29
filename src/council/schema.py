@@ -16,6 +16,15 @@ VERDICTS = {"PASS", "UNCERTAIN", "FAIL"}
 CLAIM_STATUSES = {"supported", "partial", "unsupported", "unknown"}
 EVIDENCE_TYPES = {"text", "image", "chart", "table", "vault_page", "kg_triple"}
 SENSITIVITY_LEVELS = {"public", "internal", "confidential", "restricted"}
+EVIDENCE_STANCES = {"supports_claim", "refutes_claim", "mixed", "inconclusive"}
+UNCERTAINTY_LEVELS = {"low", "moderate", "high", "unknown", "not_checked"}
+UNCERTAINTY_FIELDS = {
+    "evidence_coverage",
+    "measurement",
+    "population_applicability",
+    "causal_identification",
+    "publication_integrity",
+}
 
 
 def validate_agent_manifest(d: Any) -> ValidationResult:
@@ -87,6 +96,13 @@ def validate_council_report_v3(d: Any) -> ValidationResult:
         else:
             for idx, item in enumerate(evidence):
                 _validate_evidence(item, f"report.evidence[{idx}]", errors)
+            if isinstance(grounding, dict):
+                _validate_additive_evidence_links(
+                    grounding,
+                    evidence,
+                    "report.citation_grounding",
+                    errors,
+                )
 
     final = report.get("final")
     if _is_object(final, "report.final", errors):
@@ -137,6 +153,26 @@ def _validate_claim(d: Any, path: str, errors: List[str]) -> None:
     _require_bool(d, "is_critical", path, errors)
     _require_string_list(d, "supporting_evidence_ids", path, errors, allow_empty=True)
     _require_enum(d, "verification_status", path, errors, CLAIM_STATUSES)
+    if "refuting_evidence_ids" in d:
+        _require_string_list(
+            d,
+            "refuting_evidence_ids",
+            path,
+            errors,
+            allow_empty=True,
+        )
+    if "stance" in d:
+        _require_enum(d, "stance", path, errors, EVIDENCE_STANCES)
+    if "contradiction_relationship_id" in d:
+        relationship_id = d.get("contradiction_relationship_id")
+        if relationship_id is not None and (
+            not isinstance(relationship_id, str) or not relationship_id
+        ):
+            errors.append(
+                f"{path}.contradiction_relationship_id must be a non-empty string or null"
+            )
+    if "uncertainty" in d:
+        _validate_ordinal_uncertainty(d.get("uncertainty"), f"{path}.uncertainty", errors)
 
 
 def _validate_evidence(d: Any, path: str, errors: List[str]) -> None:
@@ -151,6 +187,75 @@ def _validate_evidence(d: Any, path: str, errors: List[str]) -> None:
         errors.append(f"{path}.quote_span must be two non-negative integers")
     _require_string(d, "hash", path, errors)
     _require_string(d, "fetched_at", path, errors)
+    if "source_locator" in d:
+        locator = d.get("source_locator")
+        if not isinstance(locator, dict):
+            errors.append(f"{path}.source_locator must be an object")
+        else:
+            _require_string(locator, "kind", f"{path}.source_locator", errors)
+            _require_string(locator, "value", f"{path}.source_locator", errors)
+    if "integrity_status" in d:
+        _require_string(d, "integrity_status", path, errors)
+        status = d.get("integrity_status")
+        if status == "retracted":
+            if not isinstance(d.get("integrity_checked_at"), str) or not d.get(
+                "integrity_checked_at"
+            ):
+                errors.append(f"{path}.integrity_checked_at missing")
+            if not isinstance(d.get("integrity_source"), str) or not d.get(
+                "integrity_source"
+            ):
+                errors.append(f"{path}.integrity_source missing")
+
+
+def _validate_ordinal_uncertainty(
+    value: Any,
+    path: str,
+    errors: List[str],
+) -> None:
+    if not isinstance(value, dict):
+        errors.append(f"{path} must be an object")
+        return
+    missing = UNCERTAINTY_FIELDS - set(value)
+    extra = set(value) - UNCERTAINTY_FIELDS
+    for field in sorted(missing):
+        errors.append(f"{path}.{field} missing")
+    for field in sorted(extra):
+        errors.append(f"{path}.{field} is not allowed")
+    for field in sorted(UNCERTAINTY_FIELDS & set(value)):
+        if value[field] not in UNCERTAINTY_LEVELS:
+            errors.append(
+                f"{path}.{field} must be one of {sorted(UNCERTAINTY_LEVELS)}"
+            )
+
+
+def _validate_additive_evidence_links(
+    grounding: Dict[str, Any],
+    evidence: List[Any],
+    path: str,
+    errors: List[str],
+) -> None:
+    evidence_ids = {
+        item.get("id")
+        for item in evidence
+        if isinstance(item, dict) and isinstance(item.get("id"), str)
+    }
+    claims = grounding.get("per_claim_verdict")
+    if not isinstance(claims, list):
+        return
+    for index, claim in enumerate(claims):
+        if not isinstance(claim, dict) or "refuting_evidence_ids" not in claim:
+            continue
+        claim_path = f"{path}.per_claim_verdict[{index}]"
+        refuting_ids = claim.get("refuting_evidence_ids")
+        if not isinstance(refuting_ids, list):
+            continue
+        for evidence_id in refuting_ids:
+            if isinstance(evidence_id, str) and evidence_id not in evidence_ids:
+                errors.append(
+                    f"{claim_path}.refuting_evidence_ids value {evidence_id!r} "
+                    "does not reference report.evidence"
+                )
 
 
 def _validate_final(d: Dict[str, Any], path: str, errors: List[str]) -> None:

@@ -70,6 +70,7 @@ SCAN_SUFFIXES = {
 SKIP_PARTS = {
     ".git",
     ".omc",
+    ".omo",
     ".omx",
     ".pytest_cache",
     "__pycache__",

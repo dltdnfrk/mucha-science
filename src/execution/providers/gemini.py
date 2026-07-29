@@ -13,7 +13,11 @@ import subprocess
 from typing import Any
 
 from src.execution.models import ModelResult
-from src.execution.providers.cli_policy import cli_requested, prefer_cli_default
+from src.execution.providers.cli_policy import (
+    assert_cli_prompt_safe,
+    cli_requested,
+    prefer_cli_default,
+)
 
 
 def _env_int(name: str, default: int) -> int:
@@ -115,6 +119,7 @@ class GeminiProvider:
         search_grounding = kwargs.pop("search_grounding", stage in ("research", "evidence", "intake"))
 
         if self.use_cli and self.gemini_bin:
+            assert_cli_prompt_safe(prompt)
             try:
                 return self._call_cli(stage, prompt, model=model, **kwargs)
             except Exception:

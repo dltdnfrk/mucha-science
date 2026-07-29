@@ -49,8 +49,8 @@ export function buildDiscoveredSourceMap(
     accepted?: boolean;
     relevanceScore?: number;
     reason?: string;
-    facetIds?: string[];
-    backends?: string[];
+    facetIds?: readonly string[];
+    backends?: readonly string[];
     query?: string;
   },
 ): Map<string, DiscoveredSource> {
@@ -72,8 +72,8 @@ export function buildDiscoveredSourceMap(
           ? activity.relevanceScore
           : existing?.relevanceScore,
       reason: activity.reason || existing?.reason,
-      facetIds: activity.facetIds || existing?.facetIds,
-      backends: activity.backends || existing?.backends,
+      facetIds: activity.facetIds ? [...activity.facetIds] : existing?.facetIds,
+      backends: activity.backends ? [...activity.backends] : existing?.backends,
       query: activity.query || existing?.query,
       firstSeenAt: existing?.firstSeenAt || now,
       evaluatedAt: existing?.evaluatedAt,
@@ -95,8 +95,8 @@ export function buildDiscoveredSourceMap(
           ? activity.relevanceScore
           : existing?.relevanceScore,
       reason: activity.reason || existing?.reason,
-      facetIds: activity.facetIds || existing?.facetIds,
-      backends: activity.backends || existing?.backends,
+      facetIds: activity.facetIds ? [...activity.facetIds] : existing?.facetIds,
+      backends: activity.backends ? [...activity.backends] : existing?.backends,
       query: activity.query || existing?.query,
       firstSeenAt: existing?.firstSeenAt || now,
       evaluatedAt: now,

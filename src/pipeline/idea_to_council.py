@@ -789,6 +789,21 @@ class IdeaToCouncilPipeline:
             "research_audit_appendix",
             json.dumps(research_audit_appendix, ensure_ascii=False, sort_keys=True),
         )
+        research_quality_stop = readiness_decision.stop_state
+        research_quality_readiness = readiness_decision.readiness
+        state.record_artifact("research_quality_only_stop", research_quality_stop)
+        state.record_artifact("research_quality_readiness", research_quality_readiness)
+        state.record_artifact("evidence_ledger_readiness", evidence_ledger_report.readiness)
+        state.record_artifact("refutation_loop_readiness", refutation_loop_report.readiness)
+        if research_quality_readiness != "ready":
+            state.record_artifact(
+                "research_quality_review_reason",
+                "; ".join(readiness_decision.reasons),
+            )
+        state.record_artifact(
+            "evidence_ledger_readiness_metrics",
+            json.dumps(dict(evidence_ledger_report.metrics), ensure_ascii=False, sort_keys=True),
+        )
         deep_research_max_artifact = build_deep_research_max_stage_artifact(
             DeepResearchMaxArtifactInput(
                 brief_id=brief.id,
@@ -850,21 +865,9 @@ class IdeaToCouncilPipeline:
             }
         )
         if _research_quality_only_requested():
-            research_quality_stop = readiness_decision.stop_state
-            research_quality_readiness = readiness_decision.readiness
-            state.record_artifact("research_quality_only_stop", research_quality_stop)
-            state.record_artifact("research_quality_readiness", research_quality_readiness)
-            state.record_artifact("evidence_ledger_readiness", evidence_ledger_report.readiness)
-            state.record_artifact("refutation_loop_readiness", refutation_loop_report.readiness)
             state.record_artifact(
                 "research_readiness_decision",
                 json.dumps(readiness_decision.to_dict(), ensure_ascii=False, sort_keys=True),
-            )
-            if readiness_decision.readiness != "ready":
-                state.record_artifact("research_quality_review_reason", "; ".join(readiness_decision.reasons))
-            state.record_artifact(
-                "evidence_ledger_readiness_metrics",
-                json.dumps(dict(evidence_ledger_report.metrics), ensure_ascii=False, sort_keys=True),
             )
             ready_event = {
                 "event": readiness_decision.terminal_event_name(),

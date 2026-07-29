@@ -1,0 +1,44 @@
+{
+  "schema_version": "citation-faithfulness-benchmark.v1",
+  "as_of": "2026-07-28T00:00:00Z",
+  "cases": [
+    {
+      "case_id": "W2-EVIDENCE-SWAP-EN-001",
+      "claim": "The intervention reduced error by 18%.",
+      "variants": {
+        "gold": {
+          "text": "The randomized trial reported an 18% reduction in error.",
+          "content_sha256": "90aa7d2a1c8c1be94584f67a6713fe17e400f40a2e8564ea00449bdf80de68de"
+        },
+        "swap": {
+          "text": "The observational study measured satisfaction but did not report error reduction.",
+          "content_sha256": "3c4effc20d954bedd1bfcf34b276799f6534ae62944262ed51a9ddb01a822429"
+        },
+        "hide": null,
+        "contradict": {
+          "text": "The replication reported an 18% increase in error.",
+          "content_sha256": "22867023f0ab5e76f21c0316eb83d9deafa68fd1d6b075db5e2fae9ce0fa98cf"
+        }
+      }
+    },
+    {
+      "case_id": "W2-EVIDENCE-SWAP-KO-001",
+      "claim": "약물 X는 혈압을 낮춘다.",
+      "variants": {
+        "gold": {
+          "text": "무작위 시험에서 약물 X가 혈압을 낮췄다.",
+          "content_sha256": "7c44695e163fd08f1ba16bd5e7f9f6f761aa980c23ec2918eccc446210bd387b"
+        },
+        "swap": {
+          "text": "관찰 연구는 약물 X의 복약 순응도만 측정했다.",
+          "content_sha256": "5a7f86b9e987a223a1131363bf93a72317506df055b26e6e66ed923a6f4fd291"
+        },
+        "hide": null,
+        "contradict": {
+          "text": "후속 연구에서 약물 X가 혈압을 높였다.",
+          "content_sha256": "ae7cc38708c9e8b418ca98a6290053883f7e2debafdba80c6f8178b087badc80"
+        }
+      }
+    }
+  ]
+}

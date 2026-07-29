@@ -2,7 +2,10 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import App from "./App";
 import { markMuchanipoBoot, markMuchanipoMountedIfStillStarting } from "./bootStatus";
+import { purgeLegacyPersistentCredentials } from "./lib/sessionCredentials";
 import "./index.css";
+
+purgeLegacyPersistentCredentials();
 
 interface AppErrorBoundaryState {
   error: Error | null;
@@ -22,7 +25,7 @@ class AppErrorBoundary extends React.Component<React.PropsWithChildren, AppError
     if (root) {
       markMuchanipoBoot(root, "react-error", error);
     }
-    console.error("Muchanipo React render error", error, info.componentStack);
+    console.error("Mucha Science React boot error", error, info.componentStack);
   }
 
   render() {
@@ -31,7 +34,7 @@ class AppErrorBoundary extends React.Component<React.PropsWithChildren, AppError
       <main className="app-workspace flex min-h-screen items-center justify-center p-6">
         <section className="w-full max-w-2xl rounded-lg border border-red-500/30 bg-red-500/10 p-5 text-red-100">
           <p className="font-mono text-[11px] uppercase tracking-wider text-red-200">
-            Muchanipo
+            Mucha Science
           </p>
           <h1 className="mt-2 text-xl font-semibold text-white">
             The workspace could not be displayed.
@@ -50,8 +53,8 @@ const root = document.getElementById("root");
 if (!root) {
   document.documentElement.dataset.muchanipoBoot = "missing-root";
   document.body.innerHTML =
-    '<pre style="white-space:pre-wrap;margin:0;padding:24px;color:#fecaca;background:#0d0e0e;min-height:100vh;box-sizing:border-box;font:13px ui-monospace,SFMono-Regular,Menlo,monospace">Muchanipo frontend boot error:\n#root element is missing</pre>';
-  throw new Error("Muchanipo root element is missing");
+    '<pre style="white-space:pre-wrap;margin:0;padding:24px;color:#fecaca;background:#0d0e0e;min-height:100vh;box-sizing:border-box;font:13px ui-monospace,SFMono-Regular,Menlo,monospace">Mucha Science frontend boot error:\\n#root element is missing</pre>';
+  throw new Error("Mucha Science root element is missing");
 } else {
   document.documentElement.dataset.muchanipoBoot = "react-starting";
   markMuchanipoBoot(root, "react-starting");

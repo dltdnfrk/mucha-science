@@ -7,8 +7,8 @@ mod scientific_bridge;
 mod scientific_events;
 
 use python_bridge::{
-    check_cli_smoke, check_cli_status, get_buffered_events, open_cli_auth, pipeline_runtime_status,
-    send_action, start_pipeline, PythonBridge,
+    cancel_pipeline, check_cli_smoke, check_cli_status, get_buffered_events, open_cli_auth,
+    pipeline_runtime_status, send_action, start_pipeline, PythonBridge,
 };
 use scientific_bridge::{
     shutdown_bridge_for_exit, start_scientific_sidecar, stop_scientific_sidecar, write_envelope,
@@ -29,6 +29,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             ping,
             start_pipeline,
+            cancel_pipeline,
             send_action,
             check_cli_status,
             check_cli_smoke,
@@ -45,19 +46,21 @@ fn main() {
         builder = builder.plugin(tauri_plugin_mcp_bridge::init());
     }
 
-    builder
-        .build(tauri::generate_context!())
-        .expect("error while building Muchanipo Tauri app")
-        .run(|app, event| {
-            if matches!(
-                event,
-                tauri::RunEvent::Exit | tauri::RunEvent::ExitRequested { .. }
-            ) {
-                if let Err(error) =
-                    shutdown_bridge_for_exit(app.state::<ScientificBridge>().inner())
-                {
-                    eprintln!("failed to stop scientific sidecar during app exit: {error}");
-                }
+    let app = match builder.build(tauri::generate_context!()) {
+        Ok(app) => app,
+        Err(error) => {
+            eprintln!("failed to build Muchanipo Tauri app: {error}");
+            std::process::exit(1);
+        }
+    };
+    app.run(|app, event| {
+        if matches!(
+            event,
+            tauri::RunEvent::Exit | tauri::RunEvent::ExitRequested { .. }
+        ) {
+            if let Err(error) = shutdown_bridge_for_exit(app.state::<ScientificBridge>().inner()) {
+                eprintln!("failed to stop scientific sidecar during app exit: {error}");
             }
-        });
+        }
+    });
 }

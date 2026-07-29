@@ -6,7 +6,6 @@ from queue import Queue
 import signal
 from socket import create_connection
 import subprocess
-import sys
 from threading import Thread
 from urllib.parse import urlsplit
 
@@ -17,7 +16,7 @@ from src.muchanipo.web.scientific_config import ScientificConfigValue
 
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-WEB_EXECUTABLE = Path(sys.executable).with_name("muchanipo-web")
+WEB_EXECUTABLE = REPO_ROOT / "bin" / "muchanipo-web"
 CLIENT_ID = "client_00000000000000000000000000000000"
 GENESIS_HASH = "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 CREATOR: dict[str, ScientificConfigValue] = {

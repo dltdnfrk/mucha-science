@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import type { BackendEvent } from "../lib/types";
 import { backendEventName } from "../lib/types";
+import { SafeReportMarkdown } from "./SafeReportMarkdown";
 import {
   Card,
   CardContent,
@@ -97,7 +96,7 @@ export function ReportViewer({ markdown, className }: ReportViewerProps) {
           className="report-prose max-w-none"
         >
           {content.length > 0 ? (
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+            <SafeReportMarkdown markdown={content} />
           ) : (
             <div className="rounded-md border border-dashed p-5 text-sm text-muted-foreground">
               Markdown chunks from the backend will render here.

@@ -7,6 +7,10 @@ import {
   type CliStatus,
   type ResearchDepth,
 } from "../lib/tauriClient";
+import {
+  readCredentialSetting,
+  writeCredentialSetting,
+} from "../lib/sessionCredentials";
 
 interface KeyForm {
   label: string;
@@ -62,11 +66,7 @@ function placeholderForKey(cfg: KeyForm): string {
 
 function readStoredCredential(key: string): string {
   try {
-    return (
-      localStorage.getItem(`credential:${key}`) ||
-      sessionStorage.getItem(key) ||
-      defaultCredentialValue(key)
-    );
+    return readCredentialSetting(key) || defaultCredentialValue(key);
   } catch {
     return defaultCredentialValue(key);
   }
@@ -74,13 +74,7 @@ function readStoredCredential(key: string): string {
 
 function writeStoredCredential(key: string, value: string): void {
   try {
-    if (value) {
-      localStorage.setItem(`credential:${key}`, value);
-      sessionStorage.setItem(key, value);
-    } else {
-      localStorage.removeItem(`credential:${key}`);
-      sessionStorage.removeItem(key);
-    }
+    writeCredentialSetting(key, value);
   } catch {
     /* ignore */
   }

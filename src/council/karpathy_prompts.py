@@ -4,6 +4,14 @@ from __future__ import annotations
 from typing import Any, Mapping, Sequence
 
 from src.council.round_layers import RoundLayer, layer_prompt_block
+from src.council.source_projection import (
+    SourceBoundary,
+    SourceProjectionError,
+    SourceRecord,
+    admit_stage_output,
+    project_source_records,
+    render_source_records,
+)
 
 
 def build_individual_prompt(

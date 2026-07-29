@@ -249,6 +249,12 @@ def test_serve_full_emits_done_at_end(tmp_path):
     events = [json.loads(l) for l in stdout.getvalue().splitlines() if l.strip()]
     assert events[-1]["event"] == "done"
     assert events[-1]["pipeline"] == "full"
+    assert events[-1]["research_quality_readiness"] in {
+        "ready",
+        "needs_review",
+        "blocked",
+    }
+    assert isinstance(events[-1]["research_readiness_reasons"], list)
 
 
 def test_serve_full_completion_evidence_is_substantive_and_session_scoped(tmp_path, monkeypatch):

@@ -12,6 +12,7 @@
     "test:e2e:sidecar": "node e2e/scientific-cycle.e2e.mjs",
     "tauri:bundle": "npm run sidecar:build && tauri build",
     "preview": "vite preview",
+    "web:serve": "../../bin/muchanipo-web",
     "test": "vitest run",
     "tauri": "tauri",
     "tauri:install": "tauri build && bash ./scripts/install-app.sh",

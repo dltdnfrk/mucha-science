@@ -1,0 +1,122 @@
+{
+  "schema_version": "scientific-evidence-algorithms.v1",
+  "polarity_source": "adjudicated",
+  "automatic_nli": false,
+  "cases": [
+    {
+      "case_id": "exact",
+      "adjudicated_supporting_evidence_ids": [
+        "evidence_11111111111111111111111111111111"
+      ],
+      "adjudicated_refuting_evidence_ids": [],
+      "lifecycle_state": "supporting",
+      "expected_stance": "supports_claim"
+    },
+    {
+      "case_id": "paraphrase",
+      "adjudicated_supporting_evidence_ids": [
+        "evidence_22222222222222222222222222222222"
+      ],
+      "adjudicated_refuting_evidence_ids": [],
+      "lifecycle_state": "supporting",
+      "expected_stance": "supports_claim"
+    },
+    {
+      "case_id": "negation",
+      "adjudicated_supporting_evidence_ids": [],
+      "adjudicated_refuting_evidence_ids": [
+        "evidence_33333333333333333333333333333333"
+      ],
+      "lifecycle_state": "refuting",
+      "expected_stance": "refutes_claim"
+    },
+    {
+      "case_id": "number_unit_mismatch",
+      "adjudicated_supporting_evidence_ids": [],
+      "adjudicated_refuting_evidence_ids": [
+        "evidence_44444444444444444444444444444444"
+      ],
+      "lifecycle_state": "refuting",
+      "expected_stance": "refutes_claim"
+    },
+    {
+      "case_id": "population_comparator_time_mismatch",
+      "adjudicated_supporting_evidence_ids": [],
+      "adjudicated_refuting_evidence_ids": [],
+      "lifecycle_state": "inconclusive",
+      "expected_stance": "inconclusive"
+    },
+    {
+      "case_id": "support_refute",
+      "claim_id": "claim_66666666666666666666666666666666",
+      "adjudicated_supporting_evidence_ids": [
+        "evidence_66666666666666666666666666666661"
+      ],
+      "adjudicated_refuting_evidence_ids": [
+        "evidence_66666666666666666666666666666662"
+      ],
+      "lifecycle_state": "mixed",
+      "expected_stance": "mixed",
+      "expected_contradiction_relationship_id": "contradiction_6d0012665141f21416b1cff50c8a441f"
+    },
+    {
+      "case_id": "unavailable",
+      "lifecycle_state": "unassessed",
+      "expected_stance": "inconclusive",
+      "expected_run_state": "needs_review"
+    },
+    {
+      "case_id": "stale",
+      "lifecycle_state": "superseded",
+      "expected_stance": "inconclusive",
+      "expected_run_state": "needs_review"
+    },
+    {
+      "case_id": "retracted",
+      "lifecycle_state": "withdrawn",
+      "integrity_status": "retracted",
+      "expected_stance": "inconclusive",
+      "expected_run_state": "needs_review"
+    },
+    {
+      "case_id": "provider_partial_failure",
+      "lifecycle_state": "unassessed",
+      "provider_outcomes": [
+        {
+          "provider": "openalex",
+          "outcome": "completed",
+          "record_count": 1
+        },
+        {
+          "provider": "crossref",
+          "outcome": "failed",
+          "record_count": 0
+        }
+      ],
+      "expected_provider_aggregate": "partial",
+      "expected_stance": "inconclusive",
+      "expected_run_state": "needs_review"
+    },
+    {
+      "case_id": "completed_one_batch_no_novelty",
+      "counter_batch_complete": true,
+      "material_claim_outcomes": [
+        "assessed",
+        "unavailable"
+      ],
+      "accepted_source_additions": [],
+      "accepted_claim_additions": [],
+      "contradiction_additions": [],
+      "expected_stop_allowed": true,
+      "expected_run_state": "completed"
+    },
+    {
+      "case_id": "cancellation_forbidden_late_completion",
+      "cancel_request_accepted": true,
+      "termination_observed": true,
+      "late_completion_attempted": true,
+      "expected_late_completion_accepted": false,
+      "expected_run_state": "cancelled"
+    }
+  ]
+}
