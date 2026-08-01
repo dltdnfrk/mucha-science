@@ -1,0 +1,234 @@
+# Ouroboros Seed — mucha-science
+#
+# seed_id:      seed_3dc497ab4be9
+# interview_id: interview_20260801_060542
+# generated_at: 2026-08-01
+# spec:         docs/PRODUCT_SPEC.md (사람이 읽는 명세서, 이 Seed를 부록 A에 포함)
+#
+# 이 파일은 인터뷰로 확정된 요구사항의 불변 스냅샷이다. 편집하지 않는다.
+# 요구사항이 바뀌면 인터뷰를 이어서 새 Seed를 생성한다.
+# 인터뷰 상태 원본: ~/.ouroboros/data/interview_interview_20260801_060542.json
+
+goal: Build Mucha Science — a domain-universal research platform for crop protection
+  and pathogen-response substance discovery that orchestrates external computational
+  tools to produce uncertainty-calibrated, evidence-graded experimental priority rankings
+  for candidate substances, with built-in benchmarking against frontier LLMs and baselines
+  to prove the system's practical superiority.
+task_type: code
+brownfield_context:
+  project_type: brownfield
+  context_references:
+  - path: /Users/hyunjun/Documents/MUNI/mucha-science
+    role: primary
+    summary: Mucha Science codebase with implemented autonomous research engine (document
+      ingest, multi-persona Council deliberation, human verification, knowledge accumulation)
+      in a Tauri desktop app; simulator components not yet implemented
+  existing_patterns:
+  - Source document folder (human-owned) and wiki folder (LLM-owned) separation
+  - Document ingest → ontology extraction → 5W1H insight extraction → multi-persona
+    Council deliberation → human verification pipeline
+  - Tauri desktop app shell with local web UI
+  - Internal module name muchanipo maintained for compatibility
+  existing_dependencies:
+  - Tauri (desktop app framework)
+  - Existing ingest and Council deliberation infrastructure
+  - Existing human verification workflow
+constraints:
+- Output is experimental priorities with ranked evidence and uncertainty — never substance
+  efficacy claims
+- Computational predictions are never evidence grades; all evidence ladder tiers are
+  wet-lab measurements only
+- Auto-calibration feedback limited to purified-enzyme and lysate tiers; higher-tier
+  discrepancies surface as human-interpretation signals, never auto-adjust model parameters
+- Platform is computation orchestrator — no self-built docking, scoring, or structure-prediction
+  engines; external tools via adapters only
+- Unsynthesizable candidates excluded from all rankings — synthesizability filter
+  is mandatory
+- Council (multi-persona deliberation) output is never evidence; must be visually
+  distinguished from literature-backed claims and requires human verification to upgrade
+- Free de novo molecular generation is out of initial scope; library screening plus
+  constrained scaffold variants only
+- Wet-lab execution, equipment control, regulatory submission documents, and formal
+  toxicity/safety assessment are out of scope
+- Local desktop app (Tauri); commercial-grade robustness, data integrity, reproducibility,
+  failure handling, and UX — but no multi-tenancy or billing
+- Internal module name remains muchanipo for compatibility; product name is Mucha
+  Science
+- Domain pack supplies data and vocabulary but never fixes functional purpose; functional
+  objectives are user-query-time parameters
+- Every external tool invocation records tool name, version, parameters, and random
+  seed; tool upgrades preserve historical prediction-measurement pair validity
+acceptance_criteria:
+- description: End-to-end candidate ranking pipeline — given a target proteome, contrast-set
+    proteomes, and one or more objective functions, the platform orchestrates external
+    adapters (homology scan, docking, affinity, molecular descriptors) to produce
+    a ranked list of substance candidates with per-candidate selectivity scores, calibrated
+    uncertainty estimates, synthesizability verdicts, and provenance traces linking
+    every score to its tool version and parameters
+  semantic_ac_key: ac_34dc0d5ca389057b
+  verify_command: python -m pytest tests/test_pipeline_e2e.py -q
+- description: Evidence ladder with prediction-measurement pairing — wet-lab results
+    are recorded at any evidence tier (purified enzyme through field trial) each linked
+    to the originating computational prediction; auto-calibration ingests only purified-enzyme
+    and lysate results while higher-tier discrepancies are surfaced as human-interpretation
+    alerts; prediction hit-rate statistics are computable from accumulated pairs
+  semantic_ac_key: ac_fdadc89d4cdacfb4
+  verify_command: python -m pytest tests/test_evidence_ladder.py -q
+- description: Built-in benchmark harness — retrospective benchmarks run on literature-known
+    success/failure pairs with leak-proof sequence-and-structure-similarity splits,
+    executing three-way comparison (platform pipeline vs frontier-LLM recommendation
+    vs simple baseline) and reporting top-N enrichment, exclusion performance, calibration
+    quality, and budget-normalized effective candidate yield
+  semantic_ac_key: ac_550394487287fff1
+  verify_command: python -m pytest tests/test_benchmark_harness.py -q
+- description: Autonomous research engine integrated as knowledge, hypothesis, and
+    interpretation layer — document ingest, multi-persona Council deliberation, and
+    human verification feed validated knowledge into domain packs, generate prioritized
+    hypotheses for simulation, and produce interpretive commentary on results, with
+    all Council outputs tagged as non-evidence and requiring human approval for status
+    changes
+  semantic_ac_key: ac_5932aff18561d43c
+  verify_command: python -m pytest tests/test_research_engine_integration.py -q
+- description: Domain pack and multi-objective function composition — domain packs
+    load pathogen proteomes, chemical libraries, contrast-set references, assay vocabulary,
+    and entity-resolution rules without fixing functional purpose; the objective-function
+    library supports combining 1-to-N objectives (binding activity, selectivity, detection,
+    inhibition, surface adhesion, stability, synthesizability) with user-specified
+    weights and constraints at query time; safety-screening exclusion filters auto-activate
+    for application types involving environmental exposure
+  semantic_ac_key: ac_92aa9274fd140d36
+  verify_command: python -m pytest tests/test_domain_pack_objectives.py -q
+- description: Adapter reproducibility and limitation transparency contract — every
+    computation adapter call persists tool identity, version, full parameters, and
+    random seed sufficient for exact reproduction; upgrading or replacing a tool creates
+    new prediction versions without invalidating historical prediction-measurement
+    pairs; each adapter exposes known-limitation metadata (e.g. physically implausible
+    pose rates, similarity-leakage inflation) consumable by downstream ranking and
+    UI
+  semantic_ac_key: ac_2e8e025b478c5c98
+  verify_command: python -m pytest tests/test_adapter_contract.py -q
+ontology_schema:
+  name: SubstanceDiscoveryGraph
+  description: Domain model for a universal crop-protection substance discovery platform
+    encompassing proteins, candidate substances, computational predictions, wet-lab
+    evidence, objective functions, domain packs, and benchmark evaluations
+  fields:
+  - name: ProteinRecord
+    type: object
+    description: Target or contrast protein with sequence hash, taxonomy, strain,
+      allele/lineage, functional annotation, and structure references (source, model
+      version, confidence)
+    required: true
+  - name: SubstanceCandidate
+    type: object
+    description: Probe or active substance with structural identifier (SMILES/InChI),
+      scaffold class, mechanism, physicochemical descriptors, synthesizability verdict,
+      and synthesis route reference
+    required: true
+  - name: Prediction
+    type: object
+    description: Computational prediction with tool name, version, parameters, random
+      seed, input references, scored result, calibrated uncertainty, and known-limitation
+      flags — explicitly not an evidence tier
+    required: true
+  - name: Measurement
+    type: object
+    description: Wet-lab result with evidence tier (purified enzyme
+    required: true
+  - name: EvidenceTier
+    type: string
+    description: Enumerated level in the evidence ladder — all tiers are empirical
+      measurements; computational predictions sit below the ladder
+    required: true
+  - name: ObjectiveFunction
+    type: object
+    description: Named scoring function (binding affinity, selectivity against contrast
+      set, detection limit, inhibition concentration, surface adhesion, stability,
+      synthesizability) with type, parameters, and composability metadata
+    required: true
+  - name: DomainPack
+    type: object
+    description: Loadable knowledge module with data-source adapters, reference proteome
+      sets, chemical library references, assay vocabulary, entity-resolution rules,
+      and evidence-tier measurement definitions
+    required: true
+  - name: UserQuery
+    type: object
+    description: Runtime specification of target proteome(s), contrast set(s), selected
+      objective functions with weights/constraints, and functional purpose
+    required: true
+  - name: BenchmarkRun
+    type: object
+    description: Evaluation record with split method (leak-proof), three-arm results
+      (pipeline, frontier LLM, baseline), top-N enrichment, exclusion rate, calibration
+      curve, and budget-normalized yield
+    required: true
+  - name: AdapterInvocation
+    type: object
+    description: Immutable log entry for one external tool call with tool ID, version,
+      full parameters, seed, input hashes, output hashes, wall time, and limitation
+      annotations
+    required: true
+  - name: CouncilDeliberation
+    type: object
+    description: Multi-persona discussion record with participating personas, literature
+      citations, generated hypotheses, interpretive commentary, and non-evidence status
+      flag requiring human verification for upgrade
+    required: true
+evaluation_principles:
+- name: Epistemic Honesty
+  description: Predictions are never presented as evidence; all outputs explicitly
+    state their epistemic status and known limitations; confidence intervals are calibrated
+    against actual hit rates
+  weight: 0.3
+- name: Experimental Utility
+  description: Ranked outputs are directly actionable as wet-lab experiment plans
+    with synthesizable candidates, required controls, and replicate counts
+  weight: 0.25
+- name: Reproducibility
+  description: Every computation is fully reproducible from recorded tool versions,
+    parameters, seeds, and input hashes; no implicit state
+  weight: 0.2
+- name: Provenance Integrity
+  description: Every score, prediction, and evidence record traces back to its data
+    sources, tool chain, and human verification decisions without gaps
+  weight: 0.15
+- name: Benchmark Rigor
+  description: Evaluations use leak-proof splits, include baselines, and never conflate
+    prediction confidence with empirical validation
+  weight: 0.1
+exit_conditions:
+- name: Loop Completion
+  description: End-to-end pipeline from data source ingestion through computation
+    orchestration to wet-lab result recording operates without breakage for one domain
+    pack, one target, and one objective
+  criteria: At least one prediction-measurement pair is recorded with full provenance
+    and correct evidence-tier assignment
+- name: Judgment Capability
+  description: Retrospective benchmark harness produces three-way comparison results
+    on a literature-derived dataset
+  criteria: Leak-proof split is verified, all three arms (pipeline, frontier LLM,
+    baseline) return scored candidate lists, and top-N enrichment and calibration
+    metrics are computed
+- name: Evidence Fidelity
+  description: Evidence ladder enforces tier-based handling rules and prediction-measurement
+    pairing invariant
+  criteria: Auto-calibration accepts only purified-enzyme and lysate data; higher-tier
+    results are flagged for human interpretation; no prediction is stored without
+    epistemic-status marking
+- name: Council Governance
+  description: Research engine outputs are integrated but never auto-promoted to evidence
+    status
+  criteria: Council deliberations are recorded with non-evidence tags; upgrade to
+    pack knowledge requires logged human verification
+metadata:
+  seed_id: seed_3dc497ab4be9
+  version: 1.0.0
+  created_at: '2026-08-01T07:05:10.280330Z'
+  ambiguity_score: 0.171
+  interview_id: interview_20260801_060542
+  parent_seed_id: null
+  generation_mode: normal
+  degraded: false
+  unresolved_slots: []
+  recovery_reason: null

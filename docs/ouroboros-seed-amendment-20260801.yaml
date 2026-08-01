@@ -1,0 +1,140 @@
+goal: Produce an amendment-only Seed specification recording nine already-approved
+  decisions for the existing crop-protection domain-universal research platform without
+  redesigning or expanding settled scope.
+task_type: code
+brownfield_context:
+  project_type: greenfield
+  context_references: []
+  existing_patterns: []
+  existing_dependencies: []
+constraints:
+- Preserve the existing crop-protection domain-universal research platform, three-layer
+  architecture, and six-tier evidence ladder
+- Record D1 through D9 verbatim as an amendment-only payload with no new requirements
+- Evaluate D1 hard constraints before scoring; FAIL is EXCLUDED, UNKNOWN is ABSTAINED,
+  utilities use 0 to 1,000,000 ppm, normalized weighted arithmetic mean is authoritative,
+  and Pareto is display-only
+- Create immutable UserQueryRevision records for every query edit and always inject
+  non-removable platform synthesizability constraints plus all three environmental
+  safety screens when applicable
+- Apply exactly one immutable prediction pairing only to prediction-validation Measurements;
+  retain unpaired results as AssayObservation records and exclude them from hit-rate
+  and calibration statistics
+- Use the approved D3 reproducibility and versioning rules, D4 calibration strata,
+  D5 epistemic-status and confidence-policy rules, and D6 source, assay-condition,
+  claim, licensing, and non-evidence rules
+- Remove Tauri and record delivery as a local-server web app packaged as one Docker
+  image plus docker-compose using the existing React UI; reject Supabase and AWS,
+  with the local file ledger authoritative and cloud a non-goal
+- Update the status note untracked count from 2 to 4, state the Appendix A Measurement
+  seed replacement instruction, and map D1 through D6 to matching headings in design-contracts-v1.md
+acceptance_criteria:
+- description: The amendment records all nine approved decisions verbatim, identifies
+    itself as amendment-only, and preserves the settled domain, architecture, evidence
+    ladder, and product scope
+  semantic_ac_key: ac_5d1f8caa2ee0b117
+  verify_command: python3 -c "from pathlib import Path; t=Path('docs/governance-amendment-20260801.md').read_text();
+    assert all(('D'+str(i)) in t for i in range(1,10)); assert 'amendment-only' in
+    t.lower(); print('OK')"
+  expected_artifacts:
+  - docs/governance-amendment-20260801.md
+  output_assertion: OK
+- description: D1 through D6 retain their approved combiner, evidence, reproducibility,
+    calibration, status, source, assay, claim, and evidence-tier rules under the corresponding
+    design-contracts-v1 headings
+  semantic_ac_key: ac_49dffc5b5f104e06
+  expected_artifacts:
+  - docs/governance-amendment-20260801.md
+  - design-contracts-v1.md
+- description: The delivery decision records the local-server web app, existing React
+    UI, single Docker image, docker-compose packaging, Tauri removal, Supabase and
+    AWS rejection, authoritative file ledger, and cloud non-goal
+  semantic_ac_key: ac_8772abea6d8c381f
+  expected_artifacts:
+  - docs/governance-amendment-20260801.md
+- description: Bookkeeping is complete with the status note showing untracked count
+    4 and Appendix A stating that its abbreviated Measurement seed text will be replaced
+    by the new seed supplied by this amendment
+  semantic_ac_key: ac_82861f7622c2ce11
+  verify_command: python3 -c "from pathlib import Path; t=Path('docs/governance-amendment-20260801.md').read_text().lower();
+    assert 'untracked count' in t and '4' in t and 'appendix a' in t and 'replacement
+    payload' in t; print('OK')"
+  expected_artifacts:
+  - docs/governance-amendment-20260801.md
+  output_assertion: OK
+ontology_schema:
+  name: SpecRevisionAmendment
+  description: Immutable record of approved specification decisions, preserved scope,
+    contract traceability, delivery decisions, and bookkeeping updates.
+  fields:
+  - name: amendment_id
+    type: string
+    description: Immutable identifier for the amendment
+    required: true
+  - name: base_interview_id
+    type: string
+    description: Completed interview extended by the amendment
+    required: true
+  - name: decisions
+    type: array
+    description: Ordered D1 through D9 decision texts preserved verbatim
+    required: true
+  - name: scope_preservation
+    type: object
+    description: Settled domain architecture evidence ladder and product scope that
+      remain unchanged
+    required: true
+  - name: traceability
+    type: object
+    description: Mapping from D1 through D6 to design-contracts-v1 headings
+    required: true
+  - name: delivery_contract
+    type: object
+    description: Approved local-server packaging and storage decisions
+    required: true
+  - name: bookkeeping
+    type: object
+    description: Status-note count and Appendix A replacement-payload instruction
+    required: true
+evaluation_principles:
+- name: fidelity
+  description: Preserves all approved decisions and their meaning verbatim
+  weight: 0.3
+- name: scope_preservation
+  description: Does not reopen or expand the settled platform scope
+  weight: 0.25
+- name: completeness
+  description: Includes D1 through D9 including delivery bookkeeping and traceability
+  weight: 0.2
+- name: traceability
+  description: Maps D1 through D6 to the corresponding design-contracts-v1 headings
+  weight: 0.15
+- name: clarity
+  description: States the amendment payload and approved rules unambiguously
+  weight: 0.1
+exit_conditions:
+- name: amendment_recorded
+  description: All nine decisions exist as an immutable amendment-only record
+  criteria: D1 through D9 are present verbatim and no new requirements are introduced
+- name: scope_preserved
+  description: The settled platform scope remains unchanged
+  criteria: Crop-protection domain, three-layer architecture, six-tier evidence ladder,
+    and product scope are preserved
+- name: contracts_traceable
+  description: Approved contract decisions are traceable
+  criteria: D1 through D6 map to matching design-contracts-v1 headings
+- name: bookkeeping_complete
+  description: Required documentation bookkeeping is present
+  criteria: Untracked count is 4 and Appendix A identifies the replacement Measurement
+    seed payload
+metadata:
+  seed_id: seed_4ebb6abfbc6c
+  version: 1.0.0
+  created_at: '2026-08-01T14:11:27.418939Z'
+  ambiguity_score: 0.179
+  interview_id: interview_20260801_140713
+  parent_seed_id: null
+  generation_mode: normal
+  degraded: false
+  unresolved_slots: []
+  recovery_reason: null
