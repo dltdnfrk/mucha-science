@@ -1,0 +1,146 @@
+{
+  "schema_version": "synthetic-m1.sources.v1",
+  "synthetic": true,
+  "sources": [
+    {
+      "source_id": "source_d32f54e23745e1c8abb720921c95e4c3",
+      "source_kind": "USER_FILE",
+      "namespace": "synthetic-m1",
+      "accession": "targets.json",
+      "source_release": "0.1.0",
+      "version_status": "PINNED",
+      "schema_version": "synthetic-m1.targets.v1",
+      "api_version": "not-applicable",
+      "canonical_uri": "user-file://synthetic-m1/targets.json",
+      "retrieved_at": "2026-08-01T00:00:00.000000Z",
+      "artifact": {
+        "sha256": "sha256:594ec8820a5135309f002e5aa10e6b109eaa41ec0de5690381b59c1a44f47582",
+        "media_type": "application/json",
+        "byte_size": 697
+      },
+      "license": {
+        "expression": "LicenseRef-Synthetic-User-File",
+        "terms_uri": null,
+        "terms_snapshot_sha256": null,
+        "decision": "ALLOWED",
+        "restrictions": [],
+        "decided_by": "synthetic-pack-author",
+        "decided_at": "2026-08-01T00:00:00.000000Z"
+      },
+      "citation": {
+        "title": "Synthetic target records",
+        "synthetic": true,
+        "path": "targets.json"
+      },
+      "provenance": {
+        "parent_source_ids": [],
+        "adapter_invocation_id": null
+      }
+    },
+    {
+      "source_id": "source_1300f857ef4d462654604f6beedfc4ac",
+      "source_kind": "USER_FILE",
+      "namespace": "synthetic-m1",
+      "accession": "contrast_set.json",
+      "source_release": "0.1.0",
+      "version_status": "PINNED",
+      "schema_version": "synthetic-m1.contrast-set.v1",
+      "api_version": "not-applicable",
+      "canonical_uri": "user-file://synthetic-m1/contrast_set.json",
+      "retrieved_at": "2026-08-01T00:00:00.000000Z",
+      "artifact": {
+        "sha256": "sha256:acee6010d4cc3af69a8ebe9f2a707b909150858e09654d2d16d523204f6f96f9",
+        "media_type": "application/json",
+        "byte_size": 503
+      },
+      "license": {
+        "expression": "LicenseRef-Synthetic-User-File",
+        "terms_uri": null,
+        "terms_snapshot_sha256": null,
+        "decision": "ALLOWED",
+        "restrictions": [],
+        "decided_by": "synthetic-pack-author",
+        "decided_at": "2026-08-01T00:00:00.000000Z"
+      },
+      "citation": {
+        "title": "Synthetic contrast proteome entry set",
+        "synthetic": true,
+        "path": "contrast_set.json"
+      },
+      "provenance": {
+        "parent_source_ids": [],
+        "adapter_invocation_id": null
+      }
+    },
+    {
+      "source_id": "source_bda70c98c0303a756b70ea9281a88080",
+      "source_kind": "USER_FILE",
+      "namespace": "synthetic-m1",
+      "accession": "candidates.json",
+      "source_release": "0.1.0",
+      "version_status": "PINNED",
+      "schema_version": "synthetic-m1.candidates.v1",
+      "api_version": "not-applicable",
+      "canonical_uri": "user-file://synthetic-m1/candidates.json",
+      "retrieved_at": "2026-08-01T00:00:00.000000Z",
+      "artifact": {
+        "sha256": "sha256:574dcbf644255bfaccbd164471d83d260b4e637f5a07864f6878e1236daca03c",
+        "media_type": "application/json",
+        "byte_size": 1319
+      },
+      "license": {
+        "expression": "LicenseRef-Synthetic-User-File",
+        "terms_uri": null,
+        "terms_snapshot_sha256": null,
+        "decision": "ALLOWED",
+        "restrictions": [],
+        "decided_by": "synthetic-pack-author",
+        "decided_at": "2026-08-01T00:00:00.000000Z"
+      },
+      "citation": {
+        "title": "Synthetic candidate substances",
+        "synthetic": true,
+        "path": "candidates.json"
+      },
+      "provenance": {
+        "parent_source_ids": [],
+        "adapter_invocation_id": null
+      }
+    },
+    {
+      "source_id": "source_c9a77398bae382f803cecc5bc67f15c6",
+      "source_kind": "USER_FILE",
+      "namespace": "synthetic-m1",
+      "accession": "assay_vocab.json",
+      "source_release": "0.1.0",
+      "version_status": "PINNED",
+      "schema_version": "synthetic-m1.assay-vocab.v1",
+      "api_version": "not-applicable",
+      "canonical_uri": "user-file://synthetic-m1/assay_vocab.json",
+      "retrieved_at": "2026-08-01T00:00:00.000000Z",
+      "artifact": {
+        "sha256": "sha256:f3c92466281dcfc66d99f0ba101247bf6017acb9c40adec913458b4b1fb4cb7d",
+        "media_type": "application/json",
+        "byte_size": 416
+      },
+      "license": {
+        "expression": "LicenseRef-Synthetic-User-File",
+        "terms_uri": null,
+        "terms_snapshot_sha256": null,
+        "decision": "ALLOWED",
+        "restrictions": [],
+        "decided_by": "synthetic-pack-author",
+        "decided_at": "2026-08-01T00:00:00.000000Z"
+      },
+      "citation": {
+        "title": "Synthetic assay endpoint vocabulary",
+        "synthetic": true,
+        "path": "assay_vocab.json"
+      },
+      "provenance": {
+        "parent_source_ids": [],
+        "adapter_invocation_id": null
+      }
+    }
+  ]
+}

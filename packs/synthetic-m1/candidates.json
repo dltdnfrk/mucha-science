@@ -1,0 +1,48 @@
+{
+  "schema_version": "synthetic-m1.candidates.v1",
+  "synthetic": true,
+  "candidates": [
+    {
+      "id": "synthetic-candidate-01",
+      "structure_like": "SYNSTRUCT::AX1-QV-RING3",
+      "scaffold_class": "invented-azurel",
+      "synthesizable": true
+    },
+    {
+      "id": "synthetic-candidate-02",
+      "structure_like": "SYNSTRUCT::BX2-LM-BRIDGE1",
+      "scaffold_class": "invented-boreline",
+      "synthesizable": true
+    },
+    {
+      "id": "synthetic-candidate-03",
+      "structure_like": "SYNSTRUCT::CX7-PK-STAR2",
+      "scaffold_class": "invented-cyranel",
+      "synthesizable": false
+    },
+    {
+      "id": "synthetic-candidate-04",
+      "structure_like": "SYNSTRUCT::DX4-NT-LOOP5",
+      "scaffold_class": "invented-deltazine",
+      "synthesizable": true
+    },
+    {
+      "id": "synthetic-candidate-05",
+      "structure_like": "SYNSTRUCT::EX9-RS-CAGE2",
+      "scaffold_class": "invented-echoryl",
+      "synthesizable": true
+    },
+    {
+      "id": "synthetic-candidate-06",
+      "structure_like": "SYNSTRUCT::FX3-WQ-FORK4",
+      "scaffold_class": "invented-fablex",
+      "synthesizable": false
+    },
+    {
+      "id": "synthetic-candidate-07",
+      "structure_like": "SYNSTRUCT::GX8-YV-KNOT1",
+      "scaffold_class": "invented-galenyl",
+      "synthesizable": true
+    }
+  ]
+}

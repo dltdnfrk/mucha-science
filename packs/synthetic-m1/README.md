@@ -1,0 +1,1 @@
+Every datum in this pack is synthetic: all identifiers, sequence-like strings, structure-like strings, annotations, contrast entries, candidates, and assay vocabulary were invented solely to prove M1 pipeline plumbing, integrity checks, and exclusion flow, not to represent any real pathogen or to demonstrate scientific or model performance.

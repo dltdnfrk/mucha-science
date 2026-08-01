@@ -1,0 +1,24 @@
+{
+  "schema_version": "synthetic-m1.targets.v1",
+  "synthetic": true,
+  "targets": [
+    {
+      "id": "synthetic-target-alpha",
+      "sequence": "MZQALVEXKTRPQNLIYSGHDFWCA",
+      "annotation": {
+        "synthetic": true,
+        "label": "invented folded target alpha",
+        "note": "Sequence-like text was invented for plumbing tests and is not a biological record."
+      }
+    },
+    {
+      "id": "synthetic-target-beta",
+      "sequence": "GPRTYNQELVAKXSWFMDHICZQA",
+      "annotation": {
+        "synthetic": true,
+        "label": "invented folded target beta",
+        "note": "Sequence-like text was invented for plumbing tests and is not a biological record."
+      }
+    }
+  ]
+}

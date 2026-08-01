@@ -1,0 +1,15 @@
+services:
+  mucha-science:
+    image: mucha-science:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    init: true
+    ports:
+      - "127.0.0.1:8787:8787"
+    volumes:
+      - mucha-science-data:/data
+    restart: unless-stopped
+
+volumes:
+  mucha-science-data:

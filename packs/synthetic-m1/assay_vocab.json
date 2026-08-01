@@ -1,0 +1,16 @@
+{
+  "schema_version": "synthetic-m1.assay-vocab.v1",
+  "synthetic": true,
+  "endpoints": [
+    {
+      "id": "synthetic-endpoint-response-index",
+      "label": "Synthetic response index",
+      "unit": "synthetic_response_unit",
+      "applicable_evidence_tiers": [
+        "PURIFIED_ENZYME",
+        "LYSATE"
+      ],
+      "annotation": "Invented endpoint vocabulary for plumbing-only evidence flow."
+    }
+  ]
+}

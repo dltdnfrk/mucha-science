@@ -1,0 +1,16 @@
+**
+!Dockerfile
+!pyproject.toml
+!src/
+!src/**
+!packs/
+!packs/**
+!web/
+!web/ui/
+!web/ui/**
+
+**/__pycache__/
+**/*.pyc
+web/ui/node_modules/
+web/ui/dist/
+web/ui/tsconfig.tsbuildinfo

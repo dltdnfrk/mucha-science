@@ -1,0 +1,20 @@
+{
+  "schema_version": "synthetic-m1.contrast-set.v1",
+  "synthetic": true,
+  "contrast_sets": [
+    {
+      "id": "synthetic-contrast-proteome-01",
+      "annotation": "Invented contrast entries for plumbing-only selectivity checks.",
+      "entries": [
+        {
+          "id": "synthetic-contrast-entry-a",
+          "sequence": "LQXMWPAVTRZNEKSGYHFDICA"
+        },
+        {
+          "id": "synthetic-contrast-entry-b",
+          "sequence": "AZGHTRPLQNVXKEMWSCYFIDA"
+        }
+      ]
+    }
+  ]
+}
