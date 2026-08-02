@@ -8,6 +8,7 @@ import {
 
 const BrowserHome = lazy(() => import("./pages/BrowserHome"));
 const IdeaSubmit = lazy(() => import("./pages/IdeaSubmit"));
+const MuniStudy = lazy(() => import("./pages/MuniStudy"));
 const ReportView = lazy(() => import("./pages/ReportView"));
 const RunProgress = lazy(() => import("./pages/RunProgress"));
 const Settings = lazy(() => import("./pages/Settings"));
@@ -93,6 +94,7 @@ function AppRoutes() {
           <Route path="/studio" element={<IdeaSubmit />} />
           <Route path="/studio/:studioId" element={<StudioSession />} />
           <Route path="/browser" element={<BrowserHome />} />
+          <Route path="/muni" element={<MuniStudy />} />
           <Route path="/browser/:runId" element={<RunProgress />} />
           <Route path="/browser/:runId/report" element={<ReportView />} />
           <Route path="/run/:runId" element={<RunProgress />} />

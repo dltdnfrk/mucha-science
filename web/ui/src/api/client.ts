@@ -95,6 +95,129 @@ function normalizeBaseUrl(value: string): string {
   return value.trim().replace(/\/+$/, "");
 }
 
+export interface MuniStudy {
+  study_id: string;
+  target_crop: string;
+  target_pathogen: string;
+  purpose: string;
+  created_at: string;
+  pack_ref: string | null;
+}
+
+export type MuniJobStatus = "PENDING" | "RUNNING" | "SUCCEEDED" | "FAILED" | "SKIPPED";
+
+export interface MuniCollectionJob {
+  job_id: string;
+  study_ref: string;
+  source_ref: string;
+  status: MuniJobStatus;
+  started_at: string | null;
+  finished_at: string | null;
+  result_ref: string | null;
+  reason: string | null;
+}
+
+export interface MuniCandidateItem {
+  candidate_id?: string;
+  disposition?: string;
+  rank?: number | null;
+  composite_score_ppm?: number | null;
+  reasons?: string[];
+}
+
+export interface MuniCandidateSet {
+  set_id: string;
+  workflow_ref: string;
+  kind: "DIAGNOSTIC_DISCOVERY" | "COMPOUND_SCREENING";
+  items: MuniCandidateItem[];
+  count: number;
+  ranked: MuniCandidateItem[];
+  excluded: MuniCandidateItem[];
+  abstained: MuniCandidateItem[];
+}
+
+export interface MuniReview {
+  review_id: string;
+  candidate_set_ref: string;
+  reviewer: string;
+  decision: "APPROVED" | "REJECTED" | "NEEDS_MORE";
+  note: string;
+  decided_at: string;
+}
+
+export interface MuniHandoff {
+  handoff_id: string;
+  review_ref: string;
+  artifact_paths: string[];
+  disclaimer: string;
+}
+
+export async function createMuniStudy(input: {
+  target_crop: string;
+  target_pathogen: string;
+  purpose: string;
+  pack_ref?: string;
+}): Promise<MuniStudy> {
+  return requestJson("/api/muni/studies", { method: "POST", body: JSON.stringify(input) });
+}
+
+export async function listMuniStudies(): Promise<MuniStudy[]> {
+  return (await requestJson<{ studies: MuniStudy[] }>("/api/muni/studies")).studies;
+}
+
+export function collectMuniStudy(studyId: string): Promise<{ jobs: MuniCollectionJob[] }> {
+  return requestJson(`/api/muni/studies/${encodeURIComponent(studyId)}/collection`, { method: "POST" });
+}
+
+export function runMuniDiagnostic(studyId: string): Promise<MuniCandidateSet> {
+  return requestJson(`/api/muni/studies/${encodeURIComponent(studyId)}/workflows/diagnostic/run`, { method: "POST" });
+}
+
+export function runMuniScreening(studyId: string, purpose: string): Promise<MuniCandidateSet> {
+  return requestJson(`/api/muni/studies/${encodeURIComponent(studyId)}/workflows/screening/run`, {
+    method: "POST",
+    body: JSON.stringify({ purpose }),
+  });
+}
+
+export async function getMuniCandidates(studyId: string): Promise<MuniCandidateSet[]> {
+  return (await requestJson<{ candidate_sets: MuniCandidateSet[] }>(
+    `/api/muni/studies/${encodeURIComponent(studyId)}/candidates`,
+  )).candidate_sets;
+}
+
+export function reviewMuniCandidate(
+  setId: string,
+  input: { reviewer: string; decision: MuniReview["decision"]; note: string },
+): Promise<MuniReview> {
+  return requestJson(`/api/muni/candidates/${encodeURIComponent(setId)}/review`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function createMuniHandoff(reviewId: string): Promise<MuniHandoff> {
+  return requestJson(`/api/muni/reviews/${encodeURIComponent(reviewId)}/handoff`, { method: "POST" });
+}
+
+async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const headers = new Headers(init.headers);
+  if (init.body !== undefined) headers.set("Content-Type", "application/json");
+  const response = await fetch(`${apiBaseUrl()}${path}`, { ...init, headers });
+  const text = await response.text();
+  if (!response.ok) {
+    let message = text || `Request failed with HTTP ${response.status}.`;
+    try {
+      const payload = JSON.parse(text) as { error?: { message?: string } };
+      message = payload.error?.message || message;
+    } catch {
+      // Preserve the server response when it is not JSON.
+    }
+    throw new ApiError(message, response.status);
+  }
+  return (text ? JSON.parse(text) : undefined) as T;
+}
+
 function unwrapEventPayload<T>(message: unknown): T {
   if (
     typeof message === "object" &&

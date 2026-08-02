@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 from dataclasses import asdict
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from ipaddress import ip_address
+import hashlib
 import json
 import logging
 import mimetypes
@@ -14,9 +16,35 @@ from pathlib import Path, PurePosixPath
 import signal
 import stat
 from threading import Lock
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any, Callable, Iterator, Mapping, Sequence
 from urllib.parse import unquote, urlsplit
 
+from src.muni import PersistenceIntegrityError
+from src.muni._store import read_json_array
+from src.muni.collection import (
+    AdapterResult,
+    collect_for_study,
+    load_collected_data,
+    load_collection_jobs,
+)
+from src.muni.handoff import HandoffError, create_handoff, record_review
+from src.muni.study import (
+    StudyValidationError,
+    create_study,
+    load_study,
+    save_study,
+)
+from src.muni.workflows.diagnostic import (
+    DiagnosticDiscoveryError,
+    load_diagnostic_workflow_records,
+    run_diagnostic_discovery,
+)
+from src.muni.workflows.screening import (
+    ScreeningWorkflowError,
+    load_screening_workflow_records,
+    run_compound_screening,
+)
+from src.muni_contracts import CandidateSet, ReviewRecord, Study
 from src.objectives.validation import validate_query_revision
 from src.packs_loader import PackLoadError, discover_packs, load_pack
 from src.pipeline.scientific_contracts import ContractError
@@ -28,6 +56,21 @@ DEFAULT_DATA_DIR = Path("/data")
 DATA_DIR_ENV = "MUCHA_SCIENCE_DATA_DIR"
 MAX_REQUEST_BYTES = 1_048_576
 _LOGGER = logging.getLogger(__name__)
+_MUNI_ENV_LOCK = Lock()
+
+# Public route inventory used by contract tests and shell integrations. Workflow
+# routes are intentionally concrete: there is no combined workflow endpoint.
+API_ROUTE_TABLE = frozenset({
+    ("POST", "/api/muni/studies"),
+    ("GET", "/api/muni/studies"),
+    ("GET", "/api/muni/studies/{study_id}"),
+    ("POST", "/api/muni/studies/{study_id}/collection"),
+    ("POST", "/api/muni/studies/{study_id}/workflows/diagnostic/run"),
+    ("POST", "/api/muni/studies/{study_id}/workflows/screening/run"),
+    ("GET", "/api/muni/studies/{study_id}/candidates"),
+    ("POST", "/api/muni/candidates/{set_id}/review"),
+    ("POST", "/api/muni/reviews/{review_id}/handoff"),
+})
 
 
 class NonLoopbackBindError(ValueError):
@@ -36,6 +79,27 @@ class NonLoopbackBindError(ValueError):
 
 class DataDirectoryError(ValueError):
     """Raised when the configured persistent data directory is unusable."""
+
+
+class MuniDataIntegrityError(RuntimeError):
+    """Raised when an existing persisted MUNI record cannot be trusted."""
+
+
+@contextmanager
+def _muni_integrity_boundary(message: str) -> Iterator[None]:
+    """Translate only parsing and contract failures from persisted MUNI reads."""
+    try:
+        yield
+    except (
+        PersistenceIntegrityError,
+        ContractError,
+        OSError,
+        TypeError,
+        ValueError,
+        UnicodeDecodeError,
+        json.JSONDecodeError,
+    ) as exc:
+        raise MuniDataIntegrityError(message) from exc
 
 
 def resolve_data_directory(
@@ -84,12 +148,49 @@ def validate_data_directory(
     return directory, mounted
 
 
+@contextmanager
+def _muni_data_root(root: Path) -> Iterator[None]:
+    """Temporarily bind MUNI's environment-based entrypoints to this server."""
+    with _MUNI_ENV_LOCK:
+        previous = os.environ.get("MUNI_DATA_ROOT")
+        os.environ["MUNI_DATA_ROOT"] = str(root)
+        try:
+            yield
+        finally:
+            if previous is None:
+                os.environ.pop("MUNI_DATA_ROOT", None)
+            else:
+                os.environ["MUNI_DATA_ROOT"] = previous
+
+
+class _StudyMetadataAdapter:
+    source = "muni_study_metadata"
+    license_decision = "ALLOWED"
+
+    def __call__(self, study: Study) -> AdapterResult:
+        payload = json.dumps(
+            study.to_payload(), sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+        return AdapterResult("local-study-input", payload)
+
+
+class _DeferredChemblAdapter:
+    source = "chembl"
+    license_decision = "UNKNOWN"
+
+    def __call__(self, _study: Study) -> AdapterResult:
+        raise AssertionError("the source policy gate must skip this adapter")
+
+
 class InMemoryPlatform:
     """Process-local persistence until platform stores and combiners are wired."""
 
-    def __init__(self, packs_root: Path, runs_root: Path) -> None:
+    def __init__(self, packs_root: Path, runs_root: Path, data_dir: Path) -> None:
         self._packs_root = packs_root
         self._runs_root = runs_root
+        self._muni_root = data_dir / "muni"
+        self._handoffs_root = self._muni_root / "handoffs"
+        self._candidate_pack = self._ensure_candidate_pack()
         self._queries: dict[str, dict[str, object]] = {}
         self._lock = Lock()
 
@@ -118,6 +219,251 @@ class InMemoryPlatform:
     def observations(self) -> list[dict[str, object]]:
         # TODO(nie:integration): read AssayObservation records from the evidence store.
         return []
+
+    def create_muni_study(self, payload: Mapping[str, object]) -> dict[str, object]:
+        expected = {"target_crop", "target_pathogen", "purpose", "pack_ref"}
+        if not set(payload).issubset(expected) or not {"target_crop", "target_pathogen", "purpose"}.issubset(payload):
+            raise StudyValidationError(
+                "study body requires target_crop, target_pathogen, and purpose; pack_ref is optional"
+            )
+        pack_ref = payload.get("pack_ref")
+        if pack_ref is not None and not isinstance(pack_ref, str):
+            raise StudyValidationError("pack_ref must be a string or null")
+        study = create_study(
+            payload["target_crop"],  # type: ignore[arg-type]
+            payload["target_pathogen"],  # type: ignore[arg-type]
+            payload["purpose"],  # type: ignore[arg-type]
+            pack_ref,
+        )
+        save_study(study, root=self._muni_root)
+        return study.to_payload()
+
+    def _all_muni_studies(self) -> list[Study]:
+        directory = self._muni_root / "studies"
+        if not directory.exists():
+            return []
+        result = []
+        with _muni_integrity_boundary("persisted MUNI Study data is invalid"):
+            for path in sorted(directory.glob("muni_study_*.json")):
+                stem = path.stem
+                digest = stem.removeprefix("muni_study_")
+                if len(digest) == 32 and all(character in "0123456789abcdef" for character in digest):
+                    result.append(load_study(stem, root=self._muni_root))
+        return result
+
+    def list_muni_studies(self) -> list[dict[str, object]]:
+        return [study.to_payload() for study in self._all_muni_studies()]
+
+    def muni_study(self, study_id: str) -> Study | None:
+        record_path = self._muni_root / "studies" / f"{study_id}.json"
+        record_exists = record_path.is_file()
+        try:
+            return load_study(study_id, root=self._muni_root)
+        except FileNotFoundError:
+            return None
+        except (
+            PersistenceIntegrityError,
+            StudyValidationError,
+            ContractError,
+            OSError,
+            TypeError,
+            ValueError,
+        ) as exc:
+            if not record_exists:
+                return None
+            raise MuniDataIntegrityError("persisted MUNI Study is invalid") from exc
+
+    def collect_muni_study(self, study: Study) -> list[dict[str, object]]:
+        with _muni_integrity_boundary("persisted MUNI collection data is invalid"):
+            load_collection_jobs(study, root=self._muni_root)
+            load_collected_data(study, root=self._muni_root)
+        try:
+            with _muni_data_root(self._muni_root):
+                jobs = collect_for_study(
+                    study, [_StudyMetadataAdapter(), _DeferredChemblAdapter()]
+                )
+        except PersistenceIntegrityError as exc:
+            raise MuniDataIntegrityError("persisted MUNI collection data is invalid") from exc
+        return [job.to_payload() for job in jobs]
+
+    def run_muni_diagnostic(self, study: Study) -> dict[str, object]:
+        with _muni_integrity_boundary("persisted MUNI diagnostic data is invalid"):
+            load_collected_data(study, root=self._muni_root)
+            load_diagnostic_workflow_records(study, root=self._muni_root)
+            self._candidate_sets(study, ("diagnostic-candidate-sets",))
+        try:
+            candidate_set = run_diagnostic_discovery(study, root=self._muni_root)
+        except (PersistenceIntegrityError, ContractError) as exc:
+            raise MuniDataIntegrityError("persisted MUNI diagnostic data is invalid") from exc
+        return candidate_set.to_payload()
+
+    def run_muni_screening(
+        self, study: Study, *, purpose: str, candidate_source: str | Path | None
+    ) -> dict[str, object]:
+        source = self._candidate_pack if candidate_source is None else Path(candidate_source)
+        with _muni_integrity_boundary("persisted MUNI screening data is invalid"):
+            load_collected_data(study, root=self._muni_root)
+            load_screening_workflow_records(study, root=self._muni_root)
+            self._candidate_sets(study, ("compound-candidate-sets",))
+        try:
+            candidate_set = run_compound_screening(
+                study,
+                purpose=purpose,
+                candidate_source=source,
+                root=self._muni_root,
+            )
+        except PersistenceIntegrityError as exc:
+            raise MuniDataIntegrityError("persisted MUNI screening data is invalid") from exc
+        return candidate_set.to_payload()
+
+    def _candidate_sets(
+        self, study: Study, suffixes: Sequence[str]
+    ) -> list[CandidateSet]:
+        studies_dir = self._muni_root / "studies"
+        result = []
+        for suffix in suffixes:
+            path = studies_dir / f"{study.study_id}.{suffix}.json"
+            for payload in read_json_array(path, require_objects=True):
+                result.append(CandidateSet.from_payload(payload))  # type: ignore[arg-type]
+        return result
+
+    def muni_candidates(self, study: Study) -> list[dict[str, object]]:
+        with _muni_integrity_boundary("persisted MUNI candidate data is invalid"):
+            records = [
+                *load_diagnostic_workflow_records(study, root=self._muni_root),
+                *load_screening_workflow_records(study, root=self._muni_root),
+            ]
+            dispositions = {
+                record.run.run_id: {
+                    "ranked": [dict(item) for item in record.ranked],
+                    "excluded": [dict(item) for item in record.excluded],
+                    "abstained": [dict(item) for item in record.abstained],
+                }
+                for record in records
+                if record.run.status.value == "SUCCEEDED"
+            }
+            candidate_sets = self._candidate_sets(
+                study,
+                ("diagnostic-candidate-sets", "compound-candidate-sets"),
+            )
+            return [
+                {
+                    **candidate_set.to_payload(),
+                    **dispositions.get(candidate_set.workflow_ref, {
+                        "ranked": [], "excluded": [], "abstained": []
+                    }),
+                }
+                for candidate_set in candidate_sets
+            ]
+
+    def find_candidate_set(self, set_id: str) -> CandidateSet | None:
+        for study in self._all_muni_studies():
+            for payload in self.muni_candidates(study):
+                if payload.get("set_id") == set_id:
+                    fields = {key: payload[key] for key in ("set_id", "workflow_ref", "kind", "items", "count")}
+                    return CandidateSet.from_payload(fields)
+        return None
+
+    def review_candidate(
+        self, candidate_set: CandidateSet, payload: Mapping[str, object]
+    ) -> dict[str, object]:
+        if set(payload) != {"reviewer", "decision", "note"}:
+            raise ValueError("review body requires exactly reviewer, decision, and note")
+        self.find_review("")
+        with _muni_data_root(self._muni_root):
+            review = record_review(
+                candidate_set,
+                reviewer=payload["reviewer"],  # type: ignore[arg-type]
+                decision=payload["decision"],  # type: ignore[arg-type]
+                note=payload["note"],  # type: ignore[arg-type]
+            )
+        return review.to_payload()
+
+    def find_review(self, review_id: str) -> ReviewRecord | None:
+        directory = self._muni_root / "studies"
+        if not directory.exists():
+            return None
+        try:
+            paths = sorted(directory.glob("muni_study_*.reviews.json"))
+            for path in paths:
+                for payload in read_json_array(path, require_objects=True):
+                    review = ReviewRecord.from_payload(payload)
+                    if review.review_id == review_id:
+                        return review
+        except (
+            PersistenceIntegrityError,
+            OSError,
+            ValueError,
+            TypeError,
+            ContractError,
+            json.JSONDecodeError,
+        ) as exc:
+            raise MuniDataIntegrityError("persisted MUNI review data is invalid") from exc
+        return None
+
+    def handoff_review(self, review: ReviewRecord) -> dict[str, object]:
+        try:
+            with _muni_data_root(self._muni_root):
+                handoff = create_handoff(review, out_dir=self._handoffs_root)
+        except (PersistenceIntegrityError, ContractError, TypeError, ValueError) as exc:
+            raise MuniDataIntegrityError("persisted MUNI handoff data is invalid") from exc
+        return handoff.to_payload()
+
+    def _ensure_candidate_pack(self) -> Path:
+        directory = self._muni_root / "builtin-screening-candidates"
+        directory.mkdir(parents=True, exist_ok=True)
+        candidates = {
+            "schema_version": "muni-local-screening-candidates.v1",
+            "synthetic": True,
+            "candidates": [
+                self._candidate("synthetic-compound-alpha", 900_000, True),
+                self._candidate("synthetic-compound-beta", 700_000, True),
+                self._candidate("synthetic-compound-excluded", 950_000, False),
+            ],
+        }
+        raw = (json.dumps(candidates, sort_keys=True, separators=(",", ":")) + "\n").encode("utf-8")
+        (directory / "candidates.json").write_bytes(raw)
+        manifest = {
+            "name": "muni-local-screening-candidates",
+            "semver": "1.0.0",
+            "schema_version": "1",
+            "title": "MUNI local synthetic screening candidates",
+            "license": {
+                "expression": "LicenseRef-Synthetic",
+                "terms_uri": None,
+                "decision": "ALLOWED",
+                "restrictions": [],
+            },
+            "references": [],
+            "files": [{
+                "path": "candidates.json",
+                "sha256": "sha256:" + hashlib.sha256(raw).hexdigest(),
+            }],
+        }
+        (directory / "pack.json").write_text(
+            json.dumps(manifest, sort_keys=True, separators=(",", ":")), encoding="utf-8"
+        )
+        return directory
+
+    @staticmethod
+    def _candidate(candidate_id: str, score: int, synthesizable: bool) -> dict[str, object]:
+        risk = "0.05" if synthesizable else "0.50"
+        objective_ids = (
+            "target_binding_activity", "detectability", "non_target_avoidance",
+            "stability", "inhibition_kill", "surface_adhesion_persistence",
+        )
+        return {
+            "id": candidate_id,
+            "synthetic": True,
+            "synthesizable": synthesizable,
+            "objective_utilities_ppm": {name: score for name in objective_ids},
+            "constraint_metrics": {
+                "metric.synthesizability_probability": "0.90" if synthesizable else "0.10",
+                "metric.crop_phytotoxicity_risk": risk,
+                "metric.soil_beneficial_microbe_risk": risk,
+                "metric.handler_exposure_risk": risk,
+            },
+        }
 
     def list_m1_runs(self) -> list[str]:
         try:
@@ -170,14 +516,29 @@ class RequestHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802 - stdlib handler API
         try:
             self._get()
+        except MuniDataIntegrityError as exc:
+            self._data_integrity_error(exc)
         except Exception:
             self._internal_error()
 
     def do_POST(self) -> None:  # noqa: N802 - stdlib handler API
         try:
             self._post()
+        except MuniDataIntegrityError as exc:
+            self._data_integrity_error(exc)
         except Exception:
             self._internal_error()
+
+    def _data_integrity_error(self, exc: MuniDataIntegrityError) -> None:
+        _LOGGER.error("persisted MUNI data failed integrity validation: %s", exc)
+        try:
+            self._error(
+                HTTPStatus.INTERNAL_SERVER_ERROR,
+                "data_integrity_error",
+                "persisted MUNI data failed integrity validation",
+            )
+        except (BrokenPipeError, ConnectionResetError):
+            _LOGGER.info("client disconnected before the error response was written")
 
     def _internal_error(self) -> None:
         _LOGGER.exception("unhandled HTTP request failure")
@@ -224,6 +585,24 @@ class RequestHandler(BaseHTTPRequestHandler):
         if path == "/api/evidence/observations":
             self._json(HTTPStatus.OK, {"observations": self.server.platform.observations()})
             return
+        if path == "/api/muni/studies":
+            self._json(HTTPStatus.OK, {"studies": self.server.platform.list_muni_studies()})
+            return
+        segments = self._muni_segments(path)
+        if len(segments) == 2 and segments[0] == "studies":
+            study = self.server.platform.muni_study(segments[1])
+            if study is None:
+                self._error(HTTPStatus.NOT_FOUND, "study_not_found", "MUNI Study does not exist")
+                return
+            self._json(HTTPStatus.OK, study.to_payload())
+            return
+        if len(segments) == 3 and segments[0] == "studies" and segments[2] == "candidates":
+            study = self.server.platform.muni_study(segments[1])
+            if study is None:
+                self._error(HTTPStatus.NOT_FOUND, "study_not_found", "MUNI Study does not exist")
+                return
+            self._json(HTTPStatus.OK, {"candidate_sets": self.server.platform.muni_candidates(study)})
+            return
         if path == "/api/m1/runs":
             self._json(HTTPStatus.OK, {"runs": self.server.platform.list_m1_runs()})
             return
@@ -242,6 +621,69 @@ class RequestHandler(BaseHTTPRequestHandler):
 
     def _post(self) -> None:
         path = urlsplit(self.path).path
+        if path == "/api/muni/studies":
+            payload = self._json_body()
+            if payload is None:
+                return
+            try:
+                study = self.server.platform.create_muni_study(payload)
+            except (StudyValidationError, PackLoadError, ContractError, TypeError, ValueError) as exc:
+                self._error(HTTPStatus.UNPROCESSABLE_ENTITY, "invalid_study", str(exc))
+                return
+            self._json(HTTPStatus.CREATED, study)
+            return
+        segments = self._muni_segments(path)
+        if len(segments) == 3 and segments[0] == "studies" and segments[2] == "collection":
+            study = self.server.platform.muni_study(segments[1])
+            if study is None:
+                self._error(HTTPStatus.NOT_FOUND, "study_not_found", "MUNI Study does not exist")
+                return
+            jobs = self.server.platform.collect_muni_study(study)
+            self._json(HTTPStatus.OK, {"jobs": jobs})
+            return
+        if (
+            len(segments) == 5
+            and segments[0] == "studies"
+            and segments[2] == "workflows"
+            and segments[4] == "run"
+        ):
+            study = self.server.platform.muni_study(segments[1])
+            if study is None:
+                self._error(HTTPStatus.NOT_FOUND, "study_not_found", "MUNI Study does not exist")
+                return
+            if segments[3] == "diagnostic":
+                self._run_muni_diagnostic(study)
+                return
+            if segments[3] == "screening":
+                self._run_muni_screening(study)
+                return
+        if len(segments) == 3 and segments[0] == "candidates" and segments[2] == "review":
+            candidate_set = self.server.platform.find_candidate_set(segments[1])
+            if candidate_set is None:
+                self._error(HTTPStatus.NOT_FOUND, "candidate_not_found", "MUNI CandidateSet does not exist")
+                return
+            payload = self._json_body()
+            if payload is None:
+                return
+            try:
+                review = self.server.platform.review_candidate(candidate_set, payload)
+            except (HandoffError, ContractError, TypeError, ValueError) as exc:
+                self._error(HTTPStatus.UNPROCESSABLE_ENTITY, "invalid_review", str(exc))
+                return
+            self._json(HTTPStatus.CREATED, review)
+            return
+        if len(segments) == 3 and segments[0] == "reviews" and segments[2] == "handoff":
+            review = self.server.platform.find_review(segments[1])
+            if review is None:
+                self._error(HTTPStatus.NOT_FOUND, "review_not_found", "MUNI review does not exist")
+                return
+            try:
+                handoff = self.server.platform.handoff_review(review)
+            except HandoffError as exc:
+                self._error(HTTPStatus.CONFLICT, "handoff_not_allowed", str(exc))
+                return
+            self._json(HTTPStatus.CREATED, handoff)
+            return
         if path == "/api/queries":
             payload = self._json_body()
             if payload is None:
@@ -261,6 +703,55 @@ class RequestHandler(BaseHTTPRequestHandler):
             self._command(command, payload)
             return
         self._error(HTTPStatus.NOT_FOUND, "not_found", "API route not found")
+
+    def _run_muni_diagnostic(self, study: Study) -> None:
+        try:
+            candidate_set = self.server.platform.run_muni_diagnostic(study)
+        except DiagnosticDiscoveryError as exc:
+            self._error(HTTPStatus.UNPROCESSABLE_ENTITY, "diagnostic_not_ready", str(exc))
+            return
+        self._json(HTTPStatus.OK, candidate_set)
+
+    def _run_muni_screening(self, study: Study) -> None:
+        payload = self._json_body()
+        if payload is None:
+            return
+        if not set(payload).issubset({"purpose", "candidate_source"}):
+            self._error(
+                HTTPStatus.UNPROCESSABLE_ENTITY,
+                "invalid_screening",
+                "screening body accepts only purpose and candidate_source",
+            )
+            return
+        purpose = payload.get("purpose", study.purpose)
+        candidate_source = payload.get("candidate_source")
+        if not isinstance(purpose, str) or (
+            candidate_source is not None and not isinstance(candidate_source, str)
+        ):
+            self._error(
+                HTTPStatus.UNPROCESSABLE_ENTITY,
+                "invalid_screening",
+                "purpose must be a string and candidate_source must be a string or null",
+            )
+            return
+        try:
+            candidate_set = self.server.platform.run_muni_screening(
+                study, purpose=purpose, candidate_source=candidate_source
+            )
+        except (ScreeningWorkflowError, PackLoadError, OSError, ValueError, TypeError) as exc:
+            self._error(HTTPStatus.UNPROCESSABLE_ENTITY, "screening_not_ready", str(exc))
+            return
+        self._json(HTTPStatus.OK, candidate_set)
+
+    @staticmethod
+    def _muni_segments(path: str) -> list[str]:
+        prefix = "/api/muni/"
+        if not path.startswith(prefix):
+            return []
+        decoded = unquote(path.removeprefix(prefix))
+        if not decoded or decoded.startswith("/") or decoded.endswith("/"):
+            return []
+        return decoded.split("/")
 
     def _command(self, command: str, payload: Mapping[str, object]) -> None:
         if command == "pipeline_runtime_status":
@@ -403,7 +894,7 @@ def create_server(
         is_container=is_container,
         is_mount_point=is_mount_point,
     )
-    platform = InMemoryPlatform(Path(packs_root), Path(runs_root))
+    platform = InMemoryPlatform(Path(packs_root), Path(runs_root), resolved_data_dir)
     return MuchaHTTPServer(
         (host, port),
         RequestHandler,

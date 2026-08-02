@@ -158,6 +158,7 @@ export default function Sidebar() {
       <nav className="cowork-primary-nav">
         <NavRow icon="＋" label="New task" to="/studio" />
         <NavRow icon="▰" label="Projects" to="/browser" />
+        <NavRow icon="◈" label="MUNI Study" to="/muni" />
         <NavRow icon="◷" label="Scheduled" />
         <NavRow icon="⌁" label="Live artifacts" to="/browser" />
         <NavRow icon="▣" label="Dispatch" badge="베타" />

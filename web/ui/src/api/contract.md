@@ -49,3 +49,32 @@ implement the existing `mucha-science.web.v1` command protocol. Messages include
 responses and events use the corresponding shapes in
 `src/lib/webPipelineProtocol.ts`. The standalone UI's active execution path is
 the HTTP command API plus `/api/events`; this socket is a compatibility boundary.
+
+## MUNI Study
+
+MUNI targets are caller-supplied free text. The server performs format validation
+only and does not resolve crop or pathogen names against a registry. Unknown
+study, candidate-set, and review identifiers return `404`. Errors use
+`{ "error": { "code": string, "message": string } }`.
+
+| method and path | request body | success result |
+| --- | --- | --- |
+| `POST /api/muni/studies` | `{ target_crop, target_pathogen, purpose, pack_ref? }` | `201` with `Study` |
+| `GET /api/muni/studies` | none | `{ studies: Study[] }` |
+| `GET /api/muni/studies/{study_id}` | none | `Study` |
+| `POST /api/muni/studies/{study_id}/collection` | none | `{ jobs: CollectionJob[] }`; final jobs include `SKIPPED` and its `reason` when policy gates a source |
+| `POST /api/muni/studies/{study_id}/workflows/diagnostic/run` | none | diagnostic `CandidateSet` |
+| `POST /api/muni/studies/{study_id}/workflows/screening/run` | `{ purpose?, candidate_source? }` | compound-screening `CandidateSet`; purpose defaults to the study purpose and candidate source defaults to the integrity-checked local synthetic pack |
+| `GET /api/muni/studies/{study_id}/candidates` | none | `{ candidate_sets: CandidateSetWithDispositions[] }` |
+| `POST /api/muni/candidates/{set_id}/review` | `{ reviewer, decision, note }` | `201` with `ReviewRecord` |
+| `POST /api/muni/reviews/{review_id}/handoff` | none | `201` with `WetLabHandoff` |
+
+The diagnostic and screening workflow routes are deliberately separate. There
+is no route that runs both workflows in one request. `decision` is `APPROVED`,
+`REJECTED`, or `NEEDS_MORE`; only an approved persisted review may create a
+handoff. A non-approved handoff returns `409 handoff_not_allowed`.
+
+`CandidateSetWithDispositions` contains the normal `CandidateSet` fields plus
+three disjoint arrays: `ranked`, `excluded`, and `abstained`. Handoff responses
+always include the dry-lab disclaimer and artifact paths generated below the
+server's configured data directory.
