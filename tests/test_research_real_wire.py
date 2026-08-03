@@ -254,6 +254,36 @@ def test_web_runner_aggregates_injected_backends_in_priority_order():
     assert all(item["count"] == 1 for item in runner.last_backend_trace)
 
 
+def test_scientific_runner_does_not_collect_internal_vault_candidates():
+    plan = _plan("peer reviewed scientific gut microbiome depression clinical trial")
+    vault_calls: list[str] = []
+
+    def fake_vault(query: str):
+        vault_calls.append(query)
+        return [{
+            "source": "mempalace:Ouroboros/system.md",
+            "title": "Internal systematic review workflow",
+            "text": "microbiome depression clinical trial evidence",
+            "score": 0.95,
+        }]
+
+    runner = WebResearchRunner(
+        web_search=lambda _query: [],
+        vault_search=fake_vault,
+        academic_search=lambda _query: [],
+        exa_search=None,
+    )
+
+    findings = runner.run(plan)
+
+    assert vault_calls == []
+    assert all(
+        ref.provenance.get("kind") not in {"vault", "insight_forge"}
+        for finding in findings
+        for ref in finding.support
+    )
+
+
 def test_karpathy_autoresearch_runner_keeps_metric_improvement(tmp_path):
     plan = _plan("strawberry diagnostics")
 

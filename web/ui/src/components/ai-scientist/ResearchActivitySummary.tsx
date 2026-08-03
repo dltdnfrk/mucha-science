@@ -19,6 +19,7 @@ export function ResearchActivitySummary({
       activity.providers.length
       || activity.routes.length
       || activity.evidence.length
+      || activity.sourceCounts
       || activity.claims.length
       || activity.quality
       || activity.counterSearch
@@ -51,8 +52,17 @@ export function ResearchActivitySummary({
           ))}
         </ActivityGroup>
       ) : null}
-      {activity?.evidence.length ? (
+      {activity?.sourceCounts || activity?.evidence.length ? (
         <ActivityGroup label="근거 위치와 인용">
+          {activity.sourceCounts ? (
+            <li
+              data-accepted-count={activity.sourceCounts.acceptedCount}
+              data-candidate-count={activity.sourceCounts.candidateCount}
+            >
+              <strong>후보 {activity.sourceCounts.candidateCount}</strong>
+              <span>채택 {activity.sourceCounts.acceptedCount}</span>
+            </li>
+          ) : null}
           {activity.evidence.map((evidence) => (
             <li key={evidence.sourceId}>
               <strong>{evidence.citationId}</strong>

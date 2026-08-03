@@ -39,13 +39,57 @@ class InterviewPlan:
 
 # 핵심 차원 감지 키워드 (한국어 + 영문)
 _DIM_KEYWORDS: Dict[str, Tuple[str, ...]] = {
-    "timeframe": ("최신", "2026", "2025", "지금", "현재", "올해", "이번", "분기", "now", "recent", "latest"),
-    "domain": ("한국", "한국어", "korean", "글로벌", "global", "산업", "도메인", "분야", "시장", "지역", "region"),
-    "evaluation": ("ROI", "비용", "가격", "cost", "지표", "정량", "수치", "기준", "score", "근거"),
-    "comparison": ("비교", "vs", " or ", "또는", "대신", "차이", "더 좋은"),
+    "timeframe": (
+        "최신", "최근", "년간", "년 이후", "2026", "2025", "지금", "현재",
+        "올해", "이번", "분기", "now", "recent", "latest", "since", "onward",
+        "published after", "last five years",
+    ),
+    "domain": (
+        "한국", "한국어", "korean", "글로벌", "global", "산업", "도메인", "분야",
+        "시장", "지역", "region", "biomedical", "clinical", "medical", "scientific",
+        "학술", "논문", "임상", "생의학", "관찰연구", "임상시험",
+    ),
+    "evaluation": (
+        "ROI", "비용", "가격", "cost", "지표", "정량", "수치", "기준", "score",
+        "근거", "근거의 강도", "한계", "evidence", "limitations",
+    ),
+    "comparison": (
+        "비교", "구분", "vs", " or ", "또는", "대신", "차이", "더 좋은",
+        "separating", "versus", "observational", "randomized",
+    ),
     "monitoring": ("지속", "장기", "쌓아", "매일", "주간", "monitor", "feed", "trend", "꾸준히", "꾸준"),
     "specificity": ("이번 한 번", "한 번에", "결과 받기", "답 주세요", "결론"),
 }
+
+_SCIENTIFIC_MARKERS = (
+    "biomedical",
+    "clinical",
+    "medical",
+    "scientific",
+    "peer reviewed",
+    "pubmed",
+    "openalex",
+    "observational",
+    "randomized",
+    "trial",
+    "causal",
+    "microbiome",
+    "학술",
+    "논문",
+    "연구",
+    "근거",
+    "임상",
+    "생의학",
+    "관찰연구",
+    "임상시험",
+    "인과",
+    "미생물",
+)
+
+
+def is_scientific_question(text: str) -> bool:
+    normalized = " ".join((text or "").casefold().split())
+    return any(marker in normalized for marker in _SCIENTIFIC_MARKERS)
 
 
 # Research Type 분류 키워드 (deep-research-query Phase 1 차용)

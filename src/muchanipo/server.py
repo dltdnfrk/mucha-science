@@ -885,9 +885,18 @@ def _compact_evidence_id(ref_id: str) -> str:
     return f"{value[:24]}...{value[-12:]}"
 
 
+def _serve_interview_question_count(topic: str, *, depth: str) -> int:
+    from src.intent.interview_prompts import is_scientific_question
+
+    if depth == "shallow" and is_scientific_question(topic):
+        return 0
+    return 6
+
+
 def _collect_serve_interview_answers(
     topic: str,
     *,
+    depth: str,
     stdout: IO[str],
     stdin: IO[str],
 ) -> ServeInterviewResult:
@@ -904,11 +913,27 @@ def _collect_serve_interview_answers(
         show_me_the_prd_document_manifest,
     )
 
+    total_questions = _serve_interview_question_count(topic, depth=depth)
+    if total_questions == 0:
+        emit(
+            "deep_interview_progress",
+            stream=stdout,
+            stage="intake",
+            phase="scientific_quick_bypass",
+            mode="quick",
+            research_type="scientific",
+            rationale="Quick scientific questions bypass the PRD interview.",
+            coverage_score=1.0,
+            ambiguity_score=0.0,
+            missing_dimensions=[],
+            planning_schema="scientific_question",
+        )
+        return ServeInterviewResult(status="ok", topic=topic)
+
     session = InterviewSession.from_idea(IdeaDump(raw_text=topic))
     show_prd_plan = build_show_me_the_prd_plan(topic)
     question_contract = planning_question_contract()
     counselling_gateway = _interview_counselling_gateway()
-    total_questions = 6
     emit(
         "deep_interview_progress",
         stream=stdout,
@@ -1476,6 +1501,7 @@ def serve_full(
             heartbeat.update(stage="interview", detail="waiting_for_interview_answers")
             interview_result = _collect_serve_interview_answers(
                 topic,
+                depth=depth,
                 stdout=scoped_stdout,
                 stdin=stdin or sys.stdin,
             )

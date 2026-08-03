@@ -16,7 +16,12 @@ PUBMED_XML = """<?xml version="1.0" encoding="UTF-8"?>
           <AbstractText Label="BACKGROUND">First abstract section.</AbstractText>
           <AbstractText Label="RESULTS">Measured effect was significant.</AbstractText>
         </Abstract>
-        <Journal><Title>Nature Medicine</Title></Journal>
+        <Journal>
+          <JournalIssue>
+            <PubDate><Year>2024</Year><Month>Mar</Month><Day>12</Day></PubDate>
+          </JournalIssue>
+          <Title>Nature Medicine</Title>
+        </Journal>
         <ELocationID EIdType="doi">10.1000/pubmed-test</ELocationID>
       </Article>
     </MedlineCitation>
@@ -55,6 +60,8 @@ def test_pubmed_search_resolves_ids_and_maps_article_metadata():
     assert results[0].quote == "First abstract section. Measured effect was significant."
     assert results[0].provenance["doi"] == "10.1000/pubmed-test"
     assert results[0].provenance["journal"] == "Nature Medicine"
+    assert results[0].provenance["source_text"]["publication_year"] == 2024
+    assert results[0].provenance["source_text"]["publication_date"] == "2024-03-12"
 
 
 def test_pubmed_search_returns_empty_without_ids():

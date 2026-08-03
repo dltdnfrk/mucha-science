@@ -105,6 +105,7 @@ def _to_evidence(article: ET.Element) -> EvidenceRef:
     )
     journal = _node_text(article.find("./MedlineCitation/Article/Journal/Title"))
     doi = normalize_doi(_doi(article))
+    publication_date = _publication_date(article)
     raw = {
         "pmid": pmid,
         "title": title,
@@ -112,6 +113,9 @@ def _to_evidence(article: ET.Element) -> EvidenceRef:
         "journal": journal,
         "doi": doi,
     }
+    if publication_date:
+        raw["publication_date"] = publication_date
+        raw["publication_year"] = int(publication_date[:4])
     return evidence_ref(
         source="pubmed",
         paper_id=pmid,
@@ -124,6 +128,54 @@ def _to_evidence(article: ET.Element) -> EvidenceRef:
         journal=journal,
         access_status="abstract_only" if abstract else "metadata_only",
     )
+
+
+def _publication_date(article: ET.Element) -> str | None:
+    pub_date = article.find("./MedlineCitation/Article/Journal/JournalIssue/PubDate")
+    if pub_date is None:
+        return None
+    year = _node_text(pub_date.find("./Year"))
+    if not year:
+        medline_date = _node_text(pub_date.find("./MedlineDate")) or ""
+        year_match = next(
+            (token for token in medline_date.replace("-", " ").split() if token.isdigit() and len(token) == 4),
+            "",
+        )
+        year = year_match
+    if not year:
+        return None
+    month = _month_number(_node_text(pub_date.find("./Month")))
+    day = _node_text(pub_date.find("./Day"))
+    if month and day and day.isdigit():
+        return f"{year}-{month}-{int(day):02d}"
+    if month:
+        return f"{year}-{month}"
+    return year
+
+
+def _month_number(value: str | None) -> str:
+    if not value:
+        return ""
+    normalized = value.strip().casefold()[:3]
+    months = {
+        "jan": 1,
+        "feb": 2,
+        "mar": 3,
+        "apr": 4,
+        "may": 5,
+        "jun": 6,
+        "jul": 7,
+        "aug": 8,
+        "sep": 9,
+        "oct": 10,
+        "nov": 11,
+        "dec": 12,
+    }
+    if normalized.isdigit():
+        month = int(normalized)
+    else:
+        month = months.get(normalized, 0)
+    return f"{month:02d}" if 1 <= month <= 12 else ""
 
 
 def _doi(article: ET.Element) -> str | None:

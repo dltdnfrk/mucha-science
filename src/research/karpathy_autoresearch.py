@@ -760,10 +760,15 @@ def _evaluate_source_ref(
     generated = _is_generated_ref(ref)
     relevance_score = round(float(relevance_basis.get("relevance_score") or 0.0), 3)
     search_result_echo = _is_search_result_echo_ref(ref, plan)
+    scientific_external_disallowed = (
+        any(facet.id == "scientific" for facet in facets)
+        and source_kind == "internal_document"
+    )
     facet_ids = tuple(
         facet.id
         for facet in facets
         if not search_result_echo
+        and not scientific_external_disallowed
         and _source_satisfies_facet(ref, facet, plan=plan, source_kind=source_kind, relevance_score=relevance_score)
     )
     accepted = bool(
@@ -776,10 +781,17 @@ def _evaluate_source_ref(
     )
     if generated:
         reason = "rejected: generated/mock/empty source is not live evidence"
+    elif scientific_external_disallowed:
+        reason = f"rejected: source kind {source_kind!r} is not external scientific evidence"
     elif search_result_echo:
         reason = "rejected: search-result echo or landing page keyword match is not source evidence"
     elif not relevance_basis.get("topic_anchor_present", True):
         reason = "rejected: missing topic_anchor relevance basis"
+    elif (
+        relevance_basis.get("biomedical_pair_required")
+        and not relevance_basis.get("biomedical_pair_coupled")
+    ):
+        reason = "rejected: biomedical source does not directly couple the topic concepts"
     elif not relevant:
         reason = "rejected: source text does not overlap with topic-specific plan terms"
     elif relevance_score < _minimum_relevance_score(plan):
@@ -813,6 +825,11 @@ def _source_kind_for_ref(ref: EvidenceRef) -> str:
     text = f"{raw_kind} {url} {title} {ref.quote or ''}".casefold()
     if raw_kind in {"mock", "empty", "generated", "synthetic"}:
         return "generated" if raw_kind == "synthetic" else raw_kind
+    if (
+        raw_kind in {"vault", "obsidian", "insight_forge", "mempalace", "local"}
+        or url.startswith(("file:", "mempalace:"))
+    ):
+        return "internal_document"
     if "doi.org" in url or raw_kind == "doi":
         return "doi"
     if raw_kind in {"academic", "openalex", "crossref", "pubmed", "semantic_scholar"}:
@@ -891,7 +908,7 @@ def _source_satisfies_facet(
             relevance_score >= _minimum_relevance_score(plan)
             and topic_anchor_satisfies
             and text_satisfies
-            and (kind_satisfies or source_kind in {"web", "paper", "doi", "academic"})
+            and kind_satisfies
         )
     if plan is not None and kind_satisfies:
         return bool(topic_anchor_satisfies and (text_satisfies or relevance_score >= _minimum_relevance_score(plan)))
@@ -901,7 +918,26 @@ def _source_satisfies_facet(
 def _source_matches_facet_text(ref: EvidenceRef, facet: ResearchFacet) -> bool:
     text = " ".join(str(value or "").casefold() for value in (ref.source_title, ref.quote, ref.source_url))
     if facet.id == "scientific":
-        return any(marker in text for marker in ("paper", "journal", "doi", "pcr", "lamp", "assay", "metabolomics", "ontology"))
+        return any(
+            marker in text
+            for marker in (
+                "paper",
+                "journal",
+                "doi",
+                "pcr",
+                "lamp",
+                "assay",
+                "metabolomics",
+                "ontology",
+                "clinical",
+                "microbiome",
+                "observational",
+                "randomized",
+                "trial",
+                "systematic review",
+                "meta-analysis",
+            )
+        )
     if facet.id == "market":
         return any(marker in text for marker in ("market", "pricing", "adoption", "willingness", "consumer", "survey", "trend", "statistics", "farm", "farmer", "production area", "시장", "가격", "구매", "도입", "소비", "트렌드", "조사", "통계", "농가"))
     if facet.id == "field_validation":
@@ -948,6 +984,7 @@ def _source_relevance_basis(ref: EvidenceRef, plan: ResearchPlan | None) -> dict
     required_overlap = _topic_anchor_required_overlap(plan, canonical_terms or domain_terms)
     score_denominator = max(1, min(4, len(domain_terms)))
     relevance_score = 0.0 if not domain_terms else round(min(1.0, len(matched_terms) / score_denominator), 3)
+    biomedical_pair_required, biomedical_pair_coupled = _biomedical_pair_relevance(ref, topic_anchor)
     if not topic_anchor:
         basis = "topic_anchor_missing"
     elif not domain_terms:
@@ -968,8 +1005,33 @@ def _source_relevance_basis(ref: EvidenceRef, plan: ResearchPlan | None) -> dict
         "required_overlap": required_overlap,
         "minimum_relevance_score": _minimum_relevance_score(plan),
         "relevance_score": relevance_score,
-        "meets_anchor_overlap_floor": bool(domain_terms and len(matched_terms) >= required_overlap),
+        "biomedical_pair_required": biomedical_pair_required,
+        "biomedical_pair_coupled": biomedical_pair_coupled,
+        "meets_anchor_overlap_floor": bool(
+            domain_terms
+            and len(matched_terms) >= required_overlap
+            and (not biomedical_pair_required or biomedical_pair_coupled)
+        ),
     }
+
+
+def _biomedical_pair_relevance(ref: EvidenceRef, topic_anchor: str) -> tuple[bool, bool]:
+    from src.research.queries import biomedical_english_query
+
+    biomedical_surface = biomedical_english_query(topic_anchor).casefold()
+    pair_required = "microbiome" in biomedical_surface and "depression" in biomedical_surface
+    if not pair_required:
+        return False, True
+    title = (ref.source_title or "").casefold()
+    source_surface = f"{title} {ref.quote or ''}".casefold()
+    microbiome_markers = ("microbiome", "microbiota", "microbial flora")
+    depression_markers = ("depression", "depressive", "mood")
+    has_microbiome = any(marker in source_surface for marker in microbiome_markers)
+    has_depression = any(marker in source_surface for marker in depression_markers)
+    title_has_topic = any(
+        marker in title for marker in (*microbiome_markers, *depression_markers)
+    )
+    return True, has_microbiome and has_depression and title_has_topic
 
 
 def _source_meets_topic_relevance(
@@ -1078,7 +1140,12 @@ def _source_canonical_topic_terms(plan: ResearchPlan | None) -> set[str]:
     topic_anchor = str(getattr(plan, "topic_anchor", "") or "").strip()
     if not topic_anchor:
         return set()
+    from src.research.queries import biomedical_english_query
+
     topic_surface = _topic_anchor_source_surface(topic_anchor)
+    biomedical_surface = biomedical_english_query(topic_anchor)
+    if biomedical_surface:
+        topic_surface = f"{topic_surface} {biomedical_surface}"
     terms = _content_terms(topic_surface)
     return {
         term
@@ -1155,11 +1222,20 @@ def _has_scientific_intent(text: str) -> bool:
             "fluorescent",
             "fluorescence",
             "biosensor",
+            "biomedical",
+            "clinical",
+            "microbiome",
+            "scientific",
             "specificity",
             "selectivity",
             "진단",
             "분자진단",
             "병원체",
+            "미생물",
+            "임상",
+            "관찰연구",
+            "임상시험",
+            "인과",
             "논문",
             "학술",
             "과학",

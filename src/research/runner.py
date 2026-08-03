@@ -477,9 +477,12 @@ class WebResearchRunner:
         self.last_backend_trace: list[dict[str, Any]] = []
 
     def _gather(self, query: str, route: dict[str, Any] | None = None) -> list[dict]:
+        from src.research.queries import is_biomedical_query
+
         rankings: list[ProviderRanking] = []
         hits_by_provider: dict[str, list[dict]] = {}
         route = route or source_route_for_query(query)
+        external_scientific_only = is_biomedical_query(query)
         for backend, kind in (
             (self.insight_forge_search, "insight_forge"),
             (self.vault_search, "vault"),
@@ -488,6 +491,8 @@ class WebResearchRunner:
             (self.exa_search, "exa"),
         ):
             if backend is None:
+                continue
+            if external_scientific_only and kind in {"insight_forge", "vault"}:
                 continue
             try:
                 raw = _call_backend_with_timeout(backend, query, kind)

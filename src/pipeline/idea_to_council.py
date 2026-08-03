@@ -93,6 +93,7 @@ from src.research.planner import (
     query_route_ledger,
     with_source_discovery_queries,
 )
+from src.research.queries import is_biomedical_query
 from src.research.process_completeness import ProcessCompletenessInput, score_process_completeness
 from src.research.readiness import ResearchReadinessInput, decide_research_readiness
 from src.research.refutation_loop import RefutationLoopReport, run_refutation_loop
@@ -507,7 +508,6 @@ class IdeaToCouncilPipeline:
 
         hitl_results["evidence"] = self.hitl_adapter.gate_evidence(evidence_refs)
         self._record_hitl_gate(state, "evidence", hitl_results["evidence"])
-        self._require_approved_gate("evidence", hitl_results["evidence"])
         if hitl_results["evidence"].status == "changes_requested":
             state.warnings.append("evidence gate requested changes; augmented research once")
             findings = list(self.research_runner.run(plan))
@@ -527,6 +527,10 @@ class IdeaToCouncilPipeline:
             source_decision_ledger = self._record_source_decision_ledger(state, findings, source_audit, plan)
             state.record_artifact("evidence_count", str(len(evidence_refs)))
             state.record_artifact("evidence_validation_summary", json.dumps(evidence_summary, ensure_ascii=False, sort_keys=True))
+            self._require_live_evidence(evidence_summary, evidence_refs)
+            hitl_results["evidence"] = self.hitl_adapter.gate_evidence(evidence_refs)
+            self._record_hitl_gate(state, "evidence", hitl_results["evidence"])
+        self._require_approved_gate("evidence", hitl_results["evidence"])
         self._emit(state, Stage.EVIDENCE)
 
         report = ResearchReport(
@@ -1185,6 +1189,7 @@ class IdeaToCouncilPipeline:
             reference_runtime_artifacts=reference_runtime_artifacts,
             claim_evidence_matrix=claim_evidence_matrix,
             research_audit_appendix=research_audit_appendix,
+            accepted_source_ids=accepted_evidence_ids,
             require_live=self.require_live,
         )
         self._require_live_report(report_md)
@@ -1787,6 +1792,7 @@ def _compose_six_chapter_report(
     reference_runtime_artifacts: dict[str, Any] | None = None,
     claim_evidence_matrix: ClaimEvidenceMatrix | None = None,
     research_audit_appendix: dict[str, Any] | None = None,
+    accepted_source_ids: set[str] | None = None,
     require_live: bool = False,
 ) -> str:
     digests = _round_digests(council, report.evidence_refs, require_live=require_live)
@@ -1816,6 +1822,13 @@ def _compose_six_chapter_report(
     for ref in report.evidence_refs:
         lines.extend(_evidence_index_lines(ref))
     lines.append("")
+    if is_biomedical_query(brief.research_question):
+        lines.extend(
+            _scientific_evidence_table(
+                report.evidence_refs,
+                accepted_source_ids=accepted_source_ids,
+            )
+        )
 
     for chapter in chapters:
         evidence_ids = chapter_evidence.get(chapter.chapter_no, [])
@@ -1840,6 +1853,51 @@ def _compose_six_chapter_report(
         _append_react_plan(lines, reference_runtime_artifacts.get("react", {}))
         _append_gbrain_snapshot(lines, reference_runtime_artifacts.get("gbrain", {}))
     return "\n".join(lines).strip() + "\n"
+
+
+def _scientific_evidence_table(
+    evidence_refs: list[EvidenceRef],
+    *,
+    accepted_source_ids: set[str] | None = None,
+) -> list[str]:
+    accepted = accepted_source_ids or {ref.id for ref in evidence_refs}
+    rows = [
+        "## 생의학 근거: 연구 설계별 비교",
+        "",
+        "| 연구 설계 | 연도 | 근거 | 근거 강도 | 주요 한계 |",
+        "|---|---:|---|---|---|",
+    ]
+    for ref in evidence_refs:
+        if ref.id not in accepted:
+            continue
+        surface = f"{ref.source_title or ''} {ref.quote or ''}".casefold()
+        if "randomized" in surface or "clinical trial" in surface or "placebo" in surface:
+            design = "임상시험"
+            strength = "중간 (중재 연구)"
+            limitation = "표본·중재·추적기간의 이질성으로 일반화와 장기 인과 추론에 제한"
+        elif any(term in surface for term in ("observational", "cohort", "cross-sectional", "mendelian")):
+            design = "관찰연구"
+            strength = "낮음~중간 (관찰·인과추론)"
+            limitation = "잔여 교란과 역인과 가능성; 연관성이 직접 인과를 확정하지 않음"
+        elif "systematic review" in surface or "meta-analysis" in surface or "review" in surface:
+            design = "문헌고찰"
+            strength = "중간 (근거 종합)"
+            limitation = "포함 연구의 설계·대상·측정법 이질성과 출판편향 가능성"
+        else:
+            design = "관찰연구"
+            strength = "제한적 (설계 확인 필요)"
+            limitation = "초록 메타데이터만으로 설계와 인과 방향을 확정할 수 없음"
+        provenance = ref.provenance or {}
+        source_text = provenance.get("source_text")
+        year = ""
+        if isinstance(source_text, dict):
+            year = str(source_text.get("publication_year") or "")
+        title = (ref.source_title or "(제목 없음)").replace("|", "\\|")
+        rows.append(
+            f"| {design} | {year or '-'} | {title} (`{ref.id}`) | {strength} | {limitation} |"
+        )
+    rows.append("")
+    return rows
 
 
 def _chapter_evidence_map(

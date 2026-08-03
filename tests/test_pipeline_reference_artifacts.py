@@ -15,6 +15,7 @@ from src.pipeline.idea_to_council import (
     _claim_with_evidence,
     _fallback_executive_digest,
     _round_digests,
+    _scientific_evidence_table,
     _source_backed_open_questions,
 )
 from src.intake.idea_dump import IdeaDump
@@ -142,6 +143,55 @@ def test_report_digests_do_not_invent_missing_council_rounds():
     assert not any("성공 기준은" in claim for digest in digests for claim in digest.body_claims)
     assert any(digest.layer_id == "L10_executive_synthesis" for digest in digests)
     assert not any(digest.layer_id.startswith("L7") for digest in digests)
+
+
+def test_scientific_report_table_separates_designs_and_excludes_rejected_sources():
+    evidence = [
+        EvidenceRef(
+            id="pubmed:observational",
+            source_url="https://pubmed.ncbi.nlm.nih.gov/1/",
+            source_title="Gut microbiome signatures in a depression cohort",
+            quote="This observational cohort study measured microbiome differences.",
+            source_grade="A",
+            provenance={
+                "kind": "pubmed",
+                "source_text": {"publication_year": 2023},
+            },
+        ),
+        EvidenceRef(
+            id="pubmed:trial",
+            source_url="https://pubmed.ncbi.nlm.nih.gov/2/",
+            source_title="A randomized controlled trial in depressed patients",
+            quote="A probiotic intervention was compared with placebo.",
+            source_grade="A",
+            provenance={
+                "kind": "pubmed",
+                "source_text": {"publication_year": 2022},
+            },
+        ),
+        EvidenceRef(
+            id="internal:rejected",
+            source_url="file:///vault/internal.md",
+            source_title="Internal memo",
+            quote="Internal planning notes.",
+            source_grade="A",
+            provenance={"kind": "internal_document"},
+        ),
+    ]
+
+    table = "\n".join(
+        _scientific_evidence_table(
+            evidence,
+            accepted_source_ids={"pubmed:observational", "pubmed:trial"},
+        )
+    )
+
+    assert "| 관찰연구 |" in table
+    assert "| 임상시험 |" in table
+    assert "2023" in table
+    assert "2022" in table
+    assert "교란과 역인과" in table
+    assert "Internal memo" not in table
 
 
 class RecordingReferenceRunner:

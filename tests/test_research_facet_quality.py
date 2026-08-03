@@ -35,6 +35,115 @@ def _ref(
     )
 
 
+def _scientific_plan(query: str) -> ResearchPlan:
+    return ResearchPlan(
+        brief_id="brief-scientific",
+        queries=[query],
+        topic_anchor=query,
+        evidence_targets=["peer reviewed biomedical evidence"],
+        expected_deliverables=["report"],
+        stop_conditions=[],
+        risk_notes=[],
+        collection_rules=[],
+        query_routes=[source_route_for_query(query)],
+    )
+
+
+def test_internal_vault_document_cannot_satisfy_scientific_facet() -> None:
+    query = "peer reviewed scientific gut microbiome depression causal observational clinical trial evidence"
+    ref = _ref(
+        "mempalace:Ouroboros/system.md",
+        kind="vault",
+        title="Ouroboros systematic review workflow",
+        quote="systematic review microbiome depression evidence methods",
+        url="mempalace:Ouroboros/system.md",
+        grade="C",
+        query=query,
+    )
+
+    payload = build_research_quality_audit(
+        [Finding(claim="microbiome evidence", support=[ref], confidence=0.5)],
+        _scientific_plan(query),
+    ).to_dict()
+
+    evaluation = payload["source_evaluations"][0]
+    assert evaluation["source_kind"] == "internal_document"
+    assert evaluation["accepted"] is False
+    assert "scientific" not in evaluation["facet_ids"]
+
+
+def test_generic_web_news_cannot_satisfy_scientific_facet() -> None:
+    query = "peer reviewed scientific gut microbiome depression causal observational clinical trial evidence"
+    ref = _ref(
+        "web:news",
+        kind="web",
+        title="News coverage of microbiome and depression",
+        quote="microbiome depression causal observational clinical trial evidence",
+        grade="C",
+        query=query,
+    )
+
+    payload = build_research_quality_audit(
+        [Finding(claim="microbiome evidence", support=[ref], confidence=0.5)],
+        _scientific_plan(query),
+    ).to_dict()
+
+    evaluation = payload["source_evaluations"][0]
+    assert "scientific" not in evaluation["facet_ids"]
+
+
+def test_korean_biomedical_topic_matches_english_academic_source() -> None:
+    query = (
+        "최근 5년간 장내 미생물과 우울증의 인과 근거를 검토하고 "
+        "관찰연구와 임상시험을 구분해줘."
+    )
+    ref = _ref(
+        "pubmed:gut-depression",
+        kind="pubmed",
+        title="Gut microbiome and depression in observational studies and clinical trials",
+        quote="Clinical evidence links the gut microbiome with depression.",
+        grade="A",
+        query=query,
+    )
+
+    payload = build_research_quality_audit(
+        [Finding(claim="microbiome evidence", support=[ref], confidence=0.8)],
+        _scientific_plan(query),
+    ).to_dict()
+
+    evaluation = payload["source_evaluations"][0]
+    assert evaluation["accepted"] is True
+    assert evaluation["relevance_score"] > 0
+    assert "scientific" in evaluation["facet_ids"]
+
+
+def test_biomedical_topic_rejects_split_overlap_unrelated_source() -> None:
+    query = (
+        "최근 5년간 장내 미생물과 우울증의 인과 근거를 검토하고 "
+        "관찰연구와 임상시험을 구분해줘."
+    )
+    ref = _ref(
+        "pubmed:atopic-dermatitis",
+        kind="pubmed",
+        title="Mendelian Randomization Studies in Atopic Dermatitis: A Systematic Review",
+        quote=(
+            "Atopic dermatitis has comorbidities including depression. "
+            "Gut microbial flora was among the causal factors for atopic dermatitis."
+        ),
+        grade="A",
+        query=query,
+    )
+
+    payload = build_research_quality_audit(
+        [Finding(claim="atopic dermatitis evidence", support=[ref], confidence=0.8)],
+        _scientific_plan(query),
+    ).to_dict()
+
+    evaluation = payload["source_evaluations"][0]
+    assert evaluation["accepted"] is False
+    assert evaluation["reason"] == "rejected: biomedical source does not directly couple the topic concepts"
+
+
 def test_research_quality_audit_reports_facet_coverage_and_gaps() -> None:
     plan = ResearchPlan(
         brief_id="brief-market-diagnostics",

@@ -214,4 +214,25 @@ describe("research activity projection", () => {
       context,
     )).toEqual([{ kind: "cancellation_acknowledged" }]);
   });
+
+  it("projects authoritative candidate and accepted source counts", () => {
+    const event = {
+      event: "research_progress",
+      app_run_id: context.runId,
+      generation: context.generation,
+      status: "source_decision_ledger_built",
+      decision_count: 12,
+      accepted_count: 0,
+    } satisfies BackendEvent;
+
+    const activity = reduceResearchActivity(
+      emptyResearchActivity(),
+      toResearchActivityProjections(event, context),
+    );
+
+    expect(activity.sourceCounts).toEqual({
+      acceptedCount: 0,
+      candidateCount: 12,
+    });
+  });
 });

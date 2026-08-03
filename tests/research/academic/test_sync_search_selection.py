@@ -4,12 +4,17 @@ from src.research.academic import sync_search
 
 BACKEND_SOURCES = (
     "openalex",
+    "pubmed",
     "semantic_scholar",
     "crossref",
     "core",
     "arxiv",
     "unpaywall",
 )
+
+
+def test_default_limit_can_meet_minimum_evidence_floor() -> None:
+    assert sync_search.DEFAULT_LIMIT >= 3
 
 
 def _evidence(source: str) -> EvidenceRef:
@@ -27,7 +32,7 @@ def _install_backends(monkeypatch, failing_sources: frozenset[str] = frozenset()
     calls: list[str] = []
 
     def make_backend(source: str):
-        async def search(query: str, limit: int) -> list[EvidenceRef]:
+        async def search(query: str, limit: int, **kwargs) -> list[EvidenceRef]:
             calls.append(source)
             if source in failing_sources:
                 raise RuntimeError(f"{source} unavailable")
@@ -70,7 +75,7 @@ def test_search_invokes_no_backend_for_unsupported_only_allowlist(monkeypatch):
     assert evidence == []
 
 
-def test_search_uses_all_six_backends_when_allowlist_is_unset(monkeypatch):
+def test_search_uses_all_backends_when_allowlist_is_unset(monkeypatch):
     # Given: network-free backends and no transient allowlist.
     calls = _install_backends(monkeypatch)
     monkeypatch.delenv("MUCHANIPO_ACADEMIC_SOURCES", raising=False)
@@ -94,3 +99,70 @@ def test_search_keeps_allowlisted_backend_failure_isolated(monkeypatch):
     # Then: the successful selected backend still returns its evidence.
     assert set(calls) == {"openalex", "arxiv"}
     assert [item.provenance["kind"] for item in evidence] == ["arxiv"]
+
+
+def test_selected_search_fns_includes_pubmed(monkeypatch):
+    monkeypatch.setenv("MUCHANIPO_ACADEMIC_SOURCES", "pubmed")
+
+    assert sync_search._selected_search_fns() == (sync_search.pubmed_search,)
+
+
+def test_biomedical_search_uses_filterable_sources_and_minimum_year(monkeypatch):
+    calls: list[tuple[str, dict[str, object]]] = []
+
+    def make_backend(source: str):
+        async def search(query: str, limit: int, **kwargs) -> list[EvidenceRef]:
+            calls.append((source, kwargs))
+            return [_evidence(source)]
+
+        return search
+
+    monkeypatch.setattr(
+        sync_search,
+        "DEFAULT_SEARCH_FNS",
+        tuple(make_backend(source) for source in BACKEND_SOURCES),
+    )
+    monkeypatch.setenv(
+        "MUCHANIPO_ACADEMIC_SOURCES",
+        "openalex,pubmed,crossref",
+    )
+
+    evidence = sync_search.search(
+        "gut microbiome depression causal observational studies clinical trials since 2021",
+        limit=1,
+    )
+
+    assert {source for source, _ in calls} == {"openalex", "pubmed"}
+    assert {item.provenance["kind"] for item in evidence} == {"openalex", "pubmed"}
+    assert dict(calls)["openalex"]["filter"] == "from_publication_date:2021-01-01"
+    assert dict(calls)["pubmed"]["mindate"] == "2021"
+    assert dict(calls)["pubmed"]["datetype"] == "pdat"
+    assert dict(calls)["pubmed"]["sort"] == "relevance"
+
+
+def test_korean_biomedical_search_normalizes_backend_queries(monkeypatch):
+    calls: dict[str, str] = {}
+
+    def make_backend(source: str):
+        async def search(query: str, limit: int, **kwargs) -> list[EvidenceRef]:
+            calls[source] = query
+            return [_evidence(source)]
+
+        return search
+
+    monkeypatch.setattr(
+        sync_search,
+        "DEFAULT_SEARCH_FNS",
+        tuple(make_backend(source) for source in BACKEND_SOURCES),
+    )
+    monkeypatch.setenv("MUCHANIPO_ACADEMIC_SOURCES", "openalex,pubmed,crossref")
+
+    sync_search.search(
+        "최근 5년간 장내 미생물과 우울증의 인과 근거를 검토하고 관찰연구와 임상시험을 구분해줘.",
+        limit=1,
+    )
+
+    assert set(calls) == {"openalex", "pubmed"}
+    assert "장내" not in calls["openalex"]
+    assert "gut microbiome depression" in calls["openalex"]
+    assert '"gut microbiome"[Title/Abstract]' in calls["pubmed"]

@@ -35,6 +35,11 @@ export type ResearchActivityProjection =
       readonly title?: string;
     }
   | {
+      readonly kind: "source_counts";
+      readonly acceptedCount: number;
+      readonly candidateCount: number;
+    }
+  | {
       readonly kind: "claim";
       readonly claim: string;
       readonly claimId: string;
@@ -77,6 +82,10 @@ export type ResearchActivity = {
   readonly providers: readonly Extract<ResearchActivityProjection, { kind: "provider" }>[];
   readonly quality?: Extract<ResearchActivityProjection, { kind: "quality" }>;
   readonly routes: readonly Extract<ResearchActivityProjection, { kind: "route" }>[];
+  readonly sourceCounts?: {
+    readonly acceptedCount: number;
+    readonly candidateCount: number;
+  };
 };
 
 export function emptyResearchActivity(): ResearchActivity {
@@ -127,6 +136,8 @@ export function toResearchActivityProjections(
   switch (event["status"]) {
     case "source_decision":
       return optionalProjection(evidenceProjection(event));
+    case "source_decision_ledger_built":
+      return optionalProjection(sourceCountsProjection(event));
     case "claim_evidence_gate":
       return claimProjections(event["rows"]);
     case "refutation_pass_started":
@@ -140,6 +151,17 @@ export function toResearchActivityProjections(
     default:
       return [];
   }
+}
+
+function sourceCountsProjection(
+  event: BackendEvent,
+): Extract<ResearchActivityProjection, { kind: "source_counts" }> | undefined {
+  const acceptedCount = event["accepted_count"];
+  const candidateCount = event["decision_count"];
+  if (!isNonNegativeInteger(acceptedCount) || !isNonNegativeInteger(candidateCount)) {
+    return undefined;
+  }
+  return { kind: "source_counts", acceptedCount, candidateCount };
 }
 
 function providerProjections(event: BackendEvent): readonly ResearchActivityProjection[] {

@@ -22,6 +22,14 @@ function reduceProjection(
       return { ...current, routes: upsert(current.routes, projection, "routeId") };
     case "evidence":
       return { ...current, evidence: upsert(current.evidence, projection, "sourceId") };
+    case "source_counts":
+      return {
+        ...current,
+        sourceCounts: {
+          acceptedCount: projection.acceptedCount,
+          candidateCount: projection.candidateCount,
+        },
+      };
     case "claim":
       return { ...current, claims: upsert(current.claims, projection, "claimId") };
     case "quality":

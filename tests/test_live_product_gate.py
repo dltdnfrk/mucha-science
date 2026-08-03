@@ -121,6 +121,31 @@ class _TrustedEvidenceRunner:
         ]
 
 
+class _CountingTrustedEvidenceRunner(_TrustedEvidenceRunner):
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def run(self, plan):
+        self.calls += 1
+        return super().run(plan)
+
+
+class _ChangesThenApprovedEvidenceHITLAdapter(_ApprovedHITLAdapter):
+    def __init__(self) -> None:
+        self.evidence_calls = 0
+
+    def gate_evidence(self, evidence_refs):
+        self.evidence_calls += 1
+        if self.evidence_calls == 1:
+            return HITLResult(
+                status="changes_requested",
+                comments=["search again with the requested evidence changes"],
+                gate_id="evidence-changes-requested",
+                synthetic=False,
+            )
+        return super().gate_evidence(evidence_refs)
+
+
 class _OnlyCGradeEvidenceRunner:
     def run(self, plan):
         ref = EvidenceRef(
@@ -362,6 +387,24 @@ def test_pipeline_live_mode_requires_ab_grade_evidence_floor(tmp_path: Path):
 
     with pytest.raises(LiveModeViolation, match="A/B-grade evidence"):
         pipeline.run("딸기 농가용 진단키트 시장성")
+
+
+def test_evidence_changes_requested_reruns_research_and_regates(tmp_path: Path):
+    adapter = _ChangesThenApprovedEvidenceHITLAdapter()
+    runner = _CountingTrustedEvidenceRunner()
+    pipeline = IdeaToCouncilPipeline(
+        hitl_adapter=adapter,
+        research_runner=runner,
+        vault_dir=tmp_path / "vault",
+        council_log_dir=tmp_path / "council",
+        require_live=True,
+    )
+
+    with pytest.raises(LiveModeViolation, match="no live provider candidates"):
+        pipeline.run("딸기 농가용 진단키트 시장성")
+
+    assert runner.calls == 2
+    assert adapter.evidence_calls == 2
 
 
 def test_pipeline_live_mode_rejects_fallback_council_personas(tmp_path: Path, monkeypatch):
