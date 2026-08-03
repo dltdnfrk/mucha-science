@@ -1,3 +1,0 @@
-{"after_sequence":1,"case":"replay-gap"}
-{"at_revision":2,"case":"snapshot-recovery"}
-{"case":"ack-coordinate","revision":3,"sequence":3}

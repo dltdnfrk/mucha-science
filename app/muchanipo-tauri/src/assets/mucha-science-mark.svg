@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
-  <title id="title">Mucha Science</title>
-  <rect width="64" height="64" fill="#f7f5ee"/>
-  <path d="M8 10h48M8 54h48M10 8v48M54 8v48" fill="none" stroke="#171716" stroke-width="2"/>
-  <path d="M16 42V20l8 13 8-13v22M38 26c0-4 3-7 8-7 3 0 6 1 8 3M54 34c-2-2-5-3-8-3-5 0-8 3-8 7s3 7 8 7c3 0 6-1 8-3" fill="none" stroke="#145da0" stroke-width="3" stroke-linecap="square" stroke-linejoin="miter"/>
-</svg>
