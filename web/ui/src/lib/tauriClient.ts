@@ -1,5 +1,10 @@
 import { invoke, listen } from "../api/client";
 import type { PipelineRuntimeStatus } from "./pipelineExecutionClient";
+import {
+  getWebPipelineRuntimeStatus,
+  sendWebPipelineAction,
+  subscribeWebPipeline,
+} from "./webPipelineClient";
 export { cancelPipeline, submitIdea } from "./pipelineExecutionClient";
 export type { PipelineCancellationAcknowledgement, PipelineMode, PipelineRuntimeStatus, ResearchDepth } from "./pipelineExecutionClient";
 
@@ -172,10 +177,10 @@ export async function onBackendEvent(
   handler: (e: BackendEvent) => void,
   appRunId?: string,
 ): Promise<UnlistenFn> {
+  if (appRunId) return subscribeWebPipeline(appRunId, handler);
   return listen<BackendEvent>("backend_event", ({ payload }) => {
-    if (appRunId && !isBackendEventForAppRunId(payload, appRunId)) return;
     handler(payload);
-  }, { runId: appRunId });
+  });
 }
 
 function isBackendEventForAppRunId(event: BackendEvent, appRunId: string): boolean {
@@ -191,6 +196,10 @@ export async function sendAction(
   appRunId?: string,
   generation?: number,
 ): Promise<void> {
+  if (appRunId && generation !== undefined) {
+    await sendWebPipelineAction(appRunId, generation, action);
+    return;
+  }
   return invoke("send_action", { action, appRunId, generation });
 }
 
@@ -242,6 +251,7 @@ export async function openCliAuth(name: string): Promise<CliAuthLaunch> {
  * sidebar) so the stage list reflects actual pipeline state.
  */
 export async function getBufferedEvents(appRunId?: string): Promise<BackendEvent[]> {
+  if (appRunId) return [];
   const entries = await invoke<Array<string | BackendEvent>>("get_buffered_events", { appRunId });
   const out: BackendEvent[] = [];
   for (const entry of entries) {
@@ -257,7 +267,7 @@ export async function getBufferedEvents(appRunId?: string): Promise<BackendEvent
 }
 
 export async function getPipelineRuntimeStatus(): Promise<PipelineRuntimeStatus> {
-  return invoke<PipelineRuntimeStatus>("pipeline_runtime_status");
+  return getWebPipelineRuntimeStatus();
 }
 
 // Legacy alias kept for existing UI components.

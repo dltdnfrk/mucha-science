@@ -133,10 +133,10 @@ export default function Sidebar() {
 
   return (
     <aside className="sidebar-shell cowork-sidebar flex h-screen w-[300px] shrink-0 flex-col">
-      <div data-tauri-drag-region className="h-7 w-full shrink-0" />
+      <div className="h-7 w-full shrink-0" />
 
       <div className="cowork-sidebar-top">
-        <Link to="/studio" className="cowork-brand-link" aria-label="Mucha Science Studio 홈">
+        <Link to="/scientific" className="cowork-brand-link" aria-label="Mucha Science 연구 홈">
           <span aria-hidden="true" className="cowork-brand-mark">M</span>
           <strong>Mucha Science</strong>
         </Link>
@@ -151,12 +151,12 @@ export default function Sidebar() {
       </div>
 
       <div className="cowork-mode-switch two-up">
-        <Link to="/studio" className={!isCowork ? "active" : ""}>Studio</Link>
+        <Link to="/scientific" className={!isCowork ? "active" : ""}>연구</Link>
         <Link to="/browser" className={isCowork ? "active" : ""}>Browser</Link>
       </div>
 
       <nav className="cowork-primary-nav">
-        <NavRow icon="＋" label="New task" to="/studio" />
+        <NavRow icon="＋" label="새 연구" to="/scientific" />
         <NavRow icon="▰" label="Projects" to="/browser" />
         <NavRow icon="◈" label="MUNI Study" to="/muni" />
         <NavRow icon="◷" label="Scheduled" />

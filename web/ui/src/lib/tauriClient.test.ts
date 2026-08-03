@@ -1,30 +1,29 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BackendEvent } from "./tauriClient";
 
-const apiMocks = vi.hoisted(() => ({
-  invoke: vi.fn(),
-  listen: vi.fn(),
+const webPipelineMocks = vi.hoisted(() => ({
+  getWebPipelineRuntimeStatus: vi.fn(),
+  sendWebPipelineAction: vi.fn(),
+  subscribeWebPipeline: vi.fn(),
 }));
 
-vi.mock("../api/client", () => apiMocks);
+vi.mock("./webPipelineClient", () => webPipelineMocks);
 
 import { getBufferedEvents, onBackendEvent } from "./tauriClient";
 
-type BackendListener = (event: { readonly payload: BackendEvent }) => void;
+type BackendListener = (event: BackendEvent) => void;
 
 let backendListener: BackendListener | undefined;
 
 beforeEach(() => {
   backendListener = undefined;
-  apiMocks.invoke.mockReset();
-  apiMocks.listen.mockReset();
-  apiMocks.listen.mockImplementation(
-    (_eventName: string, listener: BackendListener) => {
+  webPipelineMocks.subscribeWebPipeline.mockReset();
+  webPipelineMocks.subscribeWebPipeline.mockImplementation(
+    (_runId: string, listener: BackendListener) => {
       backendListener = listener;
       return Promise.resolve(() => {});
     },
   );
-
 });
 
 afterEach(() => {
@@ -32,34 +31,22 @@ afterEach(() => {
 });
 
 describe("backend event run isolation", () => {
-  it("delivers only current-run events from a live subscription", async () => {
+  it("subscribes to the current run through the live WebSocket pipeline", async () => {
     const received: BackendEvent[] = [];
     await onBackendEvent((event) => received.push(event), "run-current");
 
-    backendListener?.({ payload: { event: "warning", app_run_id: "run-stale" } });
-    backendListener?.({ payload: { event: "warning" } });
-    backendListener?.({ payload: { event: "warning", app_run_id: "run-current" } });
+    expect(webPipelineMocks.subscribeWebPipeline).toHaveBeenCalledExactlyOnceWith(
+      "run-current",
+      expect.any(Function),
+    );
+    backendListener?.({ event: "warning", app_run_id: "run-current" });
 
     expect(received).toEqual([{ event: "warning", app_run_id: "run-current" }]);
   });
 
-  it("replays only parseable current-run buffered events in backend order", async () => {
-    apiMocks.invoke.mockResolvedValue([
-      JSON.stringify({ event: "run_started", app_run_id: "run-current" }),
-      JSON.stringify({ event: "warning", app_run_id: "run-stale" }),
-      "{malformed",
-      JSON.stringify({ event: "done", app_run_id: "run-current" }),
-    ]);
-
+  it("does not make an obsolete HTTP replay request for a WebSocket run", async () => {
     const events = await getBufferedEvents("run-current");
 
-    expect(events).toEqual([
-      { event: "run_started", app_run_id: "run-current" },
-      { event: "done", app_run_id: "run-current" },
-    ]);
-    expect(apiMocks.invoke).toHaveBeenCalledWith(
-      "get_buffered_events",
-      { appRunId: "run-current" },
-    );
+    expect(events).toEqual([]);
   });
 });

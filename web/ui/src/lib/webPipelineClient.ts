@@ -1,4 +1,3 @@
-import { websocketBaseUrl } from "../api/client";
 import type {
   PipelineCancellationAcknowledgement,
   PipelineMode,
@@ -189,5 +188,7 @@ function requestWebCommand<TResult>(
 }
 
 function webPipelineEndpoint(): string {
-  return new URL("/api/pipeline", websocketBaseUrl()).toString();
+  const configured = import.meta.env.VITE_MUCHA_SCIENCE_WS_URL?.trim();
+  const baseUrl = configured || `ws://${window.location.hostname}:8765`;
+  return new URL("/api/pipeline", baseUrl).toString();
 }

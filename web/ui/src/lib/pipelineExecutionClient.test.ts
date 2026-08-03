@@ -1,74 +1,76 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cancelPipeline, submitIdea } from "./pipelineExecutionClient";
 
-const fetchMock = vi.fn<typeof fetch>();
+const { cancelWebPipeline, startWebPipeline } = vi.hoisted(() => ({
+  cancelWebPipeline: vi.fn(),
+  startWebPipeline: vi.fn(),
+}));
 
 beforeEach(() => {
-  fetchMock.mockReset();
-  vi.stubGlobal("fetch", fetchMock);
+  cancelWebPipeline.mockReset();
+  startWebPipeline.mockReset();
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+vi.mock("./webPipelineClient", () => ({
+  cancelWebPipeline,
+  startWebPipeline,
+}));
+
 describe("browser pipeline execution routing", () => {
-  it("submits an idea through the HTTP command API", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(launchReceipt()));
+  it("submits an online source-research run through the WebSocket pipeline", async () => {
+    startWebPipeline.mockResolvedValue(launchReceipt());
 
     await expect(submitIdea(
       "웹 실행 질문",
       "full",
       "shallow",
-      { MUCHANIPO_OFFLINE: "1" },
+      {
+        MUCHANIPO_ONLINE: "1",
+        MUCHANIPO_SOURCE_RESEARCH: "1",
+      },
       "run_00000000000000000000000000000001",
     )).resolves.toMatchObject({
       app_run_id: "run_00000000000000000000000000000001",
       generation: 1,
     });
 
-    expect(fetchMock).toHaveBeenCalledOnce();
-    const [url, init] = fetchMock.mock.calls[0] ?? [];
-    expect(url).toBe("http://127.0.0.1:8787/api/commands/start_pipeline");
-    expect(JSON.parse(String(init?.body))).toEqual({
-      topic: "웹 실행 질문",
-      pipeline: "full",
-      depth: "shallow",
-      envs: { MUCHANIPO_OFFLINE: "1" },
-      appRunId: "run_00000000000000000000000000000001",
-    });
+    expect(startWebPipeline).toHaveBeenCalledExactlyOnceWith(
+      "웹 실행 질문",
+      "full",
+      "shallow",
+      {
+        MUCHANIPO_ONLINE: "1",
+        MUCHANIPO_SOURCE_RESEARCH: "1",
+      },
+      "run_00000000000000000000000000000001",
+    );
   });
 
-  it("cancels through the same HTTP command API", async () => {
-    fetchMock.mockResolvedValue(jsonResponse({
+  it("cancels through the WebSocket pipeline", async () => {
+    cancelWebPipeline.mockResolvedValue({
       acknowledged: true,
       app_run_id: "run_00000000000000000000000000000001",
       generation: 1,
       kill_sent: false,
       reaped: true,
       termination_observed: true,
-    }));
+    });
 
     await expect(cancelPipeline(
       "run_00000000000000000000000000000001",
       1,
     )).resolves.toMatchObject({ acknowledged: true, reaped: true });
 
-    const [url, init] = fetchMock.mock.calls[0] ?? [];
-    expect(url).toBe("http://127.0.0.1:8787/api/commands/cancel_pipeline");
-    expect(JSON.parse(String(init?.body))).toEqual({
-      appRunId: "run_00000000000000000000000000000001",
-      generation: 1,
-    });
+    expect(cancelWebPipeline).toHaveBeenCalledExactlyOnceWith(
+      "run_00000000000000000000000000000001",
+      1,
+    );
   });
 });
-
-function jsonResponse(value: unknown): Response {
-  return new Response(JSON.stringify(value), {
-    status: 200,
-    headers: { "Content-Type": "application/json" },
-  });
-}
 
 function launchReceipt() {
   return {

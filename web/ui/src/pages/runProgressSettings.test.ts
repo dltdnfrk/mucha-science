@@ -89,6 +89,44 @@ describe("readEnvsFromSettings", () => {
     expect(envs["MUCHANIPO_PROVIDER_CHAIN"]).toBe("mimo,opencode");
   });
 
+  it("honors an explicit OpenCode provider and model selection", () => {
+    localStorage.setItem("backend_mode", "api");
+    localStorage.setItem("provider_chain", "opencode");
+    localStorage.setItem("credential:opencode_model", "opencode/kimi-k2.6");
+    sessionStorage.setItem("opencode_api_key", "opencode-secret");
+
+    const envs = readEnvsFromSettings();
+
+    expect(envs).toEqual(expect.objectContaining({
+      MUCHANIPO_PROVIDER_CHAIN: "opencode",
+      MUCHANIPO_OPENCODE_MODEL: "opencode/kimi-k2.6",
+      OPENCODE_API_KEY: "opencode-secret",
+      OPENCODE_GO_API_KEY: "opencode-secret",
+    }));
+    expect(envs).not.toHaveProperty("XIAOMI_MIMO_API_KEY");
+  });
+
+  it("rejects a selected provider when its session credential is missing", () => {
+    localStorage.setItem("backend_mode", "api");
+    localStorage.setItem("provider_chain", "mimo");
+    sessionStorage.setItem("opencode_api_key", "opencode-secret");
+
+    expect(() => readEnvsFromSettings()).toThrow(
+      /MiMo.*API Key/i,
+    );
+  });
+
+  it("rejects an OpenCode model outside the supported namespace", () => {
+    localStorage.setItem("backend_mode", "api");
+    localStorage.setItem("provider_chain", "opencode");
+    localStorage.setItem("credential:opencode_model", "kimi-k2.6");
+    sessionStorage.setItem("opencode_api_key", "opencode-secret");
+
+    expect(() => readEnvsFromSettings()).toThrow(
+      /opencode\//i,
+    );
+  });
+
   it("blocks API execution when neither supported provider is configured", () => {
     localStorage.setItem("backend_mode", "api");
 

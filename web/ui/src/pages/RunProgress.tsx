@@ -8,7 +8,6 @@ import {
   submitIdea,
   type BackendEvent,
   type PipelineMode,
-  type ResearchDepth,
 } from "../lib/tauriClient";
 import { deleteRun, listRuns, markRunDone, markRunFailed, markRunRunning } from "../lib/runsIndex";
 import {
@@ -40,88 +39,10 @@ import {
   promotePendingReport,
   readStoredReportReadiness,
 } from "./runProgressStorage";
-import { readCredentialSetting } from "../lib/sessionCredentials";
-
-type BackendMode = "offline" | "cli" | "api";
-
-function readBackendMode(): BackendMode {
-  const value = localStorage.getItem("backend_mode");
-  return value === "cli" || value === "api" || value === "offline" ? value : "offline";
-}
-
-function readCredential(k: string): string {
-  return readCredentialSetting(k);
-}
-
-function readEnvsFromSettings(): Record<string, string> {
-  const backendMode = readBackendMode();
-  const envs: Record<string, string> = {};
-  if (backendMode === "offline") {
-    envs.MUCHANIPO_OFFLINE = "1";
-  } else if (backendMode === "cli") {
-    envs.MUCHANIPO_USE_CLI = "1";
-    envs.MUCHANIPO_ONLINE = "1";
-    envs.MUCHANIPO_REQUIRE_LIVE = "1";
-    envs.MUCHANIPO_SOURCE_RESEARCH = "1";
-  } else {
-    const mimoKey = readCredential("mimo_api_key").trim();
-    const opencodeGoKey = readCredential("opencode_api_key").trim();
-    if (!mimoKey && !opencodeGoKey) {
-      throw new Error(
-        "API 실행 모드인데 현재 세션에 MiMo 또는 OpenCode Go API Key가 없습니다. 설정에서 둘 중 하나 이상을 저장한 뒤 다시 시작하세요.",
-      );
-    }
-    envs.MUCHANIPO_ONLINE = "1";
-    envs.MUCHANIPO_REQUIRE_LIVE = "1";
-    envs.MUCHANIPO_SOURCE_RESEARCH = "1";
-    envs.MUCHANIPO_VERIFICATION_ROUTING = "mimo_opencode_go_only";
-    envs.MUCHANIPO_API_ROUTING = "mimo_opencode_go_only";
-    envs.MUCHANIPO_MODEL_ROUTING = "mimo_opencode_go_only";
-    envs.MUCHANIPO_INTERVIEW_COUNSELLING = "1";
-    // Do not let a single slow chairman synthesis kill an otherwise successful
-    // live council run. The backend records a blocking timeout-fallback event so
-    // product PASS remains honest, but Markdown report generation can complete.
-    envs.MUCHANIPO_CHAIRMAN_TIMEOUT_FALLBACK = "1";
-    envs.MUCHANIPO_PREFER_CLI = "0";
-    envs.OPENCODE_USE_CLI = "0";
-    envs.MUCHANIPO_USE_CLI = "0";
-    if (mimoKey) {
-      envs.XIAOMI_MIMO_API_KEY = mimoKey;
-      envs.MIMO_API_KEY = mimoKey;
-      envs.MIMO_MODEL = readCredential("mimo_model").trim() || "mimo-v2.5-pro";
-      envs.MUCHANIPO_MIMO_MODEL = envs.MIMO_MODEL;
-      const mimoBaseUrl = readCredential("mimo_base_url").trim() || "https://token-plan-sgp.xiaomimimo.com/v1";
-      envs.MIMO_BASE_URL = mimoBaseUrl;
-      envs.XIAOMI_MIMO_BASE_URL = mimoBaseUrl;
-      envs.MUCHANIPO_PROVIDER_CHAIN = opencodeGoKey ? "mimo,opencode" : "mimo";
-    }
-    if (opencodeGoKey) {
-      envs.OPENCODE_API_KEY = opencodeGoKey;
-      envs.OPENCODE_GO_API_KEY = opencodeGoKey;
-    }
-    const plannotatorKey = readCredential("plannotator_key").trim();
-    if (plannotatorKey) envs.PLANNOTATOR_API_KEY = plannotatorKey;
-  }
-  if (backendMode !== "offline") {
-    const openAlexEmail = readCredential("openalex_email").trim();
-    if (openAlexEmail) {
-      envs.MUCHANIPO_CONTACT_EMAIL = openAlexEmail;
-      envs.UNPAYWALL_EMAIL = openAlexEmail;
-    }
-  }
-  const visualizer = localStorage.getItem("council_visualizer");
-  if (visualizer === "ollama") {
-    envs.MUCHANIPO_COUNCIL_VISUALIZER = "ollama";
-    envs.MUCHANIPO_COUNCIL_VISUALIZER_MODEL =
-      localStorage.getItem("council_visualizer_model") || "qwen3.6-a3b:latest";
-  }
-  return envs;
-}
-
-function readResearchDepth(): ResearchDepth {
-  const value = localStorage.getItem("research_depth");
-  return value === "shallow" || value === "deep" || value === "max" || value === "superdeep" ? value : "deep";
-}
+import {
+  readEnvsFromSettings,
+  readResearchDepth,
+} from "./runProgressSettings";
 
 export type Stage =
   | "intake"

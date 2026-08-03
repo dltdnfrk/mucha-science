@@ -65,6 +65,7 @@ describe("web pipeline launch", () => {
     const socket = FakeWebSocket.instances[0];
     if (!socket) throw new Error("websocket was not created");
 
+    expect(socket.url).toBe("ws://127.0.0.1:8765/api/pipeline");
     socket.open();
     expect(JSON.parse(socket.sent[0] ?? "")).toEqual({
       protocol: "mucha-science.web.v1",

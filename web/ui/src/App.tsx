@@ -6,21 +6,17 @@ import {
   type AiScientistWorkspaceView,
 } from "./pages/AiScientistWorkspace";
 
-const BrowserHome = lazy(() => import("./pages/BrowserHome"));
-const IdeaSubmit = lazy(() => import("./pages/IdeaSubmit"));
 const MuniStudy = lazy(() => import("./pages/MuniStudy"));
 const ReportView = lazy(() => import("./pages/ReportView"));
 const RunProgress = lazy(() => import("./pages/RunProgress"));
 const Settings = lazy(() => import("./pages/Settings"));
-const StudioSession = lazy(() => import("./pages/StudioSession"));
 const DesignSystemShowcase = lazy(async () => {
   const module = await import("./pages/DesignSystemShowcase");
   return { default: module.DesignSystemShowcase };
 });
 
 function HomeRedirect() {
-  const autostartTopic = (import.meta.env.VITE_MUCHANIPO_AUTOSTART_TOPIC || "").trim();
-  return <Navigate to={autostartTopic ? "/studio" : "/scientific"} replace />;
+  return <Navigate to="/scientific" replace />;
 }
 
 function BackButton() {
@@ -33,7 +29,6 @@ function BackButton() {
   };
   return (
     <header
-      data-tauri-drag-region
       className="sticky top-0 z-30 flex items-center border-b border-white/5 bg-transparent pl-[88px] pr-4 py-2.5 backdrop-blur-xl supports-[backdrop-filter]:bg-black/20"
     >
       <button
@@ -91,9 +86,9 @@ function AppRoutes() {
       <main className="app-workspace flex-1 overflow-y-auto">
         <BackButton />
         <Routes>
-          <Route path="/studio" element={<IdeaSubmit />} />
-          <Route path="/studio/:studioId" element={<StudioSession />} />
-          <Route path="/browser" element={<BrowserHome />} />
+          <Route path="/studio" element={<Navigate to="/scientific" replace />} />
+          <Route path="/studio/:studioId" element={<Navigate to="/scientific" replace />} />
+          <Route path="/browser" element={<Navigate to="/scientific" replace />} />
           <Route path="/muni" element={<MuniStudy />} />
           <Route path="/browser/:runId" element={<RunProgress />} />
           <Route path="/browser/:runId/report" element={<ReportView />} />

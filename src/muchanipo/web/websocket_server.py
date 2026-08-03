@@ -37,6 +37,8 @@ ALLOWED_ORIGINS: tuple[Origin | None, ...] = (
     Origin("http://localhost:1420"),
     Origin("http://127.0.0.1:4173"),
     Origin("http://localhost:4173"),
+    Origin("http://127.0.0.1:5173"),
+    Origin("http://localhost:5173"),
     Origin("http://tauri.localhost"),
     Origin("https://tauri.localhost"),
     Origin("tauri://localhost"),

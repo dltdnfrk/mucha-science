@@ -32,6 +32,13 @@ const KEY_CONFIGS: KeyForm[] = [
   { label: "Plannotator Key", key: "plannotator_key", type: "password", hint: "HITL 검토 (선택)" },
 ];
 
+const SUPPORTED_API_KEY_CONFIGS = new Set([
+  "mimo_api_key",
+  "mimo_base_url",
+  "mimo_model",
+  "opencode_api_key",
+]);
+
 const CLI_HINTS: Record<string, string> = {
   claude: "터미널에서 직접 claude login / Claude Code 인증",
   codex: "codex login (또는 OPENAI_API_KEY 설정)",
@@ -107,11 +114,16 @@ const DEPTH_OPTIONS: Array<{
   },
 ];
 
-type BackendMode = "offline" | "cli" | "api";
+type BackendMode = "cli" | "api";
 type CouncilVisualizer = "off" | "ollama";
+type ProviderChain = "mimo" | "opencode" | "mimo,opencode";
 
 function isBackendMode(value: string | null): value is BackendMode {
-  return value === "offline" || value === "cli" || value === "api";
+  return value === "cli" || value === "api";
+}
+
+function isProviderChain(value: string | null): value is ProviderChain {
+  return value === "mimo" || value === "opencode" || value === "mimo,opencode";
 }
 
 function isCouncilVisualizer(value: string | null): value is CouncilVisualizer {
@@ -120,9 +132,10 @@ function isCouncilVisualizer(value: string | null): value is CouncilVisualizer {
 
 export default function Settings() {
   const [values, setValues] = useState<Record<string, string>>({});
-  const [pipelineMode, setPipelineMode] = useState<"full" | "stub">("full");
   const [researchDepth, setResearchDepth] = useState<ResearchDepth>("deep");
-  const [backendMode, setBackendMode] = useState<BackendMode>("offline");
+  const [backendMode, setBackendMode] = useState<BackendMode>("api");
+  const [providerChain, setProviderChain] = useState<ProviderChain>("mimo");
+  const [openCodeModel, setOpenCodeModel] = useState("opencode/kimi-k2.6");
   const [councilVisualizer, setCouncilVisualizer] = useState<CouncilVisualizer>("off");
   const [councilVisualizerModel, setCouncilVisualizerModel] = useState("qwen3.6-a3b:latest");
   const [saved, setSaved] = useState(false);
@@ -138,7 +151,6 @@ export default function Settings() {
     const loaded: Record<string, string> = {};
     for (const cfg of KEY_CONFIGS) loaded[cfg.key] = readStoredCredential(cfg.key);
     setValues(loaded);
-    setPipelineMode((localStorage.getItem("pipeline_mode") as "full" | "stub") || "full");
     const savedDepth = localStorage.getItem("research_depth");
     setResearchDepth(
       savedDepth === "shallow" || savedDepth === "deep" || savedDepth === "max" || savedDepth === "superdeep"
@@ -146,7 +158,10 @@ export default function Settings() {
         : "deep",
     );
     const savedBackendMode = localStorage.getItem("backend_mode");
-    setBackendMode(isBackendMode(savedBackendMode) ? savedBackendMode : "offline");
+    setBackendMode(isBackendMode(savedBackendMode) ? savedBackendMode : "api");
+    const savedProviderChain = localStorage.getItem("provider_chain");
+    setProviderChain(isProviderChain(savedProviderChain) ? savedProviderChain : "mimo");
+    setOpenCodeModel(readCredentialSetting("opencode_model") || "opencode/kimi-k2.6");
     const savedCouncilVisualizer = localStorage.getItem("council_visualizer");
     setCouncilVisualizer(
       isCouncilVisualizer(savedCouncilVisualizer) ? savedCouncilVisualizer : "off",
@@ -219,8 +234,14 @@ export default function Settings() {
   }, [backendMode]);
 
   const save = () => {
-    for (const cfg of KEY_CONFIGS) writeStoredCredential(cfg.key, values[cfg.key] || "");
-    localStorage.setItem("pipeline_mode", pipelineMode);
+    for (const cfg of KEY_CONFIGS) {
+      if (SUPPORTED_API_KEY_CONFIGS.has(cfg.key)) {
+        writeStoredCredential(cfg.key, values[cfg.key] || "");
+      }
+    }
+    writeCredentialSetting("opencode_model", openCodeModel.trim() || "opencode/kimi-k2.6");
+    localStorage.setItem("provider_chain", providerChain);
+    localStorage.setItem("pipeline_mode", "full");
     localStorage.setItem("research_depth", researchDepth);
     localStorage.setItem("backend_mode", backendMode);
     localStorage.setItem("council_visualizer", councilVisualizer);
@@ -235,7 +256,7 @@ export default function Settings() {
         <div className="fade-in mb-8">
           <h1 className="text-xl font-semibold tracking-tight text-white">설정</h1>
           <p className="mt-1 text-sm text-tertiary">
-            Mucha Science는 오프라인 데모, 로컬 CLI, API 키 실행을 선택할 수 있습니다.
+            Mucha Science는 로컬 CLI 또는 API 공급자를 통해 라이브 웹 연구를 실행합니다.
           </p>
         </div>
 
@@ -274,23 +295,7 @@ export default function Settings() {
             >
               <div className="font-medium">API Keys</div>
               <div className="mt-0.5 break-keep text-[11px] text-tertiary">
-                로컬에 저장되어 앱 재실행 후에도 유지됩니다
-              </div>
-            </button>
-            <button
-              onClick={() => {
-                setBackendMode("offline");
-                localStorage.setItem("backend_mode", "offline");
-              }}
-              className={`flex-1 rounded-lg border px-4 py-3 text-left text-sm transition ${
-                backendMode === "offline"
-                  ? "border-white/30 bg-white/10 text-white"
-                  : "border-white/10 bg-white/[0.02] text-secondary hover:border-white/20 hover:text-white"
-              }`}
-            >
-              <div className="font-medium">로컬 출처 수집</div>
-              <div className="mt-0.5 break-keep text-[11px] text-tertiary">
-                LLM은 mock, 근거는 로컬 vault/공개 학술 API로 수집
+                API 키는 현재 브라우저 세션에만 보관됩니다
               </div>
             </button>
           </div>
@@ -427,10 +432,54 @@ export default function Settings() {
         {backendMode === "api" && (
           <section className="mb-8">
             <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-tertiary">
-              API Keys
+              Provider & credentials
             </p>
+            <div className="mb-3 grid gap-3 rounded-xl border border-white/5 bg-white/[0.02] p-4">
+              <div>
+                <label htmlFor="provider_chain" className="mb-1 block text-xs text-secondary">
+                  Provider
+                </label>
+                <select
+                  id="provider_chain"
+                  value={providerChain}
+                  onChange={(event) => {
+                    if (isProviderChain(event.target.value)) {
+                      setProviderChain(event.target.value);
+                    }
+                  }}
+                  className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-sm text-white outline-none transition focus:border-white/30 focus:bg-black/30"
+                >
+                  <option value="mimo">MiMo</option>
+                  <option value="opencode">OpenCode Go</option>
+                  <option value="mimo,opencode">MiMo, then OpenCode Go fallback</option>
+                </select>
+                <p className="mt-1 text-[11px] text-tertiary">
+                  선택한 순서대로 실제 연구 단계의 provider routing을 적용합니다.
+                </p>
+              </div>
+              {providerChain.includes("opencode") && (
+                <div>
+                  <label htmlFor="opencode_model" className="mb-1 block text-xs text-secondary">
+                    OpenCode model
+                  </label>
+                  <input
+                    id="opencode_model"
+                    value={openCodeModel}
+                    onChange={(event) => setOpenCodeModel(event.target.value)}
+                    placeholder="opencode/kimi-k2.6"
+                    className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 font-mono text-sm text-white placeholder-tertiary outline-none transition focus:border-white/30 focus:bg-black/30"
+                  />
+                  <p className="mt-1 text-[11px] text-tertiary">
+                    opencode/ 또는 opencode-go/ 모델 식별자만 사용할 수 있습니다.
+                  </p>
+                </div>
+              )}
+              <p className="text-[11px] text-tertiary">
+                Provider와 모델 선택은 이 브라우저에 저장되고, API 키는 현재 세션이 끝나면 삭제됩니다.
+              </p>
+            </div>
             <div className="overflow-hidden rounded-xl border border-white/5">
-              {KEY_CONFIGS.map((cfg, idx) => (
+              {KEY_CONFIGS.filter((cfg) => SUPPORTED_API_KEY_CONFIGS.has(cfg.key)).map((cfg, idx) => (
                 <div
                   key={cfg.key}
                   className={`bg-white/[0.02] px-4 py-3 ${
@@ -460,41 +509,6 @@ export default function Settings() {
             </div>
           </section>
         )}
-
-        {/* Pipeline mode */}
-        <section className="mb-8">
-          <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-tertiary">
-            Pipeline mode
-          </p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setPipelineMode("full")}
-              className={`flex-1 rounded-lg border px-4 py-3 text-left text-sm transition ${
-                pipelineMode === "full"
-                  ? "border-white/30 bg-white/10 text-white"
-                  : "border-white/10 bg-white/[0.02] text-secondary hover:border-white/20 hover:text-white"
-              }`}
-            >
-              <div className="font-medium">Full</div>
-              <div className="mt-0.5 text-[11px] text-tertiary">
-                8-stage MBB 보고서 (실제 사용)
-              </div>
-            </button>
-            <button
-              onClick={() => setPipelineMode("stub")}
-              className={`flex-1 rounded-lg border px-4 py-3 text-left text-sm transition ${
-                pipelineMode === "stub"
-                  ? "border-white/30 bg-white/10 text-white"
-                  : "border-white/10 bg-white/[0.02] text-secondary hover:border-white/20 hover:text-white"
-              }`}
-            >
-              <div className="font-medium">Stub</div>
-              <div className="mt-0.5 text-[11px] text-tertiary">
-                빠른 테스트 (4 phase 플레이스홀더)
-              </div>
-            </button>
-          </div>
-        </section>
 
         {/* Council visualization */}
         <section className="mb-8">
@@ -550,10 +564,10 @@ export default function Settings() {
           )}
         </section>
 
-        {/* Research depth */}
+        {/* Research effort */}
         <section className="mb-8">
           <p className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-tertiary">
-            Research depth
+            Research effort
           </p>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {DEPTH_OPTIONS.map((option) => (

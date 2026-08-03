@@ -1,5 +1,8 @@
-import { invoke } from "../api/client";
 import type { PipelineLaunchReceipt } from "./researchExecution";
+import {
+  cancelWebPipeline,
+  startWebPipeline,
+} from "./webPipelineClient";
 
 export type PipelineMode = "stub" | "full";
 export type ResearchDepth = "shallow" | "deep" | "max" | "superdeep";
@@ -33,15 +36,15 @@ export async function submitIdea(
   envs?: Record<string, string>,
   appRunId?: string,
 ): Promise<PipelineLaunchReceipt> {
-  return invoke<PipelineLaunchReceipt>(
-    "start_pipeline",
-    { topic, pipeline, depth, envs, appRunId },
-  );
+  if (!appRunId) {
+    throw new Error("A browser pipeline run requires an app run ID.");
+  }
+  return startWebPipeline(topic, pipeline, depth, envs ?? {}, appRunId);
 }
 
 export async function cancelPipeline(
   appRunId: string,
   generation: number,
 ): Promise<PipelineCancellationAcknowledgement> {
-  return invoke("cancel_pipeline", { appRunId, generation });
+  return cancelWebPipeline(appRunId, generation);
 }
