@@ -4,7 +4,7 @@
 
 ## 1. 제품 개요
 
-Mucha Science는 사용자의 연구 주제나 제품 아이디어를 구조화된 리서치 산출물로 바꾸는 CLI/TUI/데스크톱 기반 리서치 시스템입니다. 핵심 제품은 Python CLI/TUI 런너이며, Tauri 데스크톱 앱은 같은 파이프라인 이벤트 스트림을 보는 viewer/control shell 역할을 합니다.
+Mucha Science는 사용자의 연구 주제나 제품 아이디어를 구조화된 리서치 산출물로 바꾸는 CLI/TUI/웹 기반 리서치 시스템입니다. 핵심 제품은 Python CLI/TUI 런너이며, 로컬 웹 UI는 같은 파이프라인 이벤트 스트림을 보는 viewer/control shell 역할을 합니다.
 
 제품의 기본 철학은 다음과 같습니다.
 
@@ -20,7 +20,7 @@ Mucha Science는 사용자의 연구 주제나 제품 아이디어를 구조화�
 - `src/muchanipo/server.py`
 - `src/pipeline/stages.py`
 - `src/pipeline/runner.py`
-- `app/muchanipo-tauri/README.md`
+- `web/ui/README.md`
 - `docs/data-transmission-notice.md`
 
 ## 2. 대상 사용자와 사용 시나리오
@@ -65,16 +65,15 @@ CLI/TUI는 제품의 중심 실행 환경입니다. `pyproject.toml`의 console 
 
 JSON inspection 명령은 `--json`을 지원하며, agent/script가 안정적으로 읽을 수 있도록 `schema_version`, `command` 같은 top-level key를 유지합니다. 상세 contract는 `docs/cli-json-contracts.md`에 있습니다.
 
-### 3.2 Tauri 데스크톱 앱
+### 3.2 로컬 웹 UI
 
-Tauri 앱은 `app/muchanipo-tauri/`에 있으며, Python CLI/TUI runner 위에서 동작하는 데스크톱 viewer/control shell입니다.
+로컬 웹 UI는 `web/ui/`에 있으며, Python CLI/TUI runner 위에서 동작하는 브라우저 viewer/control shell입니다.
 
 스택:
 
-- Tauri 2 + Rust shell
 - Vite + React 18 + TypeScript frontend
-- `python3 -m muchanipo serve` subprocess bridge
-- 같은 pipeline core를 CLI/TUI/Tauri가 공유
+- `src/muchanipo/web/websocket_server.py` loopback WebSocket bridge
+- 같은 pipeline core를 CLI/TUI/웹 UI가 공유
 
 주요 화면:
 
@@ -85,7 +84,7 @@ Tauri 앱은 `app/muchanipo-tauri/`에 있으며, Python CLI/TUI runner 위에�
 | `/report/:runId` | `ReportView.tsx` | 최종 보고서 확인 |
 | `/settings` | `Settings.tsx` | 실행 설정 및 환경 확인 |
 
-Rust side command는 `app/muchanipo-tauri/src-tauri/src/main.rs`에서 등록합니다.
+브라우저 클라이언트는 `web/ui/src/lib/` 아래에서 백엔드 명령을 호출합니다.
 
 - `start_pipeline`
 - `send_action`
@@ -95,7 +94,7 @@ Rust side command는 `app/muchanipo-tauri/src-tauri/src/main.rs`에서 등록합
 - `get_buffered_events`
 - `pipeline_runtime_status`
 
-이 명령들은 `python_bridge.rs`를 통해 Python runtime과 연결됩니다.
+이 명령들은 `src/muchanipo/web/websocket_server.py` WebSocket 전송을 통해 Python runtime과 연결됩니다.
 
 ## 4. 전체 파이프라인
 
@@ -331,14 +330,14 @@ HITL 관련 특성:
 - Plannotator adapter는 plan/evidence/report gate에 사용될 수 있습니다.
 - Offline fallback approval은 synthetic으로 표시됩니다.
 - Live mode에서는 synthetic HITL gate를 거부합니다.
-- Tauri app은 별도 Plannotator web page를 여는 대신 in-app constrained port를 사용합니다.
+- 로컬 웹 UI는 별도 Plannotator web page를 여는 대신 in-app constrained port를 사용합니다.
 
 관련 파일:
 
 - `src/hitl/plannotator_adapter.py`
 - `src/hitl/plannotator_http.py`
-- `app/muchanipo-tauri/src/plannotator-port/`
-- `app/muchanipo-tauri/src/components/PlannotatorPlanEditor.tsx`
+- `web/ui/src/plannotator-port/`
+- `web/ui/src/components/PlannotatorPlanEditor.tsx`
 - `docs/reference-implementation-inventory.md`
 
 ## 8. 외부 Reference Project 통합 기준
@@ -384,7 +383,7 @@ Mucha Science는 외부 프로젝트 이름을 장식적으로 나열하지 않�
 ~/.local/share/muchanipo/runs/<run-id>/
 ```
 
-Tauri app과 CLI/TUI는 같은 event stream과 run summary를 기반으로 progress와 결과를 보여줍니다. `muchanipo runs --json --limit 5`로 최근 run summary를 scriptable하게 확인할 수 있습니다.
+로컬 웹 UI와 CLI/TUI는 같은 event stream과 run summary를 기반으로 progress와 결과를 보여줍니다. `muchanipo runs --json --limit 5`로 최근 run summary를 scriptable하게 확인할 수 있습니다.
 
 ### 9.1 PASS 판정 기준
 
@@ -592,7 +591,7 @@ Skill evolution handoff에는 최소한 아래를 남깁니다.
 - Online run용 optional provider CLI: Claude Code, Gemini, Kimi, Codex, OpenCode
 - Optional API keys
 - Optional Obsidian vault frontend
-- Tauri 앱 개발 시 Node 18+, npm, Rust 1.77+, macOS Xcode Command Line Tools
+- 로컬 웹 UI 개발 시 Node 18+, npm
 
 ### 12.2 CLI 빠른 시작
 
@@ -620,21 +619,18 @@ muchanipo contracts
 muchanipo references
 ```
 
-### 12.3 Tauri 앱 개발 실행
+### 12.3 로컬 웹 UI 개발 실행
 
 ```bash
-cd app/muchanipo-tauri
-npm install
-npm run tauri dev
+bash scripts/run-local-web.sh
 ```
 
-### 12.4 Tauri 앱 릴리스 빌드
+### 12.4 로컬 웹 UI 정적 빌드
 
 ```bash
-cd app/muchanipo-tauri
-npm install
-npm run tauri build
-# → src-tauri/target/release/bundle/macos/Mucha Science.app
+npm --prefix web/ui install
+npm --prefix web/ui run build
+# → web/ui/dist/
 ```
 
 ## 13. 설정과 환경변수
@@ -694,7 +690,7 @@ muchanipo-p5int/
 │   ├── execution/providers/    # Claude/Gemini/Kimi/Codex/OpenCode/mock providers
 │   ├── runtime/                # live mode, path utilities, plugin loader
 │   └── wiki/                   # GBrain/raw-wiki governance runtime
-├── app/muchanipo-tauri/        # Tauri desktop app
+├── web/ui/                     # local web UI (Vite + React)
 ├── docs/                       # contracts, provider wiring, reference inventory
 ├── raw/                        # human-owned source drop zone
 ├── wiki/                       # LLM-owned compiled knowledge
@@ -708,7 +704,7 @@ muchanipo-p5int/
 
 명시된 한계:
 
-- Tauri app에 streaming token UI는 아직 없습니다. Council stream은 round-level event로 접힙니다.
+- 로컬 웹 UI에 streaming token UI는 아직 없습니다. Council stream은 round-level event로 접힙니다.
 - Plannotator HITL은 API key가 없으면 markdown/offline/synthetic path를 사용합니다.
 - Citation grounder는 character + n-gram 중심이며 semantic embedding 비교는 별도 Phase 3 ticket 성격입니다.
 - Live provider/HITL behavior는 offline deterministic test와 별도로 opt-in live smoke가 필요합니다.
@@ -734,17 +730,15 @@ muchanipo references --json
 muchanipo demo
 ```
 
-Tauri 앱 확인:
+로컬 웹 UI 확인:
 
 ```bash
-cd app/muchanipo-tauri
-npm install
-npm run tauri dev
+bash scripts/run-local-web.sh
 ```
 
 ## 18. 핵심 메시지
 
-Mucha Science는 단순한 챗봇이나 보고서 생성기가 아닙니다. 제품 아이디어와 연구 주제를 받아, 요구사항 정리·자료 수집·근거 검증·다중 관점 토론·보고서 생성·지식 축적까지 하나의 파이프라인으로 묶는 로컬 우선 자율 리서치 시스템입니다. CLI/TUI는 제품의 중심 실행 경로이고, Tauri 앱은 같은 runtime을 더 시각적으로 제어하고 확인하는 데스크톱 shell입니다.
+Mucha Science는 단순한 챗봇이나 보고서 생성기가 아닙니다. 제품 아이디어와 연구 주제를 받아, 요구사항 정리·자료 수집·근거 검증·다중 관점 토론·보고서 생성·지식 축적까지 하나의 파이프라인으로 묶는 로컬 우선 자율 리서치 시스템입니다. CLI/TUI는 제품의 중심 실행 경로이고, 로컬 웹 UI는 같은 runtime을 더 시각적으로 제어하고 확인하는 브라우저 shell입니다.
 
 가장 중요한 제품 약속은 세 가지입니다.
 

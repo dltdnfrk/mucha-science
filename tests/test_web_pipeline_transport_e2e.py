@@ -75,7 +75,7 @@ def test_browser_transport_runs_pipeline_streams_events_and_replays(
 
     try:
         readiness = json.loads(read_line(process))
-        with connect(readiness["url"], origin="http://127.0.0.1:1420") as command:
+        with connect(readiness["url"], origin="http://127.0.0.1:5173") as command:
             command.send(json.dumps({
                 "protocol": WEB_PROTOCOL,
                 "type": "run.start",
@@ -88,7 +88,7 @@ def test_browser_transport_runs_pipeline_streams_events_and_replays(
             started = json.loads(command.recv(timeout=5))
 
         # When a browser subscribes, answers the inline interview, and waits
-        with connect(readiness["url"], origin="http://127.0.0.1:1420") as stream:
+        with connect(readiness["url"], origin="http://127.0.0.1:5173") as stream:
             stream.send(json.dumps({
                 "protocol": WEB_PROTOCOL,
                 "type": "run.subscribe",
@@ -97,7 +97,7 @@ def test_browser_transport_runs_pipeline_streams_events_and_replays(
             }))
             before_answer = receive_until(stream, "interview_question")
 
-            with connect(readiness["url"], origin="http://127.0.0.1:1420") as action:
+            with connect(readiness["url"], origin="http://127.0.0.1:5173") as action:
                 action.send(json.dumps({
                     "protocol": WEB_PROTOCOL,
                     "type": "run.action",
@@ -130,7 +130,7 @@ def test_browser_transport_runs_pipeline_streams_events_and_replays(
         assert any(event["event"] == "report_chunk" for event in events)
 
         replay_cursor = events[-3]["sequence"]
-        with connect(readiness["url"], origin="http://127.0.0.1:1420") as replay:
+        with connect(readiness["url"], origin="http://127.0.0.1:5173") as replay:
             replay.send(json.dumps({
                 "protocol": WEB_PROTOCOL,
                 "type": "run.subscribe",

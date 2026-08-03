@@ -1,6 +1,6 @@
 # Wiring Mucha Science to real LLMs
 
-> Phase 3 — replace offline mocks with live LLM calls so the Tauri app
+> Phase 3 — replace offline mocks with live LLM calls so the local web UI
 > produces a research report based on actual reasoning, not fixture text.
 
 ## TL;DR
@@ -39,8 +39,8 @@ Qwen 3.6 로컬 provider는 보류 (PRD §15.3 Phase 3+).
 
 Each provider returns deterministic mock text when its local CLI/API access is
 missing OR the corresponding `*_OFFLINE=1` env var is set. This keeps `pytest`,
-`bash scripts/e2e_smoke.sh`, and CI working without credentials. The installed
-Tauri app prefers CLI execution by default; pytest disables implicit CLI
+`bash scripts/e2e_smoke.sh`, and CI working without credentials. The local
+web UI prefers CLI execution by default; pytest disables implicit CLI
 detection unless a test explicitly opts in.
 
 | Provider  | Offline trigger                                |
@@ -71,9 +71,9 @@ bash scripts/e2e_smoke.sh
 MUCHANIPO_PREFER_CLI=1 pytest tests/test_real_llm_smoke.py -v
 ```
 
-## Tauri app
+## Local web UI
 
-The bundled app (`Mucha Science.app`) prefers installed CLIs. Keep each provider
+The local web UI (`bash scripts/run-local-web.sh`) prefers installed CLIs. Keep each provider
 logged in through its own CLI. API keys in `.env` are optional fallback inputs,
 not the default personal-local path.
 

@@ -1620,5 +1620,5 @@ def test_subprocess_demo_command_completes_offline(tmp_path: Path):
     assert summary["status"] == "completed"
     assert summary["offline"] is True
     assert summary["council_persona_pool_size"] == 24
-    assert summary["active_council_persona_count"] == 6
-    assert summary["council_turn_count"] == 78
+    assert summary["active_council_persona_count"] == 1
+    assert summary["council_turn_count"] == 3

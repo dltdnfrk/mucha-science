@@ -3,7 +3,7 @@
 ## 개요
 
 Mucha Science는 **명시적 오프라인 경로를 우선 제공하는(offline-first capable)** 설계입니다.
-`muchanipo demo`, `--offline`, 또는 `MUCHANIPO_OFFLINE=1`을 사용한 실행은 외부 서버와의 통신을 전혀 하지 않으며, 로컬 fixture 기반의 모의 연구 데이터를 사용합니다. 반대로 일반 `run`/`serve`/Tauri CLI 경로는 로컬 제공자 CLI나 API 키가 감지되면 온라인 실행이 가능하므로, 민감한 주제는 오프라인 플래그를 명시해야 합니다.
+`muchanipo demo`, `--offline`, 또는 `MUCHANIPO_OFFLINE=1`을 사용한 실행은 외부 서버와의 통신을 전혀 하지 않으며, 로컬 fixture 기반의 모의 연구 데이터를 사용합니다. 반대로 일반 `run`/`serve`/로컬 웹 UI 경로는 로컬 제공자 CLI나 API 키가 감지되면 온라인 실행이 가능하므로, 민감한 주제는 오프라인 플래그를 명시해야 합니다.
 
 ## 오프라인 모드 (기본)
 
@@ -36,9 +36,9 @@ Mucha Science는 **명시적 오프라인 경로를 우선 제공하는(offline-
 
 - **검색어**: 사용자가 입력한 연구 주제와 파생 검색어는 위 학술 데이터베이스의 서버(주로 미국, 유럽)에 전송됩니다.
 - **IP 주소**: 위 서비스로의 HTTP 요청 시 사용자의 공개 IP 주소가 해당 서버의 접근 로그에 기록될 수 있습니다.
-- **이메일 주소**: 학술 API의 정책상 `contact_email`을 요구하는 경우, 기본값은 `research@muchanipo.local`입니다. 실제 연구 목적으로 사용 시 `MUCHANIPO_CONTACT_EMAIL` 환경변수를 설정하세요. Tauri 설정의 OpenAlex Email 값도 이 환경변수로 전달됩니다.
+- **이메일 주소**: 학술 API의 정책상 `contact_email`을 요구하는 경우, 기본값은 `research@muchanipo.local`입니다. 실제 연구 목적으로 사용 시 `MUCHANIPO_CONTACT_EMAIL` 환경변수를 설정하세요. 로컬 웹 UI 설정의 OpenAlex Email 값도 이 환경변수로 전달됩니다.
 - **LLM 프롬프트**: 온라인 모드에서 사용자 입력과 검색 결과는 선택된 LLM 제공자의 API 서버로 전송됩니다. 제공자별 데이터 처리 정책을 참고하세요.
-- **Plannotator payload**: Tauri 앱 내장 plan editor는 로컬 HITL action으로만 annotation을 전달합니다. `PLANNOTATOR_API_KEY`가 설정되고 HITL 모드가 `plannotator`일 때는 기본 endpoint `https://plannotator.ai/api`로 계획, brief, evidence refs, report metadata/markdown, annotation/status가 전송될 수 있습니다. `PLANNOTATOR_ENDPOINT`를 설정하면 해당 endpoint로 바뀝니다. API key 없이 `PLANNOTATOR_OFFLINE=1`을 켠 경우에는 synthetic offline HITL 결과만 사용합니다.
+- **Plannotator payload**: 로컬 웹 UI 내장 plan editor는 로컬 HITL action으로만 annotation을 전달합니다. `PLANNOTATOR_API_KEY`가 설정되고 HITL 모드가 `plannotator`일 때는 기본 endpoint `https://plannotator.ai/api`로 계획, brief, evidence refs, report metadata/markdown, annotation/status가 전송될 수 있습니다. `PLANNOTATOR_ENDPOINT`를 설정하면 해당 endpoint로 바뀝니다. API key 없이 `PLANNOTATOR_OFFLINE=1`을 켠 경우에는 synthetic offline HITL 결과만 사용합니다.
 
 ## 사용자 동의 및 설정
 

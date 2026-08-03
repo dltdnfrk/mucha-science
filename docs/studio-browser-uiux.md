@@ -291,7 +291,7 @@ Rename/add event namespaces:
 - `interview.*` can remain internal.
 - UI-facing should be `studio.*` and `browser.*`.
 
-### Phase 5: Tauri verification
+### Phase 5: Local web UI verification
 
 Final PASS requires screenshots:
 

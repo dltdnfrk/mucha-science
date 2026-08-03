@@ -1,64 +1,51 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
+from urllib.parse import urlsplit
+
+from src.muchanipo.web.websocket_server import (
+    ALLOWED_ORIGINS,
+    BINARY_CLOSE_CODE,
+    DEFAULT_HOST,
+    MAX_MESSAGE_SIZE,
+)
+
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 
 
-TAURI_ROOT = Path("app/muchanipo-tauri/src-tauri")
+def test_browser_origin_allowlist_is_loopback_only() -> None:
+    # Given the pipeline socket owns mutable scientific-cycle state
+    browser_origins = [origin for origin in ALLOWED_ORIGINS if origin is not None]
+
+    # Then every accepted browser origin stays on this machine
+    assert browser_origins
+    for origin in browser_origins:
+        assert "*" not in origin, origin
+        assert urlsplit(origin).hostname in LOOPBACK_HOSTS, origin
 
 
-def _load_tauri_config() -> dict:
-    return json.loads((TAURI_ROOT / "tauri.conf.json").read_text(encoding="utf-8"))
+def test_pipeline_server_defaults_to_a_loopback_bind() -> None:
+    assert DEFAULT_HOST == "127.0.0.1"
 
 
-def test_tauri_config_declares_strict_csp_instead_of_disabling_it() -> None:
-    config = _load_tauri_config()
-    csp = config["app"]["security"].get("csp")
-
-    assert isinstance(csp, str)
-    assert csp.strip()
-    assert "default-src 'self'" in csp
-    assert "object-src 'none'" in csp
-    assert "frame-src 'none'" in csp
-    assert "base-uri 'self'" in csp
-    assert "form-action 'none'" in csp
-    assert "*" not in csp
-    internal_origins = ("http://ipc.localhost", "http://asset.localhost")
-    external_sources = csp
-    for origin in internal_origins:
-        external_sources = external_sources.replace(origin, "")
-    assert "http:" not in external_sources
+def test_transport_caps_message_size_and_rejects_binary_frames() -> None:
+    assert MAX_MESSAGE_SIZE == 1_048_576
+    assert BINARY_CLOSE_CODE == 1003
 
 
-def test_tauri_dev_server_is_bound_to_loopback_only() -> None:
-    config = _load_tauri_config()
-    build = config["build"]
+def test_local_web_launcher_binds_the_ui_to_loopback() -> None:
+    launcher = Path("scripts/run-local-web.sh").read_text(encoding="utf-8")
 
-    assert build["devUrl"] == "http://127.0.0.1:1420"
-    assert "--host 127.0.0.1" in build["beforeDevCommand"]
-    assert "0.0.0.0" not in build["beforeDevCommand"]
-    assert "--host 0.0.0.0" not in build["beforeDevCommand"]
+    assert "--host 127.0.0.1" in launcher
+    assert "0.0.0.0" not in launcher
 
 
-def test_default_tauri_capability_scopes_shell_access_to_the_sidecar() -> None:
-    capability = json.loads((TAURI_ROOT / "capabilities" / "default.json").read_text(encoding="utf-8"))
-
-    assert capability["windows"] == ["main"]
-    assert capability["permissions"] == [
-        "core:default",
-        "core:window:allow-start-dragging",
-        {
-            "identifier": "shell:allow-spawn",
-            "allow": [{"name": "muchanipo-service", "sidecar": True}],
-        },
-    ]
-
-
-def test_muchanipo_security_baseline_document_exists() -> None:
+def test_security_baseline_document_describes_the_current_surface() -> None:
     doc = Path("docs/security-baseline.md").read_text(encoding="utf-8")
 
-    assert "# Muchanipo Security Baseline" in doc
-    assert "Tauri CSP" in doc
+    assert "# Mucha Science Security Baseline" in doc
+    assert "Browser origin allowlist" in doc
     assert "Loopback-only dev server" in doc
-    assert "Renderer environment allowlist" in doc
+    assert "Frame and message limits" in doc
     assert "No Express/Helmet server" in doc
+    assert "app/muchanipo-tauri" not in doc

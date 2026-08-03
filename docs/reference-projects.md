@@ -85,7 +85,7 @@ Mucha Science에서는 모호한 사용자 요청을 바로 연구로 넘기지 
 
 `show-me-the-prd`는 GPTaku 플러그인 모음에 있는 인터뷰 기반 제품 요구사항 문서 생성기다. 한 문장 아이디어를 짧은 인터뷰를 통해 제품 요구사항 문서, 데이터 모델, 단계별 개발 계획, 프로젝트 규칙 문서로 바꾸는 흐름을 제공한다.
 
-Mucha Science에서는 첫 입력과 인터뷰 단계의 실제 vendored reference다. 원본 plugin/command/skill 문서는 `third_party/show-me-the-prd`에 upstream commit `7b22b070a685115a8687ea95fb95d398e4daf043`으로 고정되어 있고, `src/interview/show_me_the_prd_port.py`가 그 workflow를 런타임 evidence로 노출한다. 인정되는 Stage 1 동작은 주제별 unclear-item 질문, 질문 사이 research batch, feature/MVP 선택, 데이터 모델 확인, phase 확인, stack/auth 선택, 4종 PRD 문서 출력 계약이다. JSONL server는 이제 앱 실행 중 `deep_interview_progress` research-batch 이벤트를 내보내고, 사용자 답변으로 `PRD/01_PRD.md`, `PRD/02_DATA_MODEL.md`, `PRD/03_PHASES.md`, `PRD/04_PROJECT_SPEC.md`를 렌더링한 뒤 `deep_interview_artifacts` 이벤트로 보낸다. Tauri 화면은 이 document manifest를 실행 중에 표시한다. 사용자 답변 없이 OfficeHours로 채운 실행은 계속 synthetic으로 표시해야 하며, 실제 인터뷰 완료로 마케팅하면 안 된다. 단, pinned upstream은 MIT를 선언하지만 standalone `LICENSE` 파일을 포함하지 않으므로, release artifact에 vendored prompt material을 포함하려면 upstream README/plugin metadata를 함께 보존하거나 별도 license notice 보강 후 배포해야 한다.
+Mucha Science에서는 첫 입력과 인터뷰 단계의 실제 vendored reference다. 원본 plugin/command/skill 문서는 `third_party/show-me-the-prd`에 upstream commit `7b22b070a685115a8687ea95fb95d398e4daf043`으로 고정되어 있고, `src/interview/show_me_the_prd_port.py`가 그 workflow를 런타임 evidence로 노출한다. 인정되는 Stage 1 동작은 주제별 unclear-item 질문, 질문 사이 research batch, feature/MVP 선택, 데이터 모델 확인, phase 확인, stack/auth 선택, 4종 PRD 문서 출력 계약이다. JSONL server는 이제 앱 실행 중 `deep_interview_progress` research-batch 이벤트를 내보내고, 사용자 답변으로 `PRD/01_PRD.md`, `PRD/02_DATA_MODEL.md`, `PRD/03_PHASES.md`, `PRD/04_PROJECT_SPEC.md`를 렌더링한 뒤 `deep_interview_artifacts` 이벤트로 보낸다. 로컬 웹 UI 화면은 이 document manifest를 실행 중에 표시한다. 사용자 답변 없이 OfficeHours로 채운 실행은 계속 synthetic으로 표시해야 하며, 실제 인터뷰 완료로 마케팅하면 안 된다. 단, pinned upstream은 MIT를 선언하지만 standalone `LICENSE` 파일을 포함하지 않으므로, release artifact에 vendored prompt material을 포함하려면 upstream README/plugin metadata를 함께 보존하거나 별도 license notice 보강 후 배포해야 한다.
 
 ## MemPalace
 
@@ -104,9 +104,9 @@ Plannotator는 사람이 중간에 검토하는 절차의 실제 vendored refere
 라이선스는 `MIT OR Apache-2.0`이다.
 
 Mucha Science에서는 이 흐름을 별도 웹 페이지로 띄우지 않는다.
-`app/muchanipo-tauri/src/plannotator-port/`가 Plannotator의 browser-safe
+`web/ui/src/plannotator-port/`가 Plannotator의 browser-safe
 `types.ts`, `parser.ts`, feedback template를 앱 소스 안으로 복사하고,
-`app/muchanipo-tauri/src/components/PlannotatorPlanEditor.tsx`가 Tauri 앱 안에서
+`web/ui/src/components/PlannotatorPlanEditor.tsx`가 로컬 웹 UI 안에서
 그 block / annotation / feedback export 모델을 plan HITL gate에 맞춰 포트한다.
 사용자가 PRD, 기능명세 seed, user flow block을 직접 수정하면
 Plannotator-style annotation payload가 `hitl_decision.annotations`로 전송되고,
@@ -118,8 +118,8 @@ replacement/value/text, 그리고 HITL payload에 공개된 target allowlist를 
 instruction-only note는 적용/집계하지 않는다. 이후 brief gate가 수정 요청으로
 한 번 재인터뷰되더라도, 이미 승인된 plan annotation은 새 brief에 다시 적용되어
 targeting 입력에서 사라지지 않는다.
-`third_party/plannotator` workspace 자체는 source evidence이며, Tauri 제품은
-`app/muchanipo-tauri/src/plannotator-port/`의 constrained port만 실행한다.
+`third_party/plannotator` workspace 자체는 source evidence이며, 로컬 웹 UI는
+`web/ui/src/plannotator-port/`의 constrained port만 실행한다.
 현재 구현은 앱 안에서 plan field를 수정하고 annotation payload를 적용하는 실제
 동작이며, parser block, annotation panel, linked-doc feedback export, agent deny
 feedback wrapper를 앱 안에서 실행한다. full upstream workspace는 source evidence로

@@ -16,7 +16,6 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 CORPUS = ROOT / "config/protocol/ai-scientist.v1"
 MANIFEST = CORPUS / "manifest.json"
-SWIFT_CORPUS = ROOT / "app/Muchanipo/Tests/MuchanipoTests/Fixtures/ai-scientist.v1"
 UNICODE_VERSION = "15.1.0"
 # NFC examples whose decompositions/compositions are stable data from Unicode 15.1.
 # Do not use unicodedata here: host Unicode tables are not protocol data.
@@ -186,13 +185,6 @@ def verify() -> None:
         data = (CORPUS / entry["path"]).read_bytes()
         if len(data) != entry["length"] or hashlib.sha256(data).hexdigest() != entry["sha256"]:
             raise SystemExit(f"fixture bytes do not match manifest: {entry['path']}")
-    if not SWIFT_CORPUS.is_dir():
-        raise SystemExit("Swift fixture resource copy is missing")
-    if (SWIFT_CORPUS / "manifest.json").read_bytes() != MANIFEST.read_bytes():
-        raise SystemExit("Swift fixture manifest differs from the root corpus")
-    for entry in manifest["files"]:
-        if (SWIFT_CORPUS / entry["path"]).read_bytes() != (CORPUS / entry["path"]).read_bytes():
-            raise SystemExit(f"Swift fixture bytes differ from root corpus: {entry['path']}")
 
 
 def build() -> None:
@@ -202,13 +194,6 @@ def build() -> None:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(data)
     MANIFEST.write_text(json.dumps(manifest_for(files), indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    for relative, data in files.items():
-        target = SWIFT_CORPUS / relative
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(data)
-    swift_manifest = SWIFT_CORPUS / "manifest.json"
-    swift_manifest.parent.mkdir(parents=True, exist_ok=True)
-    swift_manifest.write_bytes(MANIFEST.read_bytes())
     verify()
 
 

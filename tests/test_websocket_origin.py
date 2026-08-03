@@ -60,18 +60,13 @@ def test_server_rejects_non_loopback_bind(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("origin", [
-    Origin("http://127.0.0.1:1420"),
-    Origin("http://localhost:1420"),
     Origin("http://127.0.0.1:4173"),
     Origin("http://localhost:4173"),
     Origin("http://127.0.0.1:5173"),
     Origin("http://localhost:5173"),
-    Origin("http://tauri.localhost"),
-    Origin("https://tauri.localhost"),
-    Origin("tauri://localhost"),
 ])
 def test_server_accepts_muchanipo_browser_origins(tmp_path: Path, origin: Origin) -> None:
-    # Given a live server and a packaged or development MuchaNipo browser origin
+    # Given a live server and a local web UI browser origin
     with running_server(tmp_path / "home") as url:
         # When the browser negotiates from one of the explicit application origins
         with connect(url, origin=origin) as client:

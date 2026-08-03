@@ -52,7 +52,7 @@ decorative reference names.
 | GPTaku `show-me-the-prd` | vendored code + local runtime adapter | Vendored prompt/skill templates plus `src/interview/show_me_the_prd_port.py`; upstream declares MIT in metadata but the pinned snapshot lacks a standalone `LICENSE`, so release packaging must preserve metadata or exclude the vendored prompt material. |
 | Karpathy Autoresearch | vendored source snapshot + partial clean-room port | `src/research/karpathy_autoresearch.py` runs a local keep/discard loop over `ResearchPlan.queries`; no claim to upstream GPU training parity or git-reset workflow. |
 | Google Gemini Deep Research Max | clean-room runtime contract | Local max-depth behavior models observed async phases, stream events, timeout/cost/token ledgers, and HITL planning; it does not call, clone, or claim parity with Google's private runtime. |
-| Plannotator | vendored code + faithful constrained in-app port | `third_party/plannotator` is source evidence; Tauri uses a constrained parser/types/annotation/export port and does not package the full upstream workspace as product code. |
+| Plannotator | vendored code + faithful constrained in-app port | `third_party/plannotator` is source evidence; the local web UI uses a constrained parser/types/annotation/export port and does not package the full upstream workspace as product code. |
 | Nemotron-Personas-Korea | dataset | Local Korean agtech/farmer sample is attributed CC-BY-4.0 and sampler output preserves dataset provenance or marks synthetic fallback. |
 | HACHIMI | clean-room implementation | Local persona generator implements propose/validate/revise/deduplicate controls; it does not claim to reproduce HACHIMI-1M or upstream provider/UI behavior. |
 | MAP-Elites / EvoAgentX | clean-room algorithmic adaptation | Local diversity grid keeps representative personas across risk/innovation axes; no vendored EvoAgentX runtime. |
@@ -69,7 +69,7 @@ of the GOALS stage contract.
 
 Stage 1 `show-me-the-prd` now has an in-app deep-interview runtime: the JSONL
 server emits research-batch progress, renders the four PRD documents from live
-answers, and the Tauri app displays the document manifest during the run. Stage
+answers, and the local web UI displays the document manifest during the run. Stage
 2/4 Plannotator is treated as a faithful constrained in-app port, while the full
 upstream workspace remains source evidence that must not be packaged without
 dependency audit.
@@ -126,11 +126,11 @@ artifacts expose `*_gate_synthetic`, and live mode rejects synthetic HITL gates.
 
 Stage 2/4 Plannotator now has vendored upstream code under
 `third_party/plannotator` at commit
-`6324a0c859f06030b47d71c02b7c6fed09fa0b92` (`MIT OR Apache-2.0`). The Tauri app
-does not open a separate Plannotator web page for plan review:
-`app/muchanipo-tauri/src/plannotator-port/` copies the Plannotator
+`6324a0c859f06030b47d71c02b7c6fed09fa0b92` (`MIT OR Apache-2.0`). The local web
+UI does not open a separate Plannotator web page for plan review:
+`web/ui/src/plannotator-port/` copies the Plannotator
 parser/types/feedback contract into the app source, and
-`app/muchanipo-tauri/src/components/PlannotatorPlanEditor.tsx` embeds that
+`web/ui/src/components/PlannotatorPlanEditor.tsx` embeds that
 block/annotation/export flow directly in the plan HITL card. It submits
 Plannotator-style annotations through the existing Mucha Science action channel.
 The pipeline applies those annotations to the live `ResearchBrief` before
@@ -158,11 +158,11 @@ vendored material or exclude it until the complete notice is added. The JSONL
 server now executes the equivalent in-app deep-interview runtime: it emits
 show-me-the-prd research-batch progress and renders `PRD/01_PRD.md`,
 `PRD/02_DATA_MODEL.md`, `PRD/03_PHASES.md`, and `PRD/04_PROJECT_SPEC.md` from
-live answers; the Tauri app displays the generated document manifest during
+live answers; the local web UI displays the generated document manifest during
 the run.
 
 The vendored Plannotator workspace under `third_party/plannotator` is not a
-production dependency tree. It is source evidence for the constrained Tauri
+production dependency tree. It is source evidence for the constrained in-app
 port. Do not install, build, package, or execute that upstream workspace as
 product code without a fresh dependency audit.
 

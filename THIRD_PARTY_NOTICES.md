@@ -76,10 +76,10 @@ as hidden vendored dependencies.
 - License: MIT OR Apache-2.0
 - Local material: `third_party/plannotator/`, including upstream package
   metadata, licenses, editor/UI source, parser/types, and feedback templates.
-- Runtime use: `app/muchanipo-tauri/src/plannotator-port/` copies the
+- Runtime use: `web/ui/src/plannotator-port/` copies the
   browser-safe parser/types/feedback contract, and
-  `app/muchanipo-tauri/src/components/PlannotatorPlanEditor.tsx` embeds the
-  plan annotation flow inside the Muchanipo Tauri plan HITL gate.
+  `web/ui/src/components/PlannotatorPlanEditor.tsx` embeds the
+  plan annotation flow inside the local web UI plan HITL gate.
 - Modification note: Muchanipo does not launch the upstream Plannotator web app
   as a separate surface; it ports the block/annotation/export model into a
   constrained in-app plan editor and submits Plannotator-style annotations to
@@ -87,8 +87,8 @@ as hidden vendored dependencies.
 - Security boundary: the vendored upstream workspace and lockfile are source
   evidence only. Do not install, build, package, or execute
   `third_party/plannotator` as production application code without a fresh
-  dependency audit. The Tauri product uses the constrained port under
-  `app/muchanipo-tauri/src/plannotator-port/` instead.
+  dependency audit. The local web UI uses the constrained port under
+  `web/ui/src/plannotator-port/` instead.
 
 ## Karpathy Autoresearch
 

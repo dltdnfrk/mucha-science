@@ -46,14 +46,14 @@ payloads produce explicit degradation copy.
 
 **Mechanism.**
 
-- `app/muchanipo-tauri/src/lib/finalBundle.ts` owns tolerant parsing, complete
+- `web/ui/src/lib/finalBundle.ts` owns tolerant parsing, complete
   field accounting, event extraction, and degradation status.
-- `app/muchanipo-tauri/src/components/FinalBundlePanel.tsx` renders the
+- `web/ui/src/components/FinalBundlePanel.tsx` renders the
   reader-facing fields and clear partial/malformed states.
-- `app/muchanipo-tauri/src/pages/RunProgress.tsx` captures the embedded bundle
+- `web/ui/src/pages/RunProgress.tsx` captures the embedded bundle
   from final-report lifecycle events and renders the panel beside the report.
 
-**Evidence.** `app/muchanipo-tauri/src/lib/finalBundle.test.ts` covers complete,
+**Evidence.** `web/ui/src/lib/finalBundle.test.ts` covers complete,
 partial, and malformed payloads and asserts that every contract field is
 rendered or intentionally hidden. The implementation was merged in PR #52 and
 closed issue #46.

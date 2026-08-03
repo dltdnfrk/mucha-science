@@ -69,10 +69,10 @@ def test_reference_readiness_report_surfaces_gaps_and_license_warnings():
     assert plannotator["claim_level"] == "runtime_ready"
     assert "third_party/plannotator/packages/editor/App.tsx" in plannotator["code_paths"]
     assert (
-        "app/muchanipo-tauri/src/components/PlannotatorPlanEditor.tsx"
+        "web/ui/src/components/PlannotatorPlanEditor.tsx"
         in plannotator["code_paths"]
     )
-    assert "app/muchanipo-tauri/src/plannotator-port/parser.ts" in plannotator["code_paths"]
+    assert "web/ui/src/plannotator-port/parser.ts" in plannotator["code_paths"]
     warnings = {item["name"]: item["warning"] for item in report["license_warnings"]}
     assert "GPTaku show-me-the-prd" in warnings
     assert "standalone LICENSE" in warnings["GPTaku show-me-the-prd"]
@@ -168,7 +168,7 @@ def test_vendored_reference_projects_have_third_party_notices():
     assert "## Plannotator" in notices
     assert "6324a0c859f06030b47d71c02b7c6fed09fa0b92" in notices
     assert "third_party/plannotator/" in notices
-    assert "app/muchanipo-tauri/src/plannotator-port/" in notices
+    assert "web/ui/src/plannotator-port/" in notices
 
 
 def test_provider_runtime_inventory_includes_opencode_adapter_and_tests():

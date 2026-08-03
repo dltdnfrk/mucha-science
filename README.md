@@ -91,7 +91,7 @@ muchanipo/
 │   │   └── plannotator_http.py    # optional external HITL adapter
 │   └── execution/providers/       # Claude/Gemini/Kimi/Codex/OpenAI/Ollama
 ├── bin/muchanipo                  # local executable shim
-├── app/muchanipo-tauri/           # viewer/control shell over CLI events
+├── web/ui/                        # local web UI over the pipeline event stream
 ├── docs/                          # JSON contracts, live wiring, references
 ├── raw/                           # Human-owned source drop zone
 ├── wiki/                          # LLM-owned compiled knowledge
@@ -131,8 +131,8 @@ Stdlib-only — no external LLM calls.
 
 ### Terminal-first research app
 
-Mucha Science's product core is the Python CLI/TUI runner. The Tauri app is a
-viewer/control shell over the same event stream.
+Mucha Science's product core is the Python CLI/TUI runner. The local web UI is
+a viewer/control shell over the same event stream.
 
 ```bash
 # Prove the product works without provider credentials
