@@ -138,6 +138,15 @@ export function subscribeWebPipeline(
         reject(new WebPipelineConnectionError(
           "웹 연구 서버 연결이 시작되기 전에 종료되었습니다.",
         ));
+        return;
+      }
+      if (opened && !detached) {
+        detached = true;
+        handler({
+          event: "pipeline_error",
+          app_run_id: appRunId,
+          message: "웹 연구 서버 연결이 예기치 않게 종료되었습니다.",
+        });
       }
     };
   });

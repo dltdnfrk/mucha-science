@@ -34,6 +34,10 @@ class FakeWebSocket {
   message(value: unknown): void {
     this.onmessage?.(new MessageEvent("message", { data: JSON.stringify(value) }));
   }
+
+  disconnect(): void {
+    this.onclose?.(new Event("close") as CloseEvent);
+  }
 }
 
 
@@ -134,5 +138,25 @@ describe("web pipeline subscription", () => {
     }]);
     detach();
     expect(socket.closed).toBe(true);
+  });
+
+  it("turns an unexpected open-socket disconnect into a terminal pipeline error", async () => {
+    const received: unknown[] = [];
+    const subscription = subscribeWebPipeline(
+      "run_00000000000000000000000000000001",
+      (event) => received.push(event),
+    );
+    const socket = FakeWebSocket.instances[0];
+    if (!socket) throw new Error("websocket was not created");
+
+    socket.open();
+    await subscription;
+    socket.disconnect();
+
+    expect(received).toEqual([{
+      event: "pipeline_error",
+      app_run_id: "run_00000000000000000000000000000001",
+      message: "웹 연구 서버 연결이 예기치 않게 종료되었습니다.",
+    }]);
   });
 });
