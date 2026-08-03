@@ -12,7 +12,13 @@ from pathlib import Path
 
 import pytest
 
-from src.muchanipo.server import JSONLineHITLAdapter, serve_full, _PipelineHeartbeat, _build_demo_rounds
+from src.muchanipo.server import (
+    JSONLineHITLAdapter,
+    serve_full,
+    _PipelineHeartbeat,
+    _build_demo_rounds,
+    _research_readiness_projection,
+)
 from src.pipeline.idea_to_council import _max_plus_benchmark_decision
 from src.report.chapter_mapper import ChapterMapper, RoundDigest
 from src.report.pyramid_formatter import PyramidFormatter
@@ -213,11 +219,11 @@ def test_serve_full_shallow_depth_emits_executed_round_count(tmp_path):
     assert startup["data"]["depth"] == "shallow"
     assert startup["data"]["council_persona_pool_size"] == 24
     assert startup["data"]["active_council_persona_count"] == 6
-    assert len(starts) == 6
-    assert [e["round"] for e in starts] == list(range(1, 7))
+    assert len(starts) == 1
+    assert [e["round"] for e in starts] == [1]
     assert done["depth"] == "shallow"
     assert done["council_persona_pool_size"] == 24
-    assert done["active_council_persona_count"] == 6
+    assert done["active_council_persona_count"] == 1
     assert done["council_turn_count"] > 0
 
 
@@ -255,6 +261,24 @@ def test_serve_full_emits_done_at_end(tmp_path):
         "blocked",
     }
     assert isinstance(events[-1]["research_readiness_reasons"], list)
+
+
+def test_completed_human_reviewed_final_report_projects_needs_review():
+    readiness, reasons = _research_readiness_projection(
+        {
+            "research_quality_readiness": "blocked",
+            "research_readiness_decision": {
+                "reasons": ["evidence_ledger_readiness=needs_review"],
+            },
+            "final_report_html_yaml_artifact": json.dumps({
+                "stage_id": "final_report_html_yaml",
+                "status": "completed",
+            }),
+        }
+    )
+
+    assert readiness == "needs_review"
+    assert reasons == ["evidence_ledger_readiness=needs_review"]
 
 
 def test_serve_full_completion_evidence_is_substantive_and_session_scoped(tmp_path, monkeypatch):
@@ -519,6 +543,13 @@ def test_jsonline_report_hitl_gate_uses_compact_payload():
     event = json.loads(stdout.getvalue().splitlines()[0])
     payload = event["data"]["payload"]
     assert result.status == "approved"
+    assert result.path == "jsonline://hitl/report"
+    assert result.decision_provenance == {
+        "gate_id": "report-jsonline",
+        "mode": "jsonline",
+        "path": "jsonline://hitl/report",
+        "synthetic": False,
+    }
     assert event["gate"] == "report"
     assert payload["report_md_chars"] == len(report_md)
     assert "report_md" not in payload

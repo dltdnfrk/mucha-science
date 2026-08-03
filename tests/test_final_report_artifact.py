@@ -211,6 +211,27 @@ def test_final_report_artifact_happy_path_writes_manifest_and_contract(tmp_path)
     assert_final_report_artifact_ready_for_knowledge_write(artifact)
 
 
+def test_shallow_report_accepts_human_reviewed_research_quality_gap(tmp_path):
+    reviewable_deep = build_goals_stage_artifact(
+        "deep_research_max",
+        status="blocked",
+        blockers=[{"code": "blocked_research_quality_needs_review"}],
+    )
+    artifact = build_final_report_stage_artifact(
+        _artifact_input(
+            tmp_path,
+            upstream_artifacts=_upstreams(deep_research_max=reviewable_deep),
+            metadata={"depth_profile": "shallow"},
+            require_live=True,
+        )
+    )
+    payload = final_report_payload_from_stage_artifact(artifact)
+
+    assert artifact["status"] == "completed"
+    assert payload["artifact_manifest"]["gate_statuses"]["knowledge_write"] == "passed"
+    assert payload["downstream_consumability"]["knowledge_write_ready"] is True
+
+
 def test_upstream_blocker_refuses_final_report_and_blocks_knowledge_write(tmp_path):
     blocked_deep = build_goals_stage_artifact(
         "deep_research_max",

@@ -26,7 +26,7 @@ from src.evidence.artifact import EvidenceRef, Finding
 from src.evidence.findings import annotate_findings
 from src.evidence.store import EvidenceStore
 from src.execution.gateway_v2 import GatewayV2, default_gateway
-from src.execution.models import ModelGateway
+from src.execution.models import ModelGateway, ModelResult
 from src.execution.providers.mock import MockProvider
 from src.hitl.plannotator_adapter import HITLAdapter, HITLResult
 from src.hitl.plannotator_review_artifact import (
@@ -179,6 +179,7 @@ class IdeaToCouncilPipeline:
         require_live: bool | None = None,
         depth: str = "deep",
         research_contract: ResearchContract | None = None,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self.require_live = live_requested_from_env() if require_live is None else require_live
         self.source_research = source_research_requested_from_env()
@@ -208,6 +209,7 @@ class IdeaToCouncilPipeline:
         self.learning_log_path = Path(learning_log_path) if learning_log_path is not None else None
         self.progress_callback = progress_callback
         self.progress_events: list[dict[str, Any]] = []
+        self._clock = clock
 
     def _effective_quality_gate_depth(self, source_audit: Any) -> str:
         """Keep strict quality gates for live/source-backed runs, not offline mocks.
@@ -230,7 +232,17 @@ class IdeaToCouncilPipeline:
         return self.depth
 
     def run(self, raw_idea: str) -> IdeaToCouncilResult:
+        pipeline_started_at = self._clock()
         state = PipelineState(run_id=f"run-{uuid4()}")
+        gateway: Any = self.gateway_v2
+        if self.depth == "shallow":
+            gateway = _ShallowDeadlineGateway(
+                self.gateway_v2,
+                clock=self._clock,
+                started_at=pipeline_started_at,
+                budget_seconds=self.depth_profile.target_runtime_seconds,
+                progress_callback=self._emit_progress,
+            )
         if self.research_contract is None:
             self.research_contract = ResearchContract.new(
                 topic=_extract_original_topic_anchor(raw_idea),
@@ -922,7 +934,7 @@ class IdeaToCouncilPipeline:
         personas, persona_telemetry = _generate_council_personas(
             report=report,
             agents=agents,
-            gateway=self.gateway_v2,
+            gateway=gateway,
             consensus_plan=consensus_plan,
             targeting_map=targeting_map,
             depth_profile=self.depth_profile,
@@ -973,8 +985,10 @@ class IdeaToCouncilPipeline:
         state.advance(Stage.COUNCIL)
         for key, value in persona_telemetry.items():
             state.record_artifact(key, str(value))
+        if isinstance(gateway, _ShallowDeadlineGateway):
+            gateway.set_evidence_refs(evidence_refs)
         council = KarpathySession(
-            gateway=self.gateway_v2,
+            gateway=gateway,
             layers=list(DEFAULT_LAYERS[: council_round_budget]),
             personas=personas,
             evidence_refs=evidence_refs,
@@ -982,6 +996,11 @@ class IdeaToCouncilPipeline:
             progress_callback=self.progress_callback,
         )
         council.run_all()
+        if isinstance(gateway, _ShallowDeadlineGateway):
+            state.record_artifact(
+                "pipeline_deadline_status",
+                "degraded" if gateway.expired else "within_budget",
+            )
         mirofish_runtime = build_mirofish_runtime_record(report=report, council=council)
         state.record_artifact("council_id", report.id)
         state.record_artifact("council_turn_count", str(len(council.turn_transcript)))
@@ -1083,9 +1102,14 @@ class IdeaToCouncilPipeline:
             report=report,
             council=council,
             evidence_summary=evidence_summary,
-            gateway=self.gateway_v2,
+            gateway=gateway,
             require_live=self.require_live,
         )
+        if isinstance(gateway, _ShallowDeadlineGateway):
+            state.record_artifact(
+                "pipeline_deadline_status",
+                "degraded" if gateway.expired else "within_budget",
+            )
         state.record_artifact(
             "react_section_count",
             str(reference_runtime_artifacts["react"]["section_count"]),
@@ -2370,6 +2394,117 @@ def _council_compact_retry_max_tokens(council_stage: str, current_max_tokens: An
     return max(512, min(current, configured, 4096))
 
 
+class _ShallowDeadlineGateway:
+    """Prevent new provider work after the Quick pipeline's product deadline."""
+
+    def __init__(
+        self,
+        gateway: GatewayV2,
+        *,
+        clock: Callable[[], float],
+        started_at: float,
+        budget_seconds: int,
+        progress_callback: Callable[[dict[str, Any]], None] | None,
+    ) -> None:
+        self._gateway = gateway
+        self._clock = clock
+        self._started_at = started_at
+        self._budget_seconds = budget_seconds
+        self._progress_callback = progress_callback
+        self._evidence_refs: list[dict[str, str]] = []
+        self._provider_exhausted = False
+        self.expired = False
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._gateway, name)
+
+    def set_evidence_refs(self, evidence_refs: Sequence[EvidenceRef]) -> None:
+        self._evidence_refs = [
+            {
+                "id": str(ref.id),
+                "title": str(ref.source_title or ref.id),
+                "quote": str(ref.quote or "").strip(),
+            }
+            for ref in evidence_refs
+            if ref.id and str(ref.quote or "").strip()
+        ]
+
+    def call(self, stage: str, prompt: str, **kwargs: Any) -> Any:
+        elapsed = self._clock() - self._started_at
+        if self._provider_exhausted:
+            return self._degraded_result(
+                provider="local_provider_degraded",
+                model="deterministic_quick_provider_failure",
+            )
+        if elapsed < self._budget_seconds:
+            try:
+                return self._gateway.call(stage, prompt, **kwargs)
+            except (RuntimeError, TimeoutError) as exc:
+                if not self._evidence_refs:
+                    raise
+                self._provider_exhausted = True
+                if self._progress_callback is not None:
+                    self._progress_callback(
+                        {
+                            "event": "pipeline_provider_degraded",
+                            "stage": str(kwargs.get("layer_id") or stage),
+                            "status": "degraded_provider_failure",
+                            "terminal": True,
+                            "reason": "shallow_provider_exhausted",
+                            "error": str(exc),
+                        }
+                    )
+                return self._degraded_result(
+                    provider="local_provider_degraded",
+                    model="deterministic_quick_provider_failure",
+                )
+        if not self.expired:
+            self.expired = True
+            if self._progress_callback is not None:
+                self._progress_callback(
+                    {
+                        "event": "pipeline_deadline_degraded",
+                        "stage": str(kwargs.get("layer_id") or stage),
+                        "status": "degraded_deadline",
+                        "terminal": True,
+                        "budget_seconds": self._budget_seconds,
+                        "elapsed_seconds": round(elapsed, 3),
+                        "reason": "shallow_pipeline_budget_exhausted",
+                    }
+                )
+        return self._degraded_result(
+            provider="local_deadline_degraded",
+            model="deterministic_quick_deadline",
+        )
+
+    def _degraded_result(self, *, provider: str, model: str) -> ModelResult:
+        evidence = self._evidence_refs[0] if self._evidence_refs else None
+        evidence_ids = [ref["id"] for ref in self._evidence_refs]
+        analysis = (
+            f"Deadline-bounded evidence finding: {evidence['quote']}"
+            if evidence is not None
+            else "Quick pipeline deadline reached before an evidence-grounded synthesis was available."
+        )
+        key_points = (
+            [f"Grounded source: {evidence['title']} ({evidence['id']})."]
+            if evidence is not None
+            else ["Further model calls were skipped to honor the 120-second Quick budget."]
+        )
+        return ModelResult(
+            text=json.dumps(
+                {
+                    "analysis": analysis,
+                    "key_points": key_points,
+                    "evidence_ref_ids": evidence_ids,
+                    "confidence": 0.35,
+                },
+                ensure_ascii=False,
+            ),
+            provider=provider,
+            model=model,
+        )
+
+
 class _CouncilProviderProgressGateway:
     """Emit council provider-call progress around council preparation calls."""
 
@@ -2570,7 +2705,7 @@ def _council_provider_call_timeout_sec() -> float:
     try:
         timeout_sec = float(raw)
     except (TypeError, ValueError):
-        return 0.0
+        return 20.0
     return timeout_sec if timeout_sec > 0 else 0.0
 
 
@@ -2648,6 +2783,8 @@ def _use_real_research_from_env() -> bool:
 
 
 def _effective_council_round_budget(profile: ResearchDepthProfile) -> int:
+    if profile.name == "shallow":
+        return 1
     return _bounded_int_env(
         "MUCHANIPO_COUNCIL_ROUND_BUDGET",
         default=profile.council_round_budget,
@@ -2657,6 +2794,8 @@ def _effective_council_round_budget(profile: ResearchDepthProfile) -> int:
 
 
 def _effective_active_persona_count(profile: ResearchDepthProfile) -> int:
+    if profile.name == "shallow":
+        return 1
     return _bounded_int_env(
         "MUCHANIPO_ACTIVE_PERSONA_COUNT",
         default=profile.active_persona_count,
@@ -3480,7 +3619,7 @@ def _generate_council_personas(
         "targeting_domains": list(targeting_map.domains),
     }
     persona_gateway: Any = None
-    if require_live:
+    if require_live and depth_profile.name != "shallow":
         persona_gateway = (
             _CouncilProviderProgressGateway(gateway, progress_callback)
             if progress_callback is not None

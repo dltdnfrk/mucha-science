@@ -107,6 +107,9 @@ export function ResearchConversationRail({
           <CheckIcon />
           <span>검증 기록</span>
         </Link>
+        <Link to="/settings">
+          <span>실행 설정</span>
+        </Link>
       </nav>
     </aside>
   );

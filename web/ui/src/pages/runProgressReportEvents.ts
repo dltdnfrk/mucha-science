@@ -96,7 +96,9 @@ export function handleReportEvent(event: BackendEvent, context: ReportEventConte
     event.research_quality_readiness,
   );
   context.setReportReadiness(readiness);
-  const reportCanBeShown = readiness === "ready" || readiness === "legacy";
+  const reportCanBeShown = readiness === "ready"
+    || readiness === "legacy"
+    || (readiness === "needs_review" && !event.research_quality_only);
   if (reportCanBeShown) {
     const promoted = promotePendingReport(runId);
     if (promoted) context.setFinalReport(promoted);

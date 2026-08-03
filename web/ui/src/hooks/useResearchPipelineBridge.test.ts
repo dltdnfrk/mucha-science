@@ -58,7 +58,12 @@ describe("useResearchPipelineBridge terminal generation admission", () => {
     const onConversationEvent = vi.fn();
     const onError = vi.fn();
     const onTerminal = vi.fn();
-    const bridge = useResearchPipelineBridge({ onConversationEvent, onError, onTerminal });
+    const bridge = useResearchPipelineBridge({
+      onActivity: vi.fn(),
+      onConversationEvent,
+      onError,
+      onTerminal,
+    });
     const current = {
       event,
       app_run_id: runId,
@@ -87,5 +92,64 @@ describe("useResearchPipelineBridge terminal generation admission", () => {
     expect(bridgeHarness.unlisten).toHaveBeenCalledTimes(1);
     expect(onConversationEvent).not.toHaveBeenCalled();
     expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("preserves a pipeline failure detail for the terminal turn", async () => {
+    bridgeHarness.reset();
+    const onTerminal = vi.fn();
+    const bridge = useResearchPipelineBridge({
+      onActivity: vi.fn(),
+      onConversationEvent: vi.fn(),
+      onError: vi.fn(),
+      onTerminal,
+    });
+
+    await bridge.attachRun(runId, turnId, generation);
+    bridgeHarness.emit({
+      event: "pipeline_error",
+      app_run_id: runId,
+      generation,
+      message: "MiMo API Key를 실행 설정에서 저장한 뒤 다시 시작하세요.",
+    });
+
+    expect(onTerminal).toHaveBeenCalledWith(
+      runId,
+      turnId,
+      "error",
+      "MiMo API Key를 실행 설정에서 저장한 뒤 다시 시작하세요.",
+    );
+  });
+
+  it("projects done quality metadata before terminalizing the active turn", async () => {
+    bridgeHarness.reset();
+    const onActivity = vi.fn();
+    const onTerminal = vi.fn();
+    const bridge = useResearchPipelineBridge({
+      onActivity,
+      onConversationEvent: vi.fn(),
+      onError: vi.fn(),
+      onTerminal,
+    });
+
+    await bridge.attachRun(runId, turnId, generation);
+    bridgeHarness.emit({
+      event: "done",
+      app_run_id: runId,
+      generation,
+      research_quality_readiness: "needs_review",
+      research_readiness_reasons: ["evidence_ledger_readiness=needs_review"],
+    });
+
+    expect(onActivity).toHaveBeenCalledTimes(1);
+    expect(onActivity.mock.calls[0]?.[2]).toEqual([
+      {
+        kind: "quality",
+        readiness: "needs_review",
+        reasons: ["evidence_ledger_readiness=needs_review"],
+      },
+    ]);
+    expect(onTerminal).toHaveBeenCalledWith(runId, turnId, "complete");
+    expect(onActivity.mock.invocationCallOrder[0])
+      .toBeLessThan(onTerminal.mock.invocationCallOrder[0] ?? Number.MAX_SAFE_INTEGER);
   });
 });

@@ -49,6 +49,7 @@ type ResearchPipelineBridgeOptions = {
     runId: string,
     turnId: string,
     status: "complete" | "error" | "canceled",
+    errorMessage?: string,
   ) => void;
 };
 
@@ -137,7 +138,17 @@ export function useResearchPipelineBridge({
       !activeRun.cancellationRequested
       && (event.event === "error" || event.event === "pipeline_error")
     ) {
-      callbacksRef.current.onTerminal(activeRun.runId, activeRun.turnId, "error");
+      const errorMessage = event.message?.trim();
+      if (errorMessage) {
+        callbacksRef.current.onTerminal(
+          activeRun.runId,
+          activeRun.turnId,
+          "error",
+          errorMessage,
+        );
+      } else {
+        callbacksRef.current.onTerminal(activeRun.runId, activeRun.turnId, "error");
+      }
       setPendingInteraction(undefined);
       detachRun();
     }

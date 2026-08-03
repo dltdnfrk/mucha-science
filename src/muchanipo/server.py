@@ -711,12 +711,21 @@ class JSONLineHITLAdapter:
             status = str(action.fields.get("status") or "pending").strip()
             if status not in {"approved", "changes_requested"}:
                 status = "pending"
+            gate_id = f"{gate_name}-jsonline"
+            provenance_path = f"jsonline://hitl/{gate_name}"
             return HITLResult(
                 status=status,
                 annotations=_coerce_jsonline_annotations(action.fields.get("annotations")),
                 comments=[str(action.fields.get("comment") or f"jsonline decision: {status}")],
-                gate_id=f"{gate_name}-jsonline",
+                gate_id=gate_id,
+                path=provenance_path,
                 synthetic=False,
+                decision_provenance={
+                    "gate_id": gate_id,
+                    "mode": self.mode,
+                    "path": provenance_path,
+                    "synthetic": False,
+                },
             )
 
     def gate_brief(self, brief: Any) -> Any:
@@ -1677,6 +1686,22 @@ def _research_readiness_projection(
     ] if isinstance(decision.get("reasons"), list) else []
     if readiness not in {"ready", "needs_review", "blocked"}:
         return "blocked", [*reasons, "research_quality_readiness=missing"]
+    raw_final_artifact = artifacts.get("final_report_html_yaml_artifact")
+    final_artifact: Mapping[str, Any] = {}
+    if isinstance(raw_final_artifact, str):
+        try:
+            parsed_final_artifact = json.loads(raw_final_artifact)
+        except json.JSONDecodeError:
+            parsed_final_artifact = {}
+        if isinstance(parsed_final_artifact, dict):
+            final_artifact = parsed_final_artifact
+    elif isinstance(raw_final_artifact, Mapping):
+        final_artifact = raw_final_artifact
+    if (
+        readiness == "blocked"
+        and str(final_artifact.get("status") or "") == "completed"
+    ):
+        readiness = "needs_review"
     return readiness, reasons
 
 

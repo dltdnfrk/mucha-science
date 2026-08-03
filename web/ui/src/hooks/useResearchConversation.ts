@@ -84,6 +84,7 @@ export function useResearchConversation({
     runId: string,
     turnId: string,
     status: Extract<PersistedTurnStatus, "complete" | "error" | "canceled">,
+    errorMessage?: string,
   ) => {
     const completedAt = Date.now();
     updateRuntime((current) => ({
@@ -91,7 +92,9 @@ export function useResearchConversation({
       [turnId]: {
         ...current[turnId],
         completedAt,
-        error: status === "error" ? "연구 실행이 완료되지 않았습니다." : undefined,
+        error: status === "error"
+          ? errorMessage ?? "연구 실행이 완료되지 않았습니다."
+          : undefined,
         startedAt: current[turnId]?.startedAt ?? completedAt,
         status,
       },

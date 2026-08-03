@@ -146,7 +146,7 @@ export function ResearchConversationPage({
             error={conversation.composerError}
             helper={conversation.isRunning
               ? `${runtimeLabel} · ${latestProgress ?? "자료 수집과 검증을 진행하고 있습니다."}`
-              : `${runtimeLabel} · 준비된 출처 ${sourceCount}개 · Enter는 줄바꿈입니다.`}
+              : `${runtimeLabel} · 연결된 외부 학술 출처 ${sourceCount}개 · Enter는 줄바꿈입니다.`}
             id="research-question"
             label={hasConversation ? "후속 질문" : "연구 질문"}
             onChange={(event) => setPrompt(event.target.value)}

@@ -402,6 +402,50 @@ def test_pipeline_live_mode_rejects_fallback_council_personas(tmp_path: Path, mo
         pipeline.run("딸기 농가용 진단키트 시장성")
 
 
+def test_pipeline_live_shallow_disables_persona_fallback_backfill(tmp_path: Path, monkeypatch):
+    import src.pipeline.idea_to_council as pipeline_mod
+
+    allow_fallbacks_values: list[bool] = []
+
+    class _LivePersonaGenerator:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def finalize_drafts(self, *args, **kwargs):
+            return [], {"fallbacks_used": 0, "coverage_after_admit": 0.0}
+
+        def generate(self, *args, allow_fallbacks=True, **kwargs):
+            allow_fallbacks_values.append(allow_fallbacks)
+            return [
+                SimpleNamespace(
+                    persona_id="persona-live-001",
+                    name="Live Evidence Reviewer",
+                    role="evidence_reviewer",
+                    manifest={"fallback": False},
+                )
+            ], {"fallbacks_used": int(allow_fallbacks), "coverage_after_admit": 1.0}
+
+    monkeypatch.setattr(pipeline_mod, "PersonaGenerator", _LivePersonaGenerator)
+    pipeline = IdeaToCouncilPipeline(
+        hitl_adapter=_ApprovedHITLAdapter(),
+        research_runner=_TrustedEvidenceRunner(),
+        model_gateway=GatewayV2(
+            providers={"gemini": _SuccessProvider()},
+            stage_routes={"council": "gemini"},
+            fallback_chain={"council": ["gemini"]},
+        ),
+        vault_dir=tmp_path / "vault",
+        council_log_dir=tmp_path / "council",
+        require_live=True,
+        depth="shallow",
+    )
+
+    with pytest.raises(ValueError, match="evidence_grounding_missing"):
+        pipeline.run("딸기 농가용 진단키트 시장성")
+
+    assert allow_fallbacks_values == [False]
+
+
 def test_pipeline_live_mode_blocks_plan_review_failure(tmp_path: Path, monkeypatch):
     import src.pipeline.idea_to_council as pipeline_mod
 

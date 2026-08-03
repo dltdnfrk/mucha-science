@@ -113,7 +113,11 @@ export function toResearchActivityProjections(
       ? [{ kind: "cancellation_acknowledged" }]
       : [];
   }
-  if (event.event === "research_quality_ready" || event.event === "research_quality_needs_review") {
+  if (
+    event.event === "done"
+    || event.event === "research_quality_ready"
+    || event.event === "research_quality_needs_review"
+  ) {
     return optionalProjection(qualityProjection(event));
   }
   if (event.event === "provider_attempt" || event.event === "academic_route_summary") {
@@ -277,6 +281,7 @@ function readReasons(value: unknown): readonly string[] | undefined {
 }
 
 function matchesQualityEvent(eventName: string, readiness: ResearchQualityReadiness): boolean {
+  if (eventName === "done") return true;
   return eventName === "research_quality_ready"
     ? readiness === "ready"
     : eventName === "research_quality_needs_review" && readiness !== "ready";

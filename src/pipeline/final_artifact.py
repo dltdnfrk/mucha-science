@@ -639,6 +639,13 @@ def _final_blockers(
         elif record.get("status") != "completed":
             if record.get("offline_nonblocking") and not artifact_input.require_live:
                 continue
+            if _is_reviewable_shallow_research_gap(
+                artifact_input=artifact_input,
+                stage_id=stage_id,
+                record=record,
+                gate_records=gate_records,
+            ):
+                continue
             blockers.append(_blocker("blocked_final_upstream_artifact_not_ready", stage_id=stage_id))
 
     for gate_id in ("plan", "evidence", "report"):
@@ -661,6 +668,28 @@ def _final_blockers(
         blockers.append(_blocker("blocked_final_artifact_rejected"))
 
     return _dedupe_blockers(blockers)
+
+
+def _is_reviewable_shallow_research_gap(
+    *,
+    artifact_input: FinalReportArtifactInput,
+    stage_id: str,
+    record: Mapping[str, Any],
+    gate_records: Mapping[str, Mapping[str, Any]],
+) -> bool:
+    if stage_id != "deep_research_max":
+        return False
+    if str(artifact_input.metadata.get("depth_profile") or "") != "shallow":
+        return False
+    evidence_gate_status = str((gate_records.get("evidence") or {}).get("status") or "")
+    if evidence_gate_status not in {"approved", "passed", "completed"}:
+        return False
+    blocker_codes = {
+        str(blocker.get("code") or "")
+        for blocker in record.get("blockers", [])
+        if isinstance(blocker, Mapping)
+    }
+    return blocker_codes == {"blocked_research_quality_needs_review"}
 
 
 def _blocker(code: str, **context: Any) -> dict[str, Any]:

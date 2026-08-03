@@ -58,6 +58,7 @@ describe("ResearchConversationRail", () => {
     expect(html).toContain('aria-current="page"');
     expect(html).toContain('href="/scientific/sources"');
     expect(html).toContain('href="/scientific/validation"');
+    expect(html).toContain('href="/settings"');
   });
 
   it("omits a duplicate preview while preserving a distinct preview and marking the current utility", () => {

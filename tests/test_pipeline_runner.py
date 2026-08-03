@@ -47,6 +47,109 @@ def test_round_result_to_digest_extracts_claims_and_confidence():
     assert digest.confidence == 0.82
 
 
+def test_council_progress_gateway_defaults_to_bounded_provider_startup(monkeypatch):
+    from src.pipeline.idea_to_council import _CouncilProviderProgressGateway
+
+    for name in (
+        "MUCHANIPO_COUNCIL_PROVIDER_TIMEOUT_SEC",
+        "MUCHANIPO_COUNCIL_CALL_TIMEOUT_SEC",
+        "MUCHANIPO_OPENCODE_CLI_TIMEOUT_SEC",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    class CapturingGateway:
+        stage_routes = {"council": "opencode"}
+        fallback_chain = {"council": ["opencode"]}
+
+        def __init__(self) -> None:
+            self.call_kwargs: dict = {}
+
+        def call(self, stage: str, prompt: str, **kwargs) -> ModelResult:
+            self.call_kwargs = kwargs
+            return ModelResult(text="provider started", provider="opencode")
+
+    events: list[dict] = []
+    inner_gateway = CapturingGateway()
+    gateway = _CouncilProviderProgressGateway(inner_gateway, events.append)
+
+    result = gateway.call(
+        "council",
+        "persona prompt",
+        council_stage="persona_propose",
+        layer_id="persona_generation",
+    )
+
+    assert result.text == "provider started"
+    assert inner_gateway.call_kwargs["timeout"] == 20.0
+    start = next(event for event in events if event["event"] == "council_provider_call_start")
+    assert start["timeout_sec"] == 20.0
+
+
+def test_shallow_gateway_degrades_grounded_provider_exhaustion_before_deadline():
+    from src.pipeline.idea_to_council import _ShallowDeadlineGateway
+
+    class ExhaustedGateway:
+        def call(self, stage: str, prompt: str, **kwargs):
+            raise RuntimeError("FallbackChain council exhausted")
+
+    events: list[dict] = []
+    gateway = _ShallowDeadlineGateway(
+        ExhaustedGateway(),
+        clock=lambda: 5.0,
+        started_at=0.0,
+        budget_seconds=120,
+        progress_callback=events.append,
+    )
+    gateway.set_evidence_refs(
+        [
+            EvidenceRef(
+                id="ev-live-1",
+                source_url="https://doi.org/10.1056/NEJMoa2309676",
+                source_title="Exagamglogene Autotemcel for Severe Sickle Cell Disease",
+                quote="Adverse events were monitored during the clinical trial.",
+                source_grade="A",
+                provenance={"synthetic": False},
+            )
+        ]
+    )
+
+    result = gateway.call("council", "chairman synthesis")
+    payload = json.loads(result.text)
+
+    assert result.provider == "local_provider_degraded"
+    assert payload["evidence_ref_ids"] == ["ev-live-1"]
+    assert "Adverse events were monitored" in payload["analysis"]
+    assert events == [
+        {
+            "event": "pipeline_provider_degraded",
+            "stage": "council",
+            "status": "degraded_provider_failure",
+            "terminal": True,
+            "reason": "shallow_provider_exhausted",
+            "error": "FallbackChain council exhausted",
+        }
+    ]
+
+
+def test_shallow_gateway_preserves_provider_exhaustion_without_grounded_evidence():
+    from src.pipeline.idea_to_council import _ShallowDeadlineGateway
+
+    class ExhaustedGateway:
+        def call(self, stage: str, prompt: str, **kwargs):
+            raise RuntimeError("FallbackChain council exhausted")
+
+    gateway = _ShallowDeadlineGateway(
+        ExhaustedGateway(),
+        clock=lambda: 5.0,
+        started_at=0.0,
+        budget_seconds=120,
+        progress_callback=None,
+    )
+
+    with pytest.raises(RuntimeError, match="FallbackChain council exhausted"):
+        gateway.call("council", "chairman synthesis")
+
+
 def test_council_progress_gateway_times_out_persona_generation_call(monkeypatch):
     from src.pipeline.idea_to_council import _CouncilProviderProgressGateway
 
@@ -238,18 +341,135 @@ def test_run_pipeline_shallow_depth_reduces_internal_autoresearch_budget():
 
     assert result["depth"] == "shallow"
     assert len(result["rounds"]) == 10
-    assert result["executed_council_round_count"] == 6
+    assert result["executed_council_round_count"] == 1
     assert artifacts["research_depth"] == "shallow"
     assert artifacts["research_query_limit"] == "4"
-    assert artifacts["council_round_budget"] == "6"
+    assert artifacts["council_round_budget"] == "1"
+    assert artifacts["council_profile_round_budget"] == "6"
     assert artifacts["council_persona_pool_size"] == "24"
-    assert artifacts["active_council_persona_count"] == "6"
+    assert artifacts["active_council_persona_count"] == "1"
+    assert artifacts["active_council_profile_persona_count"] == "6"
     assert artifacts["target_runtime_seconds"] == "120"
     assert artifacts["extended_test_time_compute"] == "disabled"
     assert artifacts["persona_pool_size"] == "24"
     assert artifacts["active_persona_count"] == "6"
     assert result["council_persona_pool_size"] == 24
-    assert result["active_council_persona_count"] == 6
+    assert result["active_council_persona_count"] == 1
+
+
+def test_shallow_pipeline_deadline_degrades_without_starting_another_gateway_call(tmp_path):
+    from src.execution.gateway_v2 import GatewayV2
+    from src.hitl.plannotator_adapter import HITLResult
+    from src.pipeline.idea_to_council import IdeaToCouncilPipeline
+
+    class ApprovedHITLAdapter:
+        mode = "test_real_approved"
+
+        def gate(self, gate_name: str, payload: dict) -> HITLResult:
+            return HITLResult(
+                status="approved",
+                gate_id=f"{gate_name}-approved",
+                path=f"review://{gate_name}",
+                synthetic=False,
+                decision_provenance={"source": "test_human_review", "reviewer_id": "reviewer-1"},
+            )
+
+        def gate_brief(self, brief) -> HITLResult:
+            return self.gate("brief", {"brief": brief})
+
+        def gate_evidence(self, evidence_refs) -> HITLResult:
+            return self.gate("evidence", {"evidence_refs": evidence_refs})
+
+        def gate_report(self, report_md: str) -> HITLResult:
+            return self.gate("report", {"report_md": report_md})
+
+    class TrustedEvidenceRunner:
+        def run(self, plan):
+            findings = []
+            for index, query in enumerate(plan.queries, start=1):
+                ref = EvidenceRef(
+                    id=f"openalex:quick-deadline-{index}",
+                    source_url=f"https://doi.org/10.1234/quick-deadline-{index}",
+                    source_title=f"Quick deadline source {index}",
+                    quote=f"{query} evidence",
+                    source_grade="A",
+                    provenance={
+                        "kind": "openalex",
+                        "doi": f"10.1234/quick-deadline-{index}",
+                        "source_text": f"{query} evidence",
+                    },
+                )
+                findings.append(Finding(claim=f"{query} evidence", support=[ref], confidence=0.8))
+            return findings
+
+    class FakeClock:
+        def __init__(self) -> None:
+            self.now = 0.0
+
+        def __call__(self) -> float:
+            return self.now
+
+    class AdvancingProvider:
+        name = "advancing-provider"
+
+        def __init__(self, clock: FakeClock) -> None:
+            self.clock = clock
+            self.calls: list[str] = []
+
+        def call(self, stage: str, prompt: str, **kwargs) -> ModelResult:
+            self.calls.append(str(kwargs.get("council_stage") or stage))
+            self.clock.now = 120.0
+            return ModelResult(
+                text=json.dumps({
+                    "analysis": "Initial quick council draft",
+                    "key_points": ["Bounded quick result"],
+                    "confidence": 0.5,
+                }),
+                provider=self.name,
+                model="advancing-live-model",
+            )
+
+    clock = FakeClock()
+    provider = AdvancingProvider(clock)
+    gateway = GatewayV2(
+        providers={provider.name: provider},
+        stage_routes={"council": provider.name, "report": provider.name},
+        fallback_chain={"council": [provider.name], "report": [provider.name]},
+    )
+    events: list[dict] = []
+    pipeline = IdeaToCouncilPipeline(
+        model_gateway=gateway,
+        research_runner=TrustedEvidenceRunner(),
+        hitl_adapter=ApprovedHITLAdapter(),
+        vault_dir=tmp_path / "vault",
+        council_log_dir=tmp_path / "council",
+        progress_callback=events.append,
+        depth="shallow",
+        require_live=True,
+        clock=clock,
+    )
+
+    result = pipeline.run("bounded shallow deadline")
+
+    assert provider.calls == ["individual"]
+    assert result.report_md
+    council_artifact = json.loads(result.state.artifacts["llm_council_artifact"])
+    assert council_artifact["status"] == "completed"
+    assert council_artifact["gates"][2]["gate_id"] == "evidence_grounding"
+    assert council_artifact["gates"][2]["status"] == "passed"
+    assert result.council.rounds
+    assert result.council.personas
+    assert all(
+        "deep_validated" in persona.revision_notes
+        for persona in result.council.personas
+    )
+    deadline_events = [event for event in events if event.get("event") == "pipeline_deadline_degraded"]
+    assert len(deadline_events) == 1
+    assert deadline_events[0]["budget_seconds"] == 120
+    assert deadline_events[0]["elapsed_seconds"] == pytest.approx(120.0, abs=0.001)
+    assert deadline_events[0]["status"] == "degraded_deadline"
+    assert deadline_events[0]["terminal"] is True
+    assert result.state.artifacts["pipeline_deadline_status"] == "degraded"
 
 
 def test_run_pipeline_honors_bounded_council_env_overrides(monkeypatch):
@@ -657,11 +877,15 @@ def test_run_pipeline_enforces_budget_for_each_depth(depth_name):
     assert result["depth"] == depth_name
     assert artifacts["research_depth"] == depth_name
     assert artifacts["research_query_limit"] == str(profile.query_limit)
-    assert artifacts["council_round_budget"] == str(profile.council_round_budget)
+    expected_rounds = 1 if depth_name == "shallow" else profile.council_round_budget
+    expected_active = 1 if depth_name == "shallow" else profile.active_persona_count
+    assert artifacts["council_round_budget"] == str(expected_rounds)
+    assert artifacts["council_profile_round_budget"] == str(profile.council_round_budget)
     assert artifacts["council_persona_pool_size"] == str(profile.persona_pool_size)
-    assert artifacts["active_council_persona_count"] == str(profile.active_persona_count)
+    assert artifacts["active_council_persona_count"] == str(expected_active)
+    assert artifacts["active_council_profile_persona_count"] == str(profile.active_persona_count)
     assert result["council_persona_pool_size"] == profile.persona_pool_size
-    assert result["active_council_persona_count"] == profile.active_persona_count
+    assert result["active_council_persona_count"] == expected_active
     assert artifacts["target_runtime_seconds"] == str(profile.target_runtime_seconds)
     assert artifacts["extended_test_time_compute"] == (
         "enabled" if profile.extended_test_time_compute else "disabled"

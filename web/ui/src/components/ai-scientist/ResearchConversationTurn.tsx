@@ -43,7 +43,8 @@ export function ResearchConversationTurn({
     qualityReadiness,
     Boolean(reportBody) && runtime?.status === "complete",
   );
-  const canRenderReport = Boolean(reportBody) && qualityReadiness === "ready";
+  const canRenderReport = Boolean(reportBody)
+    && (qualityReadiness === "ready" || qualityReadiness === "needs_review");
 
   return (
     <section className="ms-research-turn" id={turn.turnId}>
@@ -80,13 +81,14 @@ export function ResearchConversationTurn({
         role="assistant"
         state={isRunning ? "loading" : isError ? "error" : "complete"}
       >
-        {qualityStopNotice ? <p role="alert">{qualityStopNotice}</p> : canRenderReport ? (
+        {qualityStopNotice ? <p role="alert">{qualityStopNotice}</p> : null}
+        {canRenderReport ? (
           <div className="ms-report-markdown">
             <SafeReportMarkdown markdown={reportBody} />
           </div>
-        ) : (
+        ) : qualityStopNotice ? null : (
           <p>{isError
-            ? "연구 실행을 완료하지 못했습니다. 실행 환경을 확인한 뒤 새 질문으로 다시 시도하세요."
+            ? runtime?.error ?? "연구 실행을 완료하지 못했습니다. 실행 환경을 확인한 뒤 새 질문으로 다시 시도하세요."
             : runtime?.status === "canceled"
               ? "실행 종료를 확인했습니다. 종료 뒤 도착한 답변과 산출물은 반영하지 않았습니다."
               : runtime?.status === "complete"
@@ -190,7 +192,7 @@ function reportQualityStopNotice(
   hasUnconfirmedReport: boolean,
 ): string | undefined {
   if (readiness === "needs_review") {
-    return "검증 중단: 추가 검토가 필요해 최종 보고서를 표시하지 않습니다. 검증 기록의 사유를 확인하고 근거를 검토한 뒤 다시 실행하세요.";
+    return "추가 검토가 필요한 보고서입니다. 검증 기록의 사유와 근거 공백을 확인하세요.";
   }
   if (readiness === "blocked") {
     return "검증 중단: 근거가 불충분해 최종 보고서를 표시하지 않습니다. 검증 기록에서 부족한 출처를 확인하고 근거를 보강한 뒤 다시 실행하세요.";

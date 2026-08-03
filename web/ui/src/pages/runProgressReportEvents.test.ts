@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { handleReportEvent } from "./runProgressReportEvents";
 import type { ReportEventContext } from "./runProgressReportEvents";
 import { initialStageState } from "./runProgressStages";
+import type { ReportReadiness } from "./runProgressStorage";
 import type { ResearchActivity } from "./runProgressTypes";
 
 class MemoryStorage implements Storage {
@@ -56,7 +57,7 @@ afterEach(() => {
 describe("handleReportEvent quality boundary", () => {
   it("sanitizes pending Markdown and promotes it only after ready", () => {
     let finalReport = "";
-    let readiness = "unknown";
+    let readiness: ReportReadiness = "unknown";
     const context = createContext(
       (value) => {
         finalReport = reduceState(finalReport, value);
@@ -96,7 +97,7 @@ describe("handleReportEvent quality boundary", () => {
     "withholds a pending report when quality is %s",
     (qualityReadiness) => {
       let finalReport = "";
-      let readiness = "unknown";
+      let readiness: ReportReadiness = "unknown";
       const context = createContext(
         (value) => {
           finalReport = reduceState(finalReport, value);
@@ -124,6 +125,35 @@ describe("handleReportEvent quality boundary", () => {
         .toBe(qualityReadiness);
     },
   );
+
+  it("promotes a full-run report that completed with reviewable gaps", () => {
+    let finalReport = "";
+    let readiness: ReportReadiness = "unknown";
+    const context = createContext(
+      (value) => {
+        finalReport = reduceState(finalReport, value);
+      },
+      (value) => {
+        readiness = reduceState(readiness, value);
+      },
+    );
+    handleReportEvent({
+      event: "final_report",
+      markdown: "# 검토 필요 보고서",
+      report_path: "/tmp/report.md",
+    }, context);
+
+    handleReportEvent({
+      event: "done",
+      pipeline: "full",
+      research_quality_readiness: "needs_review",
+    }, context);
+
+    expect(readiness).toBe("needs_review");
+    expect(finalReport).toContain("검토 필요 보고서");
+    expect(storage.getItem("run:run-quality:report")).toBe(finalReport);
+    expect(storage.getItem("run:run-quality:report_pending")).toBeNull();
+  });
 });
 
 function createContext(
@@ -136,7 +166,7 @@ function createContext(
     chunkKeysRef: { current: new Set() },
     finalReportReceivedRef: { current: false },
     isMounted: () => true,
-    navigate: vi.fn<NavigateFunction>(),
+    navigate: vi.fn() as unknown as NavigateFunction,
     navigationTimers: new Set(),
     runErrorRef: { current: null },
     runId: "run-quality",
@@ -161,6 +191,6 @@ function reduceState<Value>(
   value: SetStateAction<Value>,
 ): Value {
   return typeof value === "function"
-    ? value(current)
+    ? (value as (previous: Value) => Value)(current)
     : value;
 }
