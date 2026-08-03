@@ -1,6 +1,6 @@
-# Muchanipo Security Baseline
+# Mucha Science Security Baseline
 
-Muchanipo is not an Express web server today, so the immediate baseline is not `helmet()`. The product is a Tauri desktop shell over a local Python pipeline, so the equivalent protection lives in Tauri policy, renderer-to-backend boundaries, and local-runtime hygiene.
+Mucha Science is not an Express web server today, so the immediate baseline is not `helmet()`. The product is a Tauri desktop shell over a local Python pipeline, so the equivalent protection lives in Tauri policy, renderer-to-backend boundaries, and local-runtime hygiene.
 
 ## Current shape
 
@@ -66,7 +66,7 @@ Boolean flags must be boolean-like, and provider base URLs must be HTTP(S) URLs 
 
 ### Local Python/runtime boundary
 
-If Muchanipo later exposes an HTTP API, it should default to:
+If Mucha Science later exposes an HTTP API, it should default to:
 
 - bind to `127.0.0.1`, not all interfaces
 - no debug mode in production-like runs
@@ -77,7 +77,7 @@ If Muchanipo later exposes an HTTP API, it should default to:
 
 ### No Express/Helmet server
 
-If Muchanipo later adds an Express/Node server, add Helmet at the server edge:
+If Mucha Science later adds an Express/Node server, add Helmet at the server edge:
 
 ```js
 app.disable("x-powered-by");

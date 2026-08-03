@@ -1,11 +1,11 @@
-# Wiring Muchanipo to real LLMs
+# Wiring Mucha Science to real LLMs
 
 > Phase 3 — replace offline mocks with live LLM calls so the Tauri app
 > produces a research report based on actual reasoning, not fixture text.
 
 ## TL;DR
 
-Personal/local usage should prefer installed CLIs. Muchanipo does not read
+Personal/local usage should prefer installed CLIs. Mucha Science does not read
 Claude Code, Gemini, Kimi, or Codex token files directly; each CLI owns its
 own login/session.
 
@@ -73,7 +73,7 @@ MUCHANIPO_PREFER_CLI=1 pytest tests/test_real_llm_smoke.py -v
 
 ## Tauri app
 
-The bundled app (`Muchanipo.app`) prefers installed CLIs. Keep each provider
+The bundled app (`Mucha Science.app`) prefers installed CLIs. Keep each provider
 logged in through its own CLI. API keys in `.env` are optional fallback inputs,
 not the default personal-local path.
 

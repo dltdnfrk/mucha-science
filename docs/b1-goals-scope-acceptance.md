@@ -2,7 +2,7 @@
 
 ## In scope
 
-This Kanban run is scoped to the B-1 fluorescent-probe diagnostic benchmark for fire blight bacteria, specifically detection/diagnosis of Erwinia amylovora using the B-1 turn-on fluorescent probe. The run should use the Google Deep Research Max fixture on this topic and evaluate whether Muchanipo can produce an evidence-grounded research report for that fixture.
+This Kanban run is scoped to the B-1 fluorescent-probe diagnostic benchmark for fire blight bacteria, specifically detection/diagnosis of Erwinia amylovora using the B-1 turn-on fluorescent probe. The run should use the Google Deep Research Max fixture on this topic and evaluate whether Mucha Science can produce an evidence-grounded research report for that fixture.
 
 Anchor sources:
 

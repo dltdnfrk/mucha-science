@@ -1,8 +1,8 @@
-# Muchanipo 데이터 전송 고지
+# Mucha Science 데이터 전송 고지
 
 ## 개요
 
-Muchanipo는 **명시적 오프라인 경로를 우선 제공하는(offline-first capable)** 설계입니다.  
+Mucha Science는 **명시적 오프라인 경로를 우선 제공하는(offline-first capable)** 설계입니다.
 `muchanipo demo`, `--offline`, 또는 `MUCHANIPO_OFFLINE=1`을 사용한 실행은 외부 서버와의 통신을 전혀 하지 않으며, 로컬 fixture 기반의 모의 연구 데이터를 사용합니다. 반대로 일반 `run`/`serve`/Tauri CLI 경로는 로컬 제공자 CLI나 API 키가 감지되면 온라인 실행이 가능하므로, 민감한 주제는 오프라인 플래그를 명시해야 합니다.
 
 ## 오프라인 모드 (기본)
@@ -19,7 +19,7 @@ Muchanipo는 **명시적 오프라인 경로를 우선 제공하는(offline-firs
 
 ## 온라인 모드 (라이브 실행)
 
-`--online` 플래그를 사용하거나, 로컬에 LLM 제공자 CLI/API 키가 설정되어 있을 때 Muchanipo는 다음 외부 서비스와 통신할 수 있습니다:
+`--online` 플래그를 사용하거나, 로컬에 LLM 제공자 CLI/API 키가 설정되어 있을 때 Mucha Science는 다음 외부 서비스와 통신할 수 있습니다:
 
 | 서비스 | 전송 데이터 | 목적 |
 |--------|------------|------|
@@ -42,7 +42,7 @@ Muchanipo는 **명시적 오프라인 경로를 우선 제공하는(offline-firs
 
 ## 사용자 동의 및 설정
 
-Muchanipo는 실행 시 `--offline` 또는 `--online`을 명시적으로 선택할 수 있습니다. 아무것도 지정하지 않으면:
+Mucha Science는 실행 시 `--offline` 또는 `--online`을 명시적으로 선택할 수 있습니다. 아무것도 지정하지 않으면:
 
 1. 로컬에 설치된 제공자 CLI 또는 API 키가 없으면 → **오프라인 모드로 자동 전환**
 2. 제공자 CLI/API 키가 감지되면 → 온라인 모드 가능 (`MUCHANIPO_PREFER_CLI=0` 또는 `MUCHANIPO_OFFLINE=1`로 차단 가능)
@@ -63,4 +63,4 @@ Muchanipo는 실행 시 `--offline` 또는 `--online`을 명시적으로 선택�
 
 ## 문의
 
-Muchanipo의 데이터 처리 방식에 대한 문의는 저장소의 Issue 트래커를 통해 남겨주세요.
+Mucha Science의 데이터 처리 방식에 대한 문의는 저장소의 Issue 트래커를 통해 남겨주세요.

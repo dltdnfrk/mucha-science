@@ -1,13 +1,24 @@
 # Mucha Science web UI
 
-Standalone Vite + React copy of the Mucha Science desktop UI.
+The browser is the Mucha Science product surface. It runs locally and connects
+to the Python research pipeline over a loopback WebSocket.
 
 ```sh
-npm ci
-npm run dev
+cd /path/to/mucha-science
+uv sync
+npm --prefix web/ui ci
+bash scripts/run-local-web.sh
 ```
 
-The browser connects to `http://127.0.0.1:8787` by default. Set
-`VITE_MUCHA_SCIENCE_API_URL` to change the HTTP API origin and optionally
-`VITE_MUCHA_SCIENCE_WS_URL` to change the WebSocket origin. See
-[`src/api/contract.md`](src/api/contract.md) for the server contract.
+Open `http://127.0.0.1:5173`. The launcher selects an available loopback port
+for the pipeline and supplies it to Vite automatically. Stop it with `Ctrl-C`;
+the WebSocket backend exits with the browser server.
+
+Configure a live run from **실행 설정** in the scientific workspace:
+
+- provider: MiMo, OpenCode Go, or MiMo followed by OpenCode Go fallback
+- model: MiMo model and, when selected, an OpenCode model
+- research effort: Quick, Deep, Max, or Superdeep pipeline depth
+
+API keys remain only for the current browser session. Provider, model, and
+research-effort preferences persist in the browser.

@@ -1,10 +1,10 @@
-# Muchanipo 제품 설명서
+# Mucha Science 제품 설명서
 
 > Autonomous Second Brain Engine — 아이디어를 입력하면 인터뷰, 목표 설정, 자료 수집, 근거 검증, Council 토론, 보고서 작성, 지식 축적까지 이어지는 로컬 우선 자율 리서치 엔진.
 
 ## 1. 제품 개요
 
-Muchanipo는 사용자의 연구 주제나 제품 아이디어를 구조화된 리서치 산출물로 바꾸는 CLI/TUI/데스크톱 기반 리서치 시스템입니다. 핵심 제품은 Python CLI/TUI 런너이며, Tauri 데스크톱 앱은 같은 파이프라인 이벤트 스트림을 보는 viewer/control shell 역할을 합니다.
+Mucha Science는 사용자의 연구 주제나 제품 아이디어를 구조화된 리서치 산출물로 바꾸는 CLI/TUI/데스크톱 기반 리서치 시스템입니다. 핵심 제품은 Python CLI/TUI 런너이며, Tauri 데스크톱 앱은 같은 파이프라인 이벤트 스트림을 보는 viewer/control shell 역할을 합니다.
 
 제품의 기본 철학은 다음과 같습니다.
 
@@ -25,7 +25,7 @@ Muchanipo는 사용자의 연구 주제나 제품 아이디어를 구조화된 �
 
 ## 2. 대상 사용자와 사용 시나리오
 
-Muchanipo는 다음 상황에 적합합니다.
+Mucha Science는 다음 상황에 적합합니다.
 
 | 사용자 | 대표 사용 시나리오 |
 | --- | --- |
@@ -99,7 +99,7 @@ Rust side command는 `app/muchanipo-tauri/src-tauri/src/main.rs`에서 등록합
 
 ## 4. 전체 파이프라인
 
-Muchanipo의 canonical lifecycle은 `src/pipeline/stages.py`에 정의되어 있습니다.
+Mucha Science의 canonical lifecycle은 `src/pipeline/stages.py`에 정의되어 있습니다.
 
 ```text
 idea_dump → interview → targeting → research → evidence → council → report → vault → agents → done
@@ -237,7 +237,7 @@ Council round 결과와 evidence를 MBB식 6장 구조, Pyramid/SCR 방식으로
 
 ## 5. Offline / Online / Live 실행 모델
 
-Muchanipo는 local-first 제품이지만, 필요하면 provider CLI/API를 사용해 live research를 수행할 수 있습니다.
+Mucha Science는 local-first 제품이지만, 필요하면 provider CLI/API를 사용해 live research를 수행할 수 있습니다.
 
 ### 5.1 Offline mode
 
@@ -285,7 +285,7 @@ MUCHANIPO_PREFER_CLI=1 python3 -m muchanipo serve --topic "주제" --pipeline fu
 
 ## 6. Provider 라우팅과 Fallback
 
-Provider routing은 `docs/wiring-real-llm.md`와 `src/execution/gateway_v2.py`에 정의되어 있습니다. 제품 경로는 CLI-first입니다. Muchanipo가 Claude/Gemini/Kimi/Codex token file을 직접 읽는 것이 아니라, 설치된 CLI가 자기 login/session을 소유합니다. API key는 fallback 입력입니다.
+Provider routing은 `docs/wiring-real-llm.md`와 `src/execution/gateway_v2.py`에 정의되어 있습니다. 제품 경로는 CLI-first입니다. Mucha Science가 Claude/Gemini/Kimi/Codex token file을 직접 읽는 것이 아니라, 설치된 CLI가 자기 login/session을 소유합니다. API key는 fallback 입력입니다.
 
 기본 stage routing:
 
@@ -311,7 +311,7 @@ Budget이 부족하면 gateway는 비용을 초과하지 않고 fallback chain�
 
 ## 7. Human-in-the-Loop 품질 게이트
 
-Muchanipo는 자동화가 위험한 판단을 무조건 확신 있게 쓰지 않도록 HITL gate를 둡니다.
+Mucha Science는 자동화가 위험한 판단을 무조건 확신 있게 쓰지 않도록 HITL gate를 둡니다.
 
 기본 품질 기준:
 
@@ -343,7 +343,7 @@ HITL 관련 특성:
 
 ## 8. 외부 Reference Project 통합 기준
 
-Muchanipo는 외부 프로젝트 이름을 장식적으로 나열하지 않고, 각 reference가 실제 runtime behavior, adapter, dataset, vendored source, clean-room implementation, explicit license boundary 중 무엇으로 연결되는지 드러내는 방식을 택합니다.
+Mucha Science는 외부 프로젝트 이름을 장식적으로 나열하지 않고, 각 reference가 실제 runtime behavior, adapter, dataset, vendored source, clean-room implementation, explicit license boundary 중 무엇으로 연결되는지 드러내는 방식을 택합니다.
 
 핵심 원칙:
 
@@ -388,7 +388,7 @@ Tauri app과 CLI/TUI는 같은 event stream과 run summary를 기반으로 progr
 
 ### 9.1 PASS 판정 기준
 
-Muchanipo의 overnight/multi-agent 작업에서 **PASS는 UI heartbeat 또는 provider-call log만으로 선언하면 안 됩니다.** Heartbeat는 “프로세스가 살아 있음”을 보여주는 보조 신호일 뿐이며, 제품 동작이 올바르게 완료되었다는 증거가 아닙니다.
+Mucha Science의 overnight/multi-agent 작업에서 **PASS는 UI heartbeat 또는 provider-call log만으로 선언하면 안 됩니다.** Heartbeat는 “프로세스가 살아 있음”을 보여주는 보조 신호일 뿐이며, 제품 동작이 올바르게 완료되었다는 증거가 아닙니다.
 
 PASS를 선언하려면 최소한 아래 항목을 함께 확인해야 합니다.
 
@@ -506,7 +506,7 @@ Hermes synthesis record에는 매 반복마다 다음을 별도로 남깁니다.
 
 ## 10. Ontology-driven interview flow
 
-Muchanipo의 interview는 정적 form이 아니라 사용자의 tacit knowledge, 판단 기준, 불확실한 가정, evidence standard를 끌어내는 semantic elicitation 과정입니다. 목표는 답변 목록을 만드는 것이 아니라 이후 research/council/report 단계가 사용할 ontology-like structure를 만드는 것입니다.
+Mucha Science의 interview는 정적 form이 아니라 사용자의 tacit knowledge, 판단 기준, 불확실한 가정, evidence standard를 끌어내는 semantic elicitation 과정입니다. 목표는 답변 목록을 만드는 것이 아니라 이후 research/council/report 단계가 사용할 ontology-like structure를 만드는 것입니다.
 
 권장 ontology 구성 요소:
 
@@ -536,7 +536,7 @@ Interview 단계는 다음을 기록해야 합니다.
 - NGC URL: `https://catalog.ngc.nvidia.com/orgs/nvidia/teams/nemotron-personas/resources/nemotron-personas-dataset-ko_kr?version=0.0.1`
 - Coordination note 기준 확인된 target: Korean-language synthetic persona dataset, version `0.0.1`, released `2026-04-23`, 약 `2.66 GB` compressed, `1M` records / `10M` personas, `51` fields, 17 provinces and 약 252 districts, adult 19+ personas, demographics/geography/OCEAN/persona descriptions, NeMo Data Designer + PGM + Gemma-based generation, NVIDIA Dataset License Agreement.
 
-Muchanipo는 general-purpose 리서치 엔진이어야 하므로 특정 vertical에만 맞춘 hardcoded dispatch를 늘리면 안 됩니다. 그러나 이것은 사용자가 제공했거나 이전 작업에서 확인된 Nemotron ko_KR persona reference material을 임의로 삭제·축약·약화해도 된다는 뜻이 아닙니다.
+Mucha Science는 general-purpose 리서치 엔진이어야 하므로 특정 vertical에만 맞춘 hardcoded dispatch를 늘리면 안 됩니다. 그러나 이것은 사용자가 제공했거나 이전 작업에서 확인된 Nemotron ko_KR persona reference material을 임의로 삭제·축약·약화해도 된다는 뜻이 아닙니다.
 
 운영 규칙:
 
@@ -553,13 +553,13 @@ Muchanipo는 general-purpose 리서치 엔진이어야 하므로 특정 vertical
 
 ## 11. Ctx2Skill-style skill evolution
 
-Muchanipo의 skill evolution은 단순히 “좋았던 prompt를 저장”하는 기능이 아니라, 반복 작업에서 얻은 실패/성공 맥락을 재사용 가능한 skill로 승격하는 과정입니다. Coordination note에서 요구한 Ctx2Skill-style 흐름은 다음 다섯 역할로 정리합니다.
+Mucha Science의 skill evolution은 단순히 “좋았던 prompt를 저장”하는 기능이 아니라, 반복 작업에서 얻은 실패/성공 맥락을 재사용 가능한 skill로 승격하는 과정입니다. Coordination note에서 요구한 Ctx2Skill-style 흐름은 다음 다섯 역할로 정리합니다.
 
 ```text
 Challenger → Reasoner → Judge → Proposer → Generator
 ```
 
-| 역할 | Muchanipo에서의 책임 |
+| 역할 | Mucha Science에서의 책임 |
 | --- | --- |
 | Challenger | 기존 skill/prompt가 특정 사례에 과적합되었는지 공격적으로 반례를 찾음 |
 | Reasoner | 실패 원인, 성공 조건, 필요한 context field를 분석함 |
@@ -634,7 +634,7 @@ npm run tauri dev
 cd app/muchanipo-tauri
 npm install
 npm run tauri build
-# → src-tauri/target/release/bundle/macos/Muchanipo.app
+# → src-tauri/target/release/bundle/macos/Mucha Science.app
 ```
 
 ## 13. 설정과 환경변수
@@ -744,7 +744,7 @@ npm run tauri dev
 
 ## 18. 핵심 메시지
 
-Muchanipo는 단순한 챗봇이나 보고서 생성기가 아닙니다. 제품 아이디어와 연구 주제를 받아, 요구사항 정리·자료 수집·근거 검증·다중 관점 토론·보고서 생성·지식 축적까지 하나의 파이프라인으로 묶는 로컬 우선 자율 리서치 시스템입니다. CLI/TUI는 제품의 중심 실행 경로이고, Tauri 앱은 같은 runtime을 더 시각적으로 제어하고 확인하는 데스크톱 shell입니다.
+Mucha Science는 단순한 챗봇이나 보고서 생성기가 아닙니다. 제품 아이디어와 연구 주제를 받아, 요구사항 정리·자료 수집·근거 검증·다중 관점 토론·보고서 생성·지식 축적까지 하나의 파이프라인으로 묶는 로컬 우선 자율 리서치 시스템입니다. CLI/TUI는 제품의 중심 실행 경로이고, Tauri 앱은 같은 runtime을 더 시각적으로 제어하고 확인하는 데스크톱 shell입니다.
 
 가장 중요한 제품 약속은 세 가지입니다.
 

@@ -1,6 +1,6 @@
-# Muchanipo CLI JSON Contracts
+# Mucha Science CLI JSON Contracts
 
-Muchanipo exposes human-friendly terminal output by default and stable JSON for
+Mucha Science exposes human-friendly terminal output by default and stable JSON for
 agent/script inspection with `--json`.
 
 Current schema version: `1`

@@ -622,7 +622,7 @@ deprecate compatibility layer → src/execution/models.py로 점진 흡수
 - [x] Model Router를 `src/execution/models.py` 하위 gateway로 격하
 - [x] governance plane을 budget/safety/audit/profile/config/health로 분리
 - [x] C31 4-lane implementation plan 정의
-- [ ] C31 implementation PR 시작
+- [x] C31 implementation PR 시작 — `b1d9376`부터 후속 구현·통합 완료
 
 ---
 

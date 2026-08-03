@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "muchanipo"
 version = "0.0.0"
-description = "MuchaNipo research council runtime"
+description = "Mucha Science research council runtime"
 requires-python = ">=3.11"
 dependencies = ["httpx>=0.28", "unicodedata2==15.1.0", "websockets>=16.1,<17"]
 

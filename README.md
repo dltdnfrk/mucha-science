@@ -1,8 +1,13 @@
-# MuchaNipo — Autonomous Second Brain Engine
+# Mucha Science — Autonomous Second Brain Engine
 
 > Karpathy Autoresearch + MiroFish Crowd Intelligence + GBrain Pattern + Human-in-the-Loop
 
 AI가 문서를 인제스트하고, 다중 페르소나 Council이 원본을 직접 검색하며 토론하고, 사람이 검증한 지식만 축적하는 자율 리서치 엔진.
+
+공개 제품명과 데스크톱 앱 이름은 **Mucha Science**입니다. 기존 사용자의 CLI,
+자동화, 저장 데이터를 깨뜨리지 않기 위해 `muchanipo` Python 모듈·명령어·환경
+변수·sidecar 이름은 호환성 네임스페이스로 유지합니다. 자세한 경계는
+[`docs/branding-and-compatibility.md`](docs/branding-and-compatibility.md)를 참고하세요.
 
 ## Architecture
 
@@ -126,7 +131,7 @@ Stdlib-only — no external LLM calls.
 
 ### Terminal-first research app
 
-Muchanipo's product core is the Python CLI/TUI runner. The Tauri app is a
+Mucha Science's product core is the Python CLI/TUI runner. The Tauri app is a
 viewer/control shell over the same event stream.
 
 ```bash
@@ -200,7 +205,7 @@ claims.
 Autoresearch depth is explicit: `--depth shallow` targets a quick interactive
 pass, `--depth deep` keeps the default full ten-layer council budget, and
 `--depth max` records extended test-time-compute intent for comprehensive
-background runs. The six-stage Muchanipo flow remains intact at every depth.
+background runs. The six-stage Mucha Science flow remains intact at every depth.
 
 `muchanipo references` reports which reference-project ideas are backed by
 local runtime code, which are still gaps, and which carry license warnings. It
@@ -222,7 +227,7 @@ default:
 - `events.jsonl` — append-only execution event log
 - `summary.json` — run metadata and paths
 
-Muchanipo does not read Claude/Gemini/Kimi/Codex token files. It invokes the
+Mucha Science does not read Claude/Gemini/Kimi/Codex token files. It invokes the
 installed CLIs and lets each CLI own its own login/session.
 
 ### Legacy document tools

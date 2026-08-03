@@ -1,12 +1,12 @@
-# Muchanipo Studio / Browser UIUX Split
+# Mucha Science Studio / Browser UIUX Split
 
 ## Thesis
 
-Muchanipo should not feel like one long linear app that starts a topic and then keeps running. It should feel like two connected products:
+Mucha Science should not feel like one long linear app that starts a topic and then keeps running. It should feel like two connected products:
 
 ```text
-Muchanipo Studio  -> design / understanding / ontology construction
-Muchanipo Browser -> execution / operation / evidence / artifacts
+Mucha Science Studio  -> design / understanding / ontology construction
+Mucha Science Browser -> execution / operation / evidence / artifacts
 ```
 
 The split mirrors the BeSir framing the user referenced:

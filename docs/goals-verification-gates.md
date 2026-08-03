@@ -37,8 +37,23 @@ Not yet implemented. Must exercise the full GOALS flow with configured live
 providers without logging credentials, and record provider/model metadata for
 reproducibility. Deterministic/offline CI must not depend on it.
 
-## Gate: complete final-bundle UI consumability (issue #46) — PENDING
+## Gate: complete final-bundle UI consumability (issue #46) — ACTIVE
 
-Not yet implemented. The Run Progress UI must render or intentionally hide
-every field of the final bundle contract and degrade gracefully on partial or
-malformed payloads.
+**Claim.** Run Progress consumes every field in the
+`final_report_html_yaml_bundle.v1` contract: reader-facing fields are rendered,
+technical envelope fields are intentionally hidden, and partial or malformed
+payloads produce explicit degradation copy.
+
+**Mechanism.**
+
+- `app/muchanipo-tauri/src/lib/finalBundle.ts` owns tolerant parsing, complete
+  field accounting, event extraction, and degradation status.
+- `app/muchanipo-tauri/src/components/FinalBundlePanel.tsx` renders the
+  reader-facing fields and clear partial/malformed states.
+- `app/muchanipo-tauri/src/pages/RunProgress.tsx` captures the embedded bundle
+  from final-report lifecycle events and renders the panel beside the report.
+
+**Evidence.** `app/muchanipo-tauri/src/lib/finalBundle.test.ts` covers complete,
+partial, and malformed payloads and asserts that every contract field is
+rendered or intentionally hidden. The implementation was merged in PR #52 and
+closed issue #46.

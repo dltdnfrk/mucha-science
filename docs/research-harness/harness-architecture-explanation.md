@@ -1,13 +1,13 @@
-# Muchanipo Research Harness Architecture 설명
+# Mucha Science Research Harness Architecture 설명
 
-> 이 문서는 Muchanipo Research Harness 아키텍처 그림을 이해하기 쉽게 풀어쓴 초안입니다.
+> 이 문서는 Mucha Science Research Harness 아키텍처 그림을 이해하기 쉽게 풀어쓴 초안입니다.
 > 수정할 부분은 이 파일에 직접 메모하거나, 섹션별로 코멘트를 달아 업데이트합니다.
 
 ---
 
 ## 한 줄 요약
 
-Muchanipo Research Harness는 **AI들이 마음대로 연구하는 구조**가 아니라, **하네스가 AI들을 단계별로 통제하고, 증거와 검증을 통과한 결과만 다음 단계로 넘기는 구조**입니다.
+Mucha Science Research Harness는 **AI들이 마음대로 연구하는 구조**가 아니라, **하네스가 AI들을 단계별로 통제하고, 증거와 검증을 통과한 결과만 다음 단계로 넘기는 구조**입니다.
 
 그림은 크게 세 영역으로 봅니다.
 
@@ -626,7 +626,7 @@ repo 경로 맞아?
 
 **왼쪽이 AI에게 “지금 할 일”을 정하고, 가운데가 “쓸 수 있는 역할”을 제한하고, 오른쪽이 “진짜 믿어도 되는 결과인지”를 검증합니다.**
 
-그래서 Muchanipo Research Harness는 단순히 AI 여러 개를 붙이는 시스템이 아닙니다.
+그래서 Mucha Science Research Harness는 단순히 AI 여러 개를 붙이는 시스템이 아닙니다.
 
 **AI가 멋대로 퍼지지 못하게 하고, 근거 있는 결과만 다음 단계로 넘기는 연구 실행 엔진**입니다.
 

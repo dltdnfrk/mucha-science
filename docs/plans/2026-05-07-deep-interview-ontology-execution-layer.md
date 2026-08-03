@@ -2,9 +2,9 @@
 
 > **For Hermes:** Use subagent-driven-development skill to implement this plan task-by-task.
 
-**Goal:** Turn Muchanipo intake from a PRD/questionnaire form into an LLM-guided Deep Interview loop that discovers ontology, uncertainty, and execution/capability structure before research execution.
+**Goal:** Turn Mucha Science intake from a PRD/questionnaire form into an LLM-guided Deep Interview loop that discovers ontology, uncertainty, and execution/capability structure before research execution.
 
-**Architecture:** Use Manyfast only as a flow reference: idea intake -> AI questionnaire -> chat refinement -> PRD/map/spec generation. Do not copy PRD wording. Muchanipo should instead run an ontology-first counselling loop: detect what the model does not know, ask one high-leverage Socratic question, update an explicit ontology state, and only then build research goals/capability graph/execution plan.
+**Architecture:** Use Manyfast only as a flow reference: idea intake -> AI questionnaire -> chat refinement -> PRD/map/spec generation. Do not copy PRD wording. Mucha Science should instead run an ontology-first counselling loop: detect what the model does not know, ask one high-leverage Socratic question, update an explicit ontology state, and only then build research goals/capability graph/execution plan.
 
 **Tech Stack:** Python backend (`src/interview`, `src/intent`, `src/muchanipo/server.py`), Tauri React UI (`app/muchanipo-tauri/src/pages/RunProgress.tsx`, `src/components/InterviewQuestion.tsx`), event stream JSON lines, pytest, npm build, cargo tests.
 
@@ -67,15 +67,15 @@ Key loop:
   ontology becomes complete enough to execute
 ```
 
-Muchanipo equivalent:
+Mucha Science equivalent:
 
 ```text
-Muchanipo Goals/Studio layer
+Mucha Science Goals/Studio layer
   -> Deep Interview extracts ontology
   -> uncertainty questions reduce ambiguity
   -> ontology graph + capability/research graph are built
 
-Muchanipo Browser/Workspace layer
+Mucha Science Browser/Workspace layer
   -> user sees live goals, assumptions, evidence gaps, agent activity
   -> AI executes source-backed research/council/persona/report pipeline
 ```
@@ -405,7 +405,7 @@ VITE_MUCHANIPO_AUTOSTART_TOPIC='한국 65세 이상 1인 가구 재택의료 Saa
   RUSTUP_TOOLCHAIN=stable npm run tauri dev
 ```
 
-Capture the Muchanipo window and verify:
+Capture the Mucha Science window and verify:
 
 - dark workspace renders, not blank canvas
 - current Socratic question is visible
