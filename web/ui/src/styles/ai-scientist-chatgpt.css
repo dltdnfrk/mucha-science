@@ -800,3 +800,63 @@
   padding: var(--ms-space-2, 8px);
   background: var(--ms-surface-soft, #f6f5f0);
 }
+
+/* Run timeline (P0-5): structured stage rows with raw event disclosure. */
+.ms-run-timeline {
+  display: grid;
+  gap: var(--ms-space-2, 8px);
+}
+
+.ms-run-timeline__stages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--ms-space-1, 4px);
+}
+
+.ms-run-timeline__stage {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--ms-space-2, 8px);
+  align-items: start;
+}
+
+.ms-run-timeline__dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  margin-top: 0.3rem;
+  border-radius: 50%;
+  background: var(--ms-text-soft, #6b6a63);
+}
+
+.ms-run-timeline__stage--completed .ms-run-timeline__dot {
+  background: var(--ms-accent, #b48a3a);
+}
+
+.ms-run-timeline__copy {
+  display: grid;
+  gap: var(--ms-space-1, 4px);
+  min-width: 0;
+}
+
+.ms-run-timeline__label {
+  font-size: 0.9rem;
+}
+
+.ms-run-timeline__summary {
+  color: var(--ms-text-soft, #6b6a63);
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
+}
+
+.ms-run-timeline__events {
+  margin: 0;
+  padding-left: 1rem;
+  color: var(--ms-text-soft, #6b6a63);
+  font-size: 0.8rem;
+}
+
+.ms-run-timeline__raw .ms-activity-log {
+  margin: 0;
+}

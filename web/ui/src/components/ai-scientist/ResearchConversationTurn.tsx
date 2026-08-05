@@ -12,6 +12,7 @@ import {
   ProcessDisclosure,
 } from "./ResearchChatPrimitives";
 import { RuleButton } from "./AiScientistPrimitives";
+import { RunTimeline } from "./RunTimeline";
 import { ResearchActivitySummary, qualityReadinessLabel } from "./ResearchActivitySummary";
 import { SafeReportMarkdown } from "../SafeReportMarkdown";
 
@@ -200,16 +201,7 @@ function ResearchEvidence({
 }) {
   return (
     <div className="ms-turn-evidence">
-      {turn.progress.length > 0 ? (
-        <ol className="ms-activity-log">
-          {turn.progress.map((stage, index) => (
-            <li key={`${stage}-${index}`}>
-              <span className="ms-activity-log__marker" aria-hidden="true" />
-              <span>{stage}</span>
-            </li>
-          ))}
-        </ol>
-      ) : <p>파이프라인 로그를 기다리고 있습니다.</p>}
+      <RunTimeline artifactIds={turn.artifactIds} progress={turn.progress} />
 
       <EvidenceList label="근거 출처" values={turn.sourceIds} links />
       <EvidenceList
