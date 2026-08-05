@@ -88,7 +88,7 @@ export default function IdeaSubmit() {
       <div className="fade-in w-full max-w-6xl">
         <div className="mb-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
           <div>
-            <p className="atlas-label mb-2">Mucha Science Studio</p>
+            <p className="atlas-label mb-2">MUNI lab Studio</p>
             <h1 className="display-serif max-w-3xl text-[40px] font-semibold leading-tight text-white sm:text-[56px]">
               Start with a Goal.
             </h1>

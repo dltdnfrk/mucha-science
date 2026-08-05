@@ -130,6 +130,7 @@ export function useResearchConversation({
   }, [runtimeByTurn, session]);
 
   useEffect(() => {
+    let mounted = true;
     const initialWorkspace = initialState.workspace;
     const resumableTurn = [...initialWorkspace.session.turns].reverse().find((turn) => (
       initialWorkspace.runtimeByTurn[turn.turnId]?.status === "running"
@@ -138,9 +139,20 @@ export function useResearchConversation({
       ? initialWorkspace.runtimeByTurn[resumableTurn.turnId]?.generation
       : undefined;
     if (resumableTurn && generation !== undefined) {
-      void attachRun(resumableTurn.runId, resumableTurn.turnId, generation);
+      void attachRun(resumableTurn.runId, resumableTurn.turnId, generation).catch((error) => {
+        if (!mounted) return;
+        const detail = error instanceof Error && error.message.trim()
+          ? ` ${error.message.trim()}`
+          : "";
+        const message = `이전 연구 실행에 다시 연결하지 못했습니다.${detail}`;
+        completeRun(resumableTurn.runId, resumableTurn.turnId, "error", message);
+        setComposerError(message);
+      });
     }
-  }, [attachRun, initialState.workspace]);
+    return () => {
+      mounted = false;
+    };
+  }, [attachRun, completeRun, initialState.workspace]);
 
   const submit = useCallback((prompt: string): Promise<boolean> => {
     const normalizedPrompt = prompt.trim();

@@ -124,4 +124,29 @@ describe("ResearchConversationRail", () => {
     expect(html).toContain('data-compact="true"');
     expect(html).toContain('aria-label="대화 목록 펼치기"');
   });
+
+  it("keeps an emoji conversation mark as one Unicode character", () => {
+    const emojiConversation = {
+      ...conversation,
+      conversationSummaries: conversation.conversationSummaries.map((summary, index) =>
+        index === 0 ? { ...summary, title: "🧪 실험 계획" } : summary,
+      ),
+    };
+
+    const html = renderToStaticMarkup(
+      <MemoryRouter initialEntries={["/scientific"]}>
+        <ResearchConversationRail
+          compact
+          conversation={emojiConversation}
+          onToggleCompact={() => undefined}
+          sourceCount={3}
+          view="chat"
+        />
+      </MemoryRouter>,
+    );
+
+    expect(html).toContain(
+      'class="ms-conversation-rail__conversation-mark" aria-hidden="true">🧪</span>',
+    );
+  });
 });

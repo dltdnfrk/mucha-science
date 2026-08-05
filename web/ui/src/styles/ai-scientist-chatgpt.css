@@ -66,13 +66,12 @@
   gap: var(--ms-space-2);
 }
 
-.ms-conversation-rail__brand > span {
-  inline-size: 1.5rem;
-  block-size: 1.5rem;
+.ms-conversation-rail__brand > .ms-brand-icon {
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
   border: 0;
   border-radius: 0.45rem;
-  font-size: var(--ms-type-support);
-  font-weight: 600;
+  object-fit: cover;
 }
 
 .ms-conversation-rail__brand strong {
@@ -154,6 +153,10 @@
 
 .ms-conversation-rail[data-compact="true"] .ms-conversation-rail__header {
   padding-inline: var(--ms-space-2);
+}
+
+.ms-conversation-rail[data-compact="true"] .ms-conversation-rail__conversation-mark {
+  display: grid;
 }
 
 .ms-workspace-header {
@@ -627,6 +630,47 @@
   }
 
   .ms-workspace-header__title span {
+    display: none;
+  }
+}
+
+@media (max-width: 48rem) {
+  .ms-science-shell,
+  .ms-science-shell[data-rail-compact="true"] {
+    --ms-current-rail-width: var(--ms-rail-compact-width);
+    --ms-current-output-width: 0rem;
+  }
+
+  .ms-conversation-rail__brand strong,
+  .ms-conversation-rail__new span,
+  .ms-conversation-rail__item-copy,
+  .ms-conversation-rail__utility span {
+    display: none;
+  }
+
+  .ms-conversation-rail__header {
+    justify-content: center;
+    flex-direction: column;
+    padding-inline: var(--ms-space-2);
+  }
+
+  .ms-conversation-rail__new,
+  .ms-conversation-rail__item,
+  .ms-conversation-rail__utility a {
+    justify-content: center;
+    grid-template-columns: 1.75rem;
+    padding-inline: var(--ms-space-2);
+  }
+
+  .ms-conversation-rail__conversation-mark {
+    display: grid;
+  }
+
+  .ms-workspace-header {
+    padding-inline: var(--ms-space-3);
+  }
+
+  .ms-workspace-header__tools :is(a, button) span {
     display: none;
   }
 }

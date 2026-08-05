@@ -2,7 +2,7 @@
 
 이 디렉터리는 MUNI simulator의 건식 산출물을 미래의 **nipo-rooted 세션**에 안전하게 넘기기 위한 자기완결 전달 패키지다.
 
-MUNI 포트폴리오 경계 규칙상 한 프로젝트에 rooted된 세션은 다른 프로젝트의 파일을 수정하지 않는다. 따라서 이 작업은 `nipo-science`에 계약이나 코드를 쓰지 않고, nipo 세션이 나중에 소비할 계약·실제 픽스처·독립 validator를 `mucha-science/handoff/nipo/`에 둔다. 두 코드베이스를 합치는 패키지가 아니다.
+MUNI 포트폴리오 경계 규칙상 한 프로젝트에 rooted된 세션은 다른 프로젝트의 파일을 수정하지 않는다. 따라서 이 작업은 `nipo-science`에 계약이나 코드를 쓰지 않고, nipo 세션이 나중에 소비할 계약·실제 픽스처·독립 validator를 `muni-lab/handoff/nipo/`에 둔다. 두 코드베이스를 합치는 패키지가 아니다.
 
 ## nipo 세션의 소비 순서
 
@@ -25,6 +25,6 @@ MUNI 포트폴리오 경계 규칙상 한 프로젝트에 rooted된 세션은 �
 
 성공하면 `VALID <path>`를 출력하고 종료 코드 0을 반환한다. malformed JSON, 필수 필드 누락, 타입·식별자·참조 불일치, 계약 블록에 선언되지 않은 필드, 평면 후보 필드와 해시된 `candidate_content`의 불일치, `finished_at`이 `started_at`보다 빠른 실행 시각 역전, 비어 있는 provenance/lineage, 면책문 삭제·변경, 효능 주장 어휘가 있으면 필드별 오류를 출력하고 0이 아닌 코드로 종료한다.
 
-validator는 Python 표준 라이브러리만 사용하고 `src/`를 import하지 않는다. 따라서 `mucha-science`가 import 경로에 없는 작업 디렉터리에서도 절대 경로로 실행할 수 있다.
+validator는 Python 표준 라이브러리만 사용하고 `src/`를 import하지 않는다. 따라서 `muni-lab`이 import 경로에 없는 작업 디렉터리에서도 절대 경로로 실행할 수 있다.
 
 `fixtures/`의 JSON과 Markdown 쌍은 `src/muni/handoff.py`를 합성 `cropA`/`pathogenX` Study에 대해 collection → diagnostic discovery → approved review → `create_handoff` 순서로 실제 실행해 생성했다. JSON은 손으로 작성하지 않았다.

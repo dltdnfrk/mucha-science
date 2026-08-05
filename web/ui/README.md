@@ -4,7 +4,7 @@ The browser is the Mucha Science product surface. It runs locally and connects
 to the Python research pipeline over a loopback WebSocket.
 
 ```sh
-cd /path/to/mucha-science
+cd /path/to/muni-lab
 uv sync
 npm --prefix web/ui ci
 bash scripts/run-local-web.sh

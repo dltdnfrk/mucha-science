@@ -24,7 +24,10 @@ def _evidence(source: str) -> EvidenceRef:
         source_title=source,
         quote=None,
         source_grade="A",
-        provenance={"kind": source},
+        provenance={
+            "kind": source,
+            "source_text": {"publication_year": 2024},
+        },
     )
 
 
@@ -138,6 +141,48 @@ def test_biomedical_search_uses_filterable_sources_and_minimum_year(monkeypatch)
     assert dict(calls)["pubmed"]["mindate"] == "2021"
     assert dict(calls)["pubmed"]["datetype"] == "pdat"
     assert dict(calls)["pubmed"]["sort"] == "relevance"
+
+
+def test_biomedical_search_drops_backend_results_older_than_requested_window(monkeypatch):
+    async def pubmed_search(query: str, limit: int, **kwargs) -> list[EvidenceRef]:
+        return [
+            EvidenceRef(
+                id="pubmed:old",
+                source_url="https://pubmed.ncbi.nlm.nih.gov/old/",
+                source_title="Old trial",
+                quote="gut microbiome depression clinical trial",
+                source_grade="A",
+                provenance={
+                    "kind": "pubmed",
+                    "source_text": {"publication_year": 2020},
+                },
+            ),
+            EvidenceRef(
+                id="pubmed:recent",
+                source_url="https://pubmed.ncbi.nlm.nih.gov/recent/",
+                source_title="Recent trial",
+                quote="gut microbiome depression clinical trial",
+                source_grade="A",
+                provenance={
+                    "kind": "pubmed",
+                    "source_text": {"publication_year": 2024},
+                },
+            ),
+        ]
+
+    monkeypatch.setattr(
+        sync_search,
+        "DEFAULT_SEARCH_FNS",
+        tuple(pubmed_search if source == "pubmed" else (lambda *args, **kwargs: None) for source in BACKEND_SOURCES),
+    )
+    monkeypatch.setenv("MUCHANIPO_ACADEMIC_SOURCES", "pubmed")
+
+    evidence = sync_search.search(
+        "gut microbiome depression causal observational studies clinical trials since 2021",
+        limit=4,
+    )
+
+    assert [item.id for item in evidence] == ["pubmed:recent"]
 
 
 def test_korean_biomedical_search_normalizes_backend_queries(monkeypatch):

@@ -7,6 +7,7 @@ from ipaddress import ip_address
 import json
 import logging
 from pathlib import Path
+import re
 from socket import SHUT_RDWR, socket as Socket
 from threading import Lock
 from typing import Protocol
@@ -31,12 +32,14 @@ DEFAULT_PORT = 8765
 MAX_MESSAGE_SIZE = 1_048_576
 BINARY_CLOSE_CODE = 1003
 BINARY_CLOSE_REASON = "binary frames are unsupported"
-ALLOWED_ORIGINS: tuple[Origin | None, ...] = (
+INSTALLED_APP_ORIGIN = re.compile(r"http://127\.0\.0\.1:[0-9]{1,5}")
+ALLOWED_ORIGINS: tuple[Origin | re.Pattern[str] | None, ...] = (
     None,
     Origin("http://127.0.0.1:4173"),
     Origin("http://localhost:4173"),
     Origin("http://127.0.0.1:5173"),
     Origin("http://localhost:5173"),
+    INSTALLED_APP_ORIGIN,
 )
 
 

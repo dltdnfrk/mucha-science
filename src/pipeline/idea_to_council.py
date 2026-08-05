@@ -510,6 +510,21 @@ class IdeaToCouncilPipeline:
         self._record_hitl_gate(state, "evidence", hitl_results["evidence"])
         if hitl_results["evidence"].status == "changes_requested":
             state.warnings.append("evidence gate requested changes; augmented research once")
+            revision_queries = _hitl_revision_queries(
+                hitl_results["evidence"],
+                topic_anchor=plan.topic_anchor,
+            )
+            if revision_queries:
+                plan = with_source_discovery_queries(
+                    plan,
+                    revision_queries,
+                    max_queries=len(plan.queries) + len(revision_queries),
+                )
+                state.record_artifact(
+                    "evidence_revision_queries",
+                    json.dumps(revision_queries, ensure_ascii=False),
+                )
+                self._emit_research_plan_progress(plan)
             findings = list(self.research_runner.run(plan))
             evidence_refs = _dedupe_evidence_refs([ev for finding in findings for ev in finding.support])
             evidence_store = EvidenceStore(require_live=self.require_live)
@@ -2949,6 +2964,25 @@ def _extract_original_topic_anchor(raw_text: str) -> str:
     if first_q:
         return text[: first_q.start()].strip()
     return text
+
+
+def _hitl_revision_queries(
+    result: HITLResult,
+    *,
+    topic_anchor: str = "",
+) -> list[str]:
+    queries: list[str] = []
+    normalized_anchor = " ".join(str(topic_anchor or "").split())
+    for raw_comment in result.comments or []:
+        comment = " ".join(str(raw_comment).split())
+        if not comment or comment.startswith("jsonline decision:"):
+            continue
+        query = comment
+        if normalized_anchor and normalized_anchor.casefold() not in comment.casefold():
+            query = f"{normalized_anchor} {comment}"
+        if query not in queries:
+            queries.append(query)
+    return queries
 
 
 def _assert_research_plan_preserves_topic_anchor(plan: Any, topic_anchor: str) -> None:

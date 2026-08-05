@@ -101,7 +101,7 @@ export function ScientificConversationTurn({
               <div className="ms-preview-process">
                 <p>
                   브라우저 미리보기에서는 외부 자료를 수집하지 않았습니다.
-                  실제 수집과 검증 상태는 Mucha Science 데스크톱 앱에서 확인하세요.
+          실제 수집과 검증 상태는 MUNI lab 웹앱에서 확인하세요.
                 </p>
               </div>
             ) : (

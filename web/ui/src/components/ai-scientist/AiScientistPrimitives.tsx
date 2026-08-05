@@ -31,8 +31,8 @@ export function ResearchMasthead({
   return (
     <header className="ms-masthead">
       <div className="ms-masthead__identity">
-        <a className="ms-wordmark" href="#/scientific" aria-label="Mucha Science AI 과학자 홈">
-          Mucha Science
+      <a className="ms-wordmark" href="#/scientific" aria-label="MUNI lab AI 과학자 홈">
+        MUNI lab
         </a>
         <span className="ms-masthead__focus">AI 과학자</span>
       </div>

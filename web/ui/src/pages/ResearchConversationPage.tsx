@@ -10,6 +10,8 @@ const STARTER_QUESTIONS = [
   "해조류 기반 탄소 포집 기술의 성능과 한계를 비교해줘.",
 ] as const;
 
+const RESEARCH_DRAFT_KEY_PREFIX = "muni-lab.research-draft.v1";
+
 interface ResearchConversationPageProps {
   readonly conversation: ResearchConversationController;
   readonly runtimeLabel: string;
@@ -21,11 +23,16 @@ export function ResearchConversationPage({
   runtimeLabel,
   sourceCount,
 }: ResearchConversationPageProps) {
-  const [prompt, setPrompt] = useState("");
+  const sessionId = conversation.session.sessionId;
+  const [prompt, setPrompt] = useState(() => readResearchDraft(sessionId));
   const [now, setNow] = useState(Date.now());
   const endRef = useRef<HTMLDivElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
   const shouldFollowRef = useRef(true);
+
+  useEffect(() => {
+    setPrompt(readResearchDraft(sessionId));
+  }, [sessionId]);
 
   useEffect(() => {
     if (!conversation.isRunning) return;
@@ -51,10 +58,15 @@ export function ResearchConversationPage({
     return () => window.removeEventListener("resize", keepLatestTurnVisible);
   }, []);
 
+  const updatePrompt = (value: string) => {
+    setPrompt(value);
+    writeResearchDraft(sessionId, value);
+  };
+
   const submitPrompt = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const accepted = await conversation.submit(prompt);
-    if (accepted) setPrompt("");
+    if (accepted) updatePrompt("");
   };
 
   const hasConversation = conversation.session.turns.length > 0;
@@ -73,7 +85,7 @@ export function ResearchConversationPage({
   return (
     <main className="ms-chat-workspace" aria-labelledby="research-chat-heading">
         <h1 className="ms-visually-hidden" id="research-chat-heading">
-          Mucha Science 연구 대화
+          MUNI lab 연구 대화
         </h1>
         <p className="ms-visually-hidden" role="status" aria-atomic="true" aria-live="polite">
           {conversation.isRunning
@@ -110,7 +122,7 @@ export function ResearchConversationPage({
               <div ref={endRef} />
             </div>
           ) : (
-            <EmptyResearchConversation onSelect={setPrompt} />
+            <EmptyResearchConversation onSelect={updatePrompt} />
           )}
         </div>
 
@@ -149,7 +161,7 @@ export function ResearchConversationPage({
               : `${runtimeLabel} · 연결된 외부 학술 출처 ${sourceCount}개 · Enter는 줄바꿈입니다.`}
             id="research-question"
             label={hasConversation ? "후속 질문" : "연구 질문"}
-            onChange={(event) => setPrompt(event.target.value)}
+            onChange={(event) => updatePrompt(event.target.value)}
             onSubmit={submitPrompt}
             placeholder="무엇을 조사하고 검증할까요?"
             rows={1}
@@ -159,6 +171,28 @@ export function ResearchConversationPage({
         </div>
     </main>
   );
+}
+
+function readResearchDraft(sessionId: string): string {
+  try {
+    return sessionStorage.getItem(researchDraftKey(sessionId)) ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function writeResearchDraft(sessionId: string, value: string): void {
+  try {
+    const key = researchDraftKey(sessionId);
+    if (value) sessionStorage.setItem(key, value);
+    else sessionStorage.removeItem(key);
+  } catch {
+    /* Browser storage can be unavailable in hardened or private contexts. */
+  }
+}
+
+function researchDraftKey(sessionId: string): string {
+  return `${RESEARCH_DRAFT_KEY_PREFIX}.${sessionId}`;
 }
 
 function EmptyResearchConversation({

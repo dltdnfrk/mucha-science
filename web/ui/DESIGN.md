@@ -1,11 +1,20 @@
-# Mucha Science Browser UI Design System
+# MUNI lab Browser UI Design System
 
 ## Product surface
 
-The browser is the authoritative Mucha Science product surface. It is a
+The browser is the authoritative MUNI lab product surface. It is a
 conversation-first local research workspace: research activity, source
 decisions, provider state, quality gates, and artifacts support the active
 conversation rather than becoming separate product modes.
+
+## Product identity
+
+- The user-facing web app name is `MUNI lab`.
+- The app icon combines the M monogram with a laboratory flask using the
+  workspace cream, graphite, and warm accent colors.
+- Legacy Muchanipo names remain only in compatibility-sensitive protocol,
+  environment, and persisted-storage identifiers; they are never visible as
+  product branding.
 
 ## Visual language
 

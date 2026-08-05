@@ -2,8 +2,8 @@
 
 ```yaml
 schema_version: 1
-doc_id: mucha-science-product-spec-001
-project: mucha-science
+doc_id: muni-lab-product-spec-001
+project: muni-lab
 status: draft
 owner: hyunjun (human-approval-required)
 baseline_commit: e487c82f54383278553c1a9a9334c684f679abac
@@ -421,7 +421,7 @@ task_type: code
 brownfield_context:
   project_type: brownfield
   context_references:
-  - path: /Users/hyunjun/Documents/MUNI/mucha-science
+  - path: /Users/hyunjun/Documents/MUNI/muni-lab
     role: primary
     summary: Mucha Science codebase with implemented autonomous research engine (document
       ingest, multi-persona Council deliberation, human verification, knowledge accumulation)

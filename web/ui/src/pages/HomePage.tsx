@@ -26,7 +26,7 @@ export default function HomePage() {
     <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col justify-center gap-6 p-6">
       <Card className="w-full">
         <CardHeader>
-          <CardTitle>Mucha Science</CardTitle>
+          <CardTitle>MUNI lab</CardTitle>
           <CardDescription>
             Studio에서 Goal과 Unknown을 정리하고 Browser에서 Evidence, Run, Report를 확인합니다.
           </CardDescription>

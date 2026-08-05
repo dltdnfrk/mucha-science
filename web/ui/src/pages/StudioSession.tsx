@@ -317,7 +317,7 @@ export default function StudioSession() {
               </div>
             </div>
             <p className="mt-3 text-center text-[12px] text-[#6f6b64]">
-              Mucha Science는 근거 기반으로 실행하지만, 결과를 다시 한번 확인해 주세요.
+              MUNI lab은 근거 기반으로 실행하지만, 결과를 다시 한번 확인해 주세요.
             </p>
           </form>
         </main>

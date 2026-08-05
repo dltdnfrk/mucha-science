@@ -491,7 +491,6 @@ REFERENCE_INVENTORY: tuple[ReferenceInventoryItem, ...] = (
         license="pattern/gist",
         stages=(6,),
         code_paths=(
-            "src/ingest/muchanipo-ingest.py",
             "src/wiki/dream_cycle.py",
             "src/wiki/governance.py",
             "src/pipeline/reference_runtime.py",

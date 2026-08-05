@@ -110,13 +110,45 @@ async def _search_one(
                 search_query = pubmed_biomedical_query(query)
             else:
                 search_query = biomedical_english_query(query) or query
-        return await search_fn(
+        evidence = await search_fn(
             search_query,
             limit=limit,
             **_search_kwargs(source_name, query),
         )
+        return _filter_requested_publication_window(evidence, query)
     except Exception:  # noqa: BLE001 - one academic backend should not fail the whole search
         return []
+
+
+def _filter_requested_publication_window(
+    evidence: list[EvidenceRef],
+    query: str,
+) -> list[EvidenceRef]:
+    from src.research.queries import minimum_publication_year
+
+    minimum_year = minimum_publication_year(query)
+    if minimum_year is None:
+        return evidence
+    return [
+        item
+        for item in evidence
+        if (year := _publication_year(item)) is not None and year >= minimum_year
+    ]
+
+
+def _publication_year(item: EvidenceRef) -> int | None:
+    provenance = item.provenance if isinstance(item.provenance, dict) else {}
+    source_text = provenance.get("source_text")
+    if not isinstance(source_text, dict):
+        metadata = provenance.get("metadata")
+        source_text = metadata.get("source_text") if isinstance(metadata, dict) else None
+    if not isinstance(source_text, dict):
+        return None
+    raw = source_text.get("publication_year") or source_text.get("year")
+    if isinstance(raw, int) and not isinstance(raw, bool):
+        return raw
+    text = str(raw or "").strip()
+    return int(text[:4]) if len(text) >= 4 and text[:4].isdigit() else None
 
 
 async def _search_all(query: str, limit: int) -> list[EvidenceRef]:

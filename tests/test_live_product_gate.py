@@ -124,9 +124,11 @@ class _TrustedEvidenceRunner:
 class _CountingTrustedEvidenceRunner(_TrustedEvidenceRunner):
     def __init__(self) -> None:
         self.calls = 0
+        self.plans = []
 
     def run(self, plan):
         self.calls += 1
+        self.plans.append(plan)
         return super().run(plan)
 
 
@@ -405,6 +407,21 @@ def test_evidence_changes_requested_reruns_research_and_regates(tmp_path: Path):
 
     assert runner.calls == 2
     assert adapter.evidence_calls == 2
+    assert runner.plans[0] is not runner.plans[1]
+    revision_query = (
+        "딸기 농가용 진단키트 시장성 "
+        "search again with the requested evidence changes"
+    )
+    assert revision_query in runner.plans[1].queries
+    assert any(
+        route["query"] == revision_query
+        for route in runner.plans[1].query_routes
+    )
+    assert any(
+        "딸기 농가용 진단키트 시장성" in query
+        and "search again with the requested evidence changes" in query
+        for query in runner.plans[1].queries
+    )
 
 
 def test_pipeline_live_mode_rejects_fallback_council_personas(tmp_path: Path, monkeypatch):

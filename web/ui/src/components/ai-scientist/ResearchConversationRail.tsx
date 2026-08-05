@@ -4,6 +4,7 @@ import type { AiScientistWorkspaceView } from "../../pages/AiScientistWorkspace"
 import {
   CheckIcon,
   ComposeIcon,
+  SettingsIcon,
   SidebarIcon,
   SourcesIcon,
 } from "./MuchaWorkspaceIcons";
@@ -41,9 +42,9 @@ export function ResearchConversationRail({
       data-compact={compact}
     >
       <header className="ms-conversation-rail__header">
-        <a aria-label="Mucha Science 연구 대화 홈" className="ms-conversation-rail__brand" href="#/scientific">
-          <span aria-hidden="true">M</span>
-          <strong id="research-conversation-rail-heading">Mucha Science</strong>
+        <a aria-label="MUNI lab 연구 대화 홈" className="ms-conversation-rail__brand" href="#/scientific">
+          <img alt="" aria-hidden="true" className="ms-brand-icon" src="/muni-lab-icon.svg" />
+          <strong id="research-conversation-rail-heading">MUNI lab</strong>
         </a>
         <button
           aria-label={compact ? "대화 목록 펼치기" : "대화 목록 접기"}
@@ -85,7 +86,7 @@ export function ResearchConversationRail({
                   type="button"
                 >
                   <span className="ms-conversation-rail__conversation-mark" aria-hidden="true">
-                    {summary.title.slice(0, 1)}
+                  {[...summary.title.trim()][0] ?? "R"}
                   </span>
                   <span className="ms-conversation-rail__item-copy">
                     <span>{summary.title}</span>
@@ -108,6 +109,7 @@ export function ResearchConversationRail({
           <span>검증 기록</span>
         </Link>
         <Link to="/settings">
+          <SettingsIcon />
           <span>실행 설정</span>
         </Link>
       </nav>

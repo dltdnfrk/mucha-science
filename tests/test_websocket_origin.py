@@ -59,6 +59,15 @@ def test_server_rejects_non_loopback_bind(tmp_path: Path) -> None:
             server.shutdown()
 
 
+def test_server_accepts_installed_app_ephemeral_loopback_origin(tmp_path: Path) -> None:
+    # Given the installed macOS app serves its UI from a random loopback port
+    with running_server(tmp_path / "home") as url:
+        # When that browser surface opens the pipeline WebSocket
+        with connect(url, origin=Origin("http://127.0.0.1:65202")) as client:
+            # Then the app-owned browser origin completes the handshake
+            assert client.state is State.OPEN
+
+
 @pytest.mark.parametrize("origin", [
     Origin("http://127.0.0.1:4173"),
     Origin("http://localhost:4173"),

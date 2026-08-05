@@ -1,4 +1,4 @@
-# Ouroboros Seed — mucha-science
+# Ouroboros Seed — muni-lab
 #
 # seed_id:      seed_3dc497ab4be9
 # interview_id: interview_20260801_060542
@@ -18,7 +18,7 @@ task_type: code
 brownfield_context:
   project_type: brownfield
   context_references:
-  - path: /Users/hyunjun/Documents/MUNI/mucha-science
+  - path: /Users/hyunjun/Documents/MUNI/muni-lab
     role: primary
     summary: Mucha Science codebase with implemented autonomous research engine (document
       ingest, multi-persona Council deliberation, human verification, knowledge accumulation)

@@ -16,7 +16,7 @@ import {
   onBackendEvent,
   sendAction,
 } from "../lib/tauriClient";
-import type { BackendEvent } from "../lib/tauriClient";
+import type { BackendAction, BackendEvent } from "../lib/tauriClient";
 
 type ActiveResearchRun = {
   cancellationRequested: boolean;
@@ -171,16 +171,21 @@ export function useResearchPipelineBridge({
       turnId,
     };
     setActiveTurnId(turnId);
-    const unlisten = await onBackendEvent(processEvent, runId);
-    if (attachmentGeneration !== generationRef.current) {
-      unlisten();
-      return false;
+    try {
+      const unlisten = await onBackendEvent(processEvent, runId);
+      if (attachmentGeneration !== generationRef.current) {
+        unlisten();
+        return false;
+      }
+      unlistenRef.current = unlisten;
+      const bufferedEvents = await getBufferedEvents(runId);
+      if (attachmentGeneration !== generationRef.current) return false;
+      bufferedEvents.forEach(processEvent);
+      return true;
+    } catch (error) {
+      if (attachmentGeneration === generationRef.current) detachRun();
+      throw error;
     }
-    unlistenRef.current = unlisten;
-    const bufferedEvents = await getBufferedEvents(runId);
-    if (attachmentGeneration !== generationRef.current) return false;
-    bufferedEvents.forEach(processEvent);
-    return true;
   }, [detachRun, processEvent]);
 
   const cancelActiveRun = useCallback(async (): Promise<boolean> => {
@@ -233,11 +238,16 @@ export function useResearchPipelineBridge({
           setPendingInteraction({ ...pending, submitting: false });
           return;
         }
-        await sendAction({
-          action: "hitl_decision",
-          gate: pending.interaction.id,
-          status: decision,
-        }, activeRunRef.current?.runId, activeRunRef.current?.generation);
+        const comment = freeText?.trim();
+        if (decision === "changes_requested" && !comment) {
+          setPendingInteraction({ ...pending, submitting: false });
+          return;
+        }
+        await sendAction(
+          createHitlDecisionAction(pending.interaction.id, decision, comment),
+          activeRunRef.current?.runId,
+          activeRunRef.current?.generation,
+        );
       }
       setPendingInteraction(undefined);
     } catch {
@@ -256,6 +266,17 @@ export function useResearchPipelineBridge({
     detachRun,
     pendingInteraction,
   };
+}
+
+export function createHitlDecisionAction(
+  gate: string,
+  status: "approved" | "changes_requested",
+  comment?: string,
+): BackendAction {
+  const normalizedComment = comment?.trim();
+  return normalizedComment
+    ? { action: "hitl_decision", comment: normalizedComment, gate, status }
+    : { action: "hitl_decision", gate, status };
 }
 
 function setInteractionFromEvent(

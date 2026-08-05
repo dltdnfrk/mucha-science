@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">MUNI lab</title>
+  <desc id="description">M 모노그램과 실험실 플라스크를 결합한 MUNI lab 앱 아이콘</desc>
+  <defs>
+    <linearGradient id="surface" x1="72" y1="40" x2="430" y2="472" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#34332F"/>
+      <stop offset="1" stop-color="#171716"/>
+    </linearGradient>
+    <linearGradient id="liquid" x1="338" y1="318" x2="414" y2="410" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E0A15B"/>
+      <stop offset="1" stop-color="#C96442"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="#F4EFE6"/>
+  <rect x="12" y="12" width="488" height="488" rx="108" fill="url(#surface)"/>
+  <path
+    d="M100 354V158L184 286L268 158V354"
+    fill="none"
+    stroke="#FFF9EF"
+    stroke-width="48"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M338 140V258L288 356C275 383 294 414 324 414H408C438 414 457 383 444 356L394 258V140"
+    fill="none"
+    stroke="#FFF9EF"
+    stroke-width="36"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path d="M308 344C344 323 390 370 426 344L444 380C451 396 440 414 422 414H310C292 414 281 396 288 380L308 344Z" fill="url(#liquid)"/>
+  <path d="M320 140H412" stroke="#FFF9EF" stroke-width="36" stroke-linecap="round"/>
+  <circle cx="390" cy="300" r="16" fill="#E0A15B"/>
+</svg>

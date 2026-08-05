@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+import re
 from urllib.parse import urlsplit
 
 from src.muchanipo.web.websocket_server import (
     ALLOWED_ORIGINS,
     BINARY_CLOSE_CODE,
+    INSTALLED_APP_ORIGIN,
     DEFAULT_HOST,
     MAX_MESSAGE_SIZE,
 )
@@ -20,6 +22,13 @@ def test_browser_origin_allowlist_is_loopback_only() -> None:
     # Then every accepted browser origin stays on this machine
     assert browser_origins
     for origin in browser_origins:
+        if isinstance(origin, re.Pattern):
+            assert origin is INSTALLED_APP_ORIGIN
+            assert origin.fullmatch("http://127.0.0.1:1")
+            assert origin.fullmatch("http://127.0.0.1:65535")
+            assert not origin.fullmatch("https://127.0.0.1:8764")
+            assert not origin.fullmatch("http://attacker.example:8764")
+            continue
         assert "*" not in origin, origin
         assert urlsplit(origin).hostname in LOOPBACK_HOSTS, origin
 

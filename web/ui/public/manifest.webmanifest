@@ -1,0 +1,32 @@
+{
+  "id": "/",
+  "name": "MUNI lab",
+  "short_name": "MUNI lab",
+  "description": "대화로 문헌을 탐색하고 근거와 검증 과정을 기록하는 AI 연구 작업공간",
+  "lang": "ko",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#1f1f1d",
+  "theme_color": "#1f1f1d",
+  "icons": [
+    {
+      "src": "/muni-lab-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/muni-lab-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/muni-lab-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

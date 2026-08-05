@@ -61,7 +61,7 @@ seed의 "multiple actual organic compounds" 조항을 실제로 만족하려면 
 
 ## 7. 포트폴리오 계층 승격 절차
 
-이 문서는 현재 편의상 `mucha-science/docs/`에 있다. 하지만 계약 문서는 포트폴리오 계층(`MUNI/Ouroboros/documentation-governance`)에 있어야 한다.
+이 문서는 현재 편의상 `muni-lab/docs/`에 있다. 하지만 계약 문서는 포트폴리오 계층(`MUNI/Ouroboros/documentation-governance`)에 있어야 한다.
 
 사용자가 승격할 정확한 절차는 다음과 같다.
 

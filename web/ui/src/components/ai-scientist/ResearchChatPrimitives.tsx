@@ -20,11 +20,11 @@ export function ResearchChatAppBar({
   return (
     <header className="ms-chat-appbar">
       <a
-        aria-label="Mucha Science AI 과학자 홈"
+          aria-label="MUNI lab AI 과학자 홈"
         className="ms-wordmark"
         href="#/scientific"
       >
-        Mucha Science
+          MUNI lab
       </a>
       <div className="ms-chat-appbar__utility">
         <span className="ms-chat-appbar__runtime">{runtimeLabel}</span>

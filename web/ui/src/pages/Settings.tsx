@@ -256,7 +256,7 @@ export default function Settings() {
         <div className="fade-in mb-8">
           <h1 className="text-xl font-semibold tracking-tight text-white">설정</h1>
           <p className="mt-1 text-sm text-tertiary">
-            Mucha Science는 로컬 CLI 또는 API 공급자를 통해 라이브 웹 연구를 실행합니다.
+            MUNI lab은 로컬 CLI 또는 API 공급자를 통해 라이브 웹 연구를 실행합니다.
           </p>
         </div>
 
@@ -279,7 +279,7 @@ export default function Settings() {
             >
               <div className="font-medium">로컬 CLI</div>
               <div className="mt-0.5 break-keep text-[11px] text-tertiary">
-                claude / codex / gemini / kimi 실호출, mock fallback 차단
+                claude / codex / gemini / kimi 실호출, 대체 응답 비활성화
               </div>
             </button>
             <button
@@ -382,7 +382,7 @@ export default function Settings() {
                         )}
                         {!s.pipeline_supported && (
                           <p className="mt-1 text-[11px] text-amber-300">
-                            파이프라인 자동 호출 미지원 — API 키 또는 mock fallback 사용
+                            파이프라인 자동 호출 미지원 — API 키 연결이 필요합니다
                           </p>
                         )}
                         {smoke && (

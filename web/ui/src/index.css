@@ -1331,16 +1331,11 @@ body {
 }
 
 .cowork-brand-mark {
-  display: grid;
-  width: 26px;
-  height: 26px;
-  flex: 0 0 26px;
-  place-items: center;
+  display: block;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
   border-radius: 7px;
-  background: #f1eee7;
-  color: #171716;
-  font-size: 13px;
-  font-weight: 700;
 }
 
 .cowork-sidebar-actions {

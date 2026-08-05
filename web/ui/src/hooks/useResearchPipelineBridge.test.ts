@@ -39,7 +39,10 @@ vi.mock("../lib/tauriClient", () => ({
   sendAction: bridgeHarness.sendAction,
 }));
 
-import { useResearchPipelineBridge } from "./useResearchPipelineBridge";
+import {
+  createHitlDecisionAction,
+  useResearchPipelineBridge,
+} from "./useResearchPipelineBridge";
 
 const runId = "app-run-terminal-generation";
 const turnId = "turn-terminal-generation";
@@ -52,6 +55,19 @@ const terminalCases = [
 ] as const;
 
 describe("useResearchPipelineBridge terminal generation admission", () => {
+  it("includes the reviewer revision text in changes_requested actions", () => {
+    expect(createHitlDecisionAction(
+      "evidence",
+      "changes_requested",
+      "임상시험 근거를 추가하고 근거가 약한 자료를 제외해줘.",
+    )).toEqual({
+      action: "hitl_decision",
+      comment: "임상시험 근거를 추가하고 근거가 약한 자료를 제외해줘.",
+      gate: "evidence",
+      status: "changes_requested",
+    });
+  });
+
   it.each(terminalCases)("does not terminalize %s until its current generation arrives", async (event, status) => {
     // Given
     bridgeHarness.reset();
@@ -92,6 +108,22 @@ describe("useResearchPipelineBridge terminal generation admission", () => {
     expect(bridgeHarness.unlisten).toHaveBeenCalledTimes(1);
     expect(onConversationEvent).not.toHaveBeenCalled();
     expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("detaches a partial subscription when buffered replay fails", async () => {
+    bridgeHarness.reset();
+    bridgeHarness.getBufferedEvents.mockRejectedValueOnce(new Error("backend unavailable"));
+    const bridge = useResearchPipelineBridge({
+      onActivity: vi.fn(),
+      onConversationEvent: vi.fn(),
+      onError: vi.fn(),
+      onTerminal: vi.fn(),
+    });
+
+    await expect(bridge.attachRun(runId, turnId, generation))
+      .rejects.toThrow("backend unavailable");
+
+    expect(bridgeHarness.unlisten).toHaveBeenCalledTimes(1);
   });
 
   it("preserves a pipeline failure detail for the terminal turn", async () => {

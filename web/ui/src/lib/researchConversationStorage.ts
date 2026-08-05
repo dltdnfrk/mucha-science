@@ -135,7 +135,7 @@ function formatMarkdownExport(
   const artifacts = markdownList(exported.artifactIds, "기록된 산출물이 없습니다.");
   const report = exported.reportBody || "완성된 보고서가 없습니다.";
   return [
-    "# Mucha Science 연구 기록",
+    "# MUNI lab 연구 기록",
     "",
     "## 질문",
     "",

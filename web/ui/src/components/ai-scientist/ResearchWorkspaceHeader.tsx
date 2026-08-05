@@ -22,7 +22,6 @@ export function ResearchWorkspaceHeader({
   return (
     <header className="ms-workspace-header">
       <div className="ms-workspace-header__title">
-        <span className="ms-workspace-header__mark" aria-hidden="true">M</span>
         <div>
           <strong>{title}</strong>
           <span>{runtimeLabel}</span>

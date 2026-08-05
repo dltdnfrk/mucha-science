@@ -5,12 +5,14 @@ import { isSafeExternalHttpUrl } from "../../lib/safeExternalUrl";
 interface ResearchActivitySummaryProps {
   readonly activity?: ResearchActivity;
   readonly cancellationRequested?: boolean;
+  readonly emptyMessage?: string;
   readonly skippedSources: readonly SkippedSource[];
 }
 
 export function ResearchActivitySummary({
   activity,
   cancellationRequested = false,
+  emptyMessage = "실행 투영을 기다리는 중입니다.",
   skippedSources,
 }: ResearchActivitySummaryProps) {
   const hasProjection = Boolean(
@@ -29,7 +31,7 @@ export function ResearchActivitySummary({
   return (
     <div aria-live="polite" className="ms-activity-projection" role="status">
       {!hasProjection && skippedSources.length === 0 && !cancellationRequested
-        ? <p>실행 투영을 기다리는 중입니다.</p>
+        ? <p>{emptyMessage}</p>
         : null}
       {activity?.providers.length ? (
         <ActivityGroup label="제공자 실행">

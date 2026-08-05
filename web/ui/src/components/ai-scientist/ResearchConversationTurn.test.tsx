@@ -48,14 +48,6 @@ describe("ResearchConversationTurn", () => {
         now={2_000}
         onExport={() => undefined}
         runtime={{
-          activity: {
-            cancellationAcknowledged: false,
-            claims: [],
-            evidence: [],
-            providers: [],
-            quality: { kind: "quality", readiness: "ready", reasons: [] },
-            routes: [],
-          },
           completedAt: 2_000,
           error: "MiMo API Key를 실행 설정에서 저장한 뒤 다시 시작하세요.",
           startedAt: 1_000,
@@ -75,6 +67,8 @@ describe("ResearchConversationTurn", () => {
     );
 
     expect(html).toContain("MiMo API Key를 실행 설정에서 저장한 뒤 다시 시작하세요.");
+    expect(html).toContain("실행이 중단되었습니다.");
+    expect(html).not.toContain("실행 투영을 기다리는 중입니다.");
   });
 
   it("renders a completed report with reviewable gaps and an explicit warning", () => {

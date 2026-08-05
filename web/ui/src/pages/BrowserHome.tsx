@@ -96,7 +96,7 @@ export default function BrowserHome() {
       <section className="cowork-center">
         <header className="cowork-titlebar">
           <Link to="/studio" className="cowork-title-main">
-            {activeRun?.topic ? "시장성 근거 조사" : "Mucha Science Browser"}
+            {activeRun?.topic ? "시장성 근거 조사" : "MUNI lab Browser"}
             <span aria-hidden="true" className="ml-2 text-tertiary">⌄</span>
           </Link>
         </header>
@@ -151,7 +151,7 @@ export default function BrowserHome() {
             </div>
           </Link>
           <p className="cowork-disclaimer">
-            Mucha Science는 AI이므로 실수할 수 있습니다. 중요한 농업·시장성 판단은 다시 확인해 주세요.
+            MUNI lab은 AI이므로 실수할 수 있습니다. 중요한 농업·시장성 판단은 다시 확인해 주세요.
           </p>
         </div>
       </section>

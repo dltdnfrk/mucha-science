@@ -216,13 +216,13 @@ function toPlannotatorAnnotation(block: PlanBlock): Annotation {
     text: block.currentText.trim(),
     originalText: block.originalText,
     createdA: 0,
-    author: "Mucha Science",
+    author: "MUNI lab",
     source: "plannotator-inline-port",
   };
 }
 
 function blocksToMarkdown(blocks: PlanBlock[]): string {
-  const lines: string[] = ["# Mucha Science Plan Review", ""];
+  const lines: string[] = ["# MUNI lab Plan Review", ""];
   DOCS.forEach((doc) => {
     lines.push(`## ${doc.file}`, "");
     blocks

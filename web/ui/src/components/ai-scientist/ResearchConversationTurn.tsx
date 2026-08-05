@@ -31,6 +31,13 @@ export function ResearchConversationTurn({
 }: ResearchConversationTurnProps) {
   const isRunning = runtime?.status === "running";
   const isError = runtime?.status === "error";
+  const activityEmptyMessage = isError
+    ? "실행이 중단되었습니다."
+    : runtime?.status === "canceled"
+      ? "실행이 종료되었습니다."
+      : runtime?.status === "complete"
+        ? "기록된 실행 투영이 없습니다."
+        : "실행 투영을 기다리는 중입니다.";
   const reportBody = turn.finalReport ?? turn.reportChunks.join("\n\n");
   const duration = runtime
     ? formatResearchDuration(((runtime.completedAt ?? now) - runtime.startedAt) / 1000)
@@ -61,6 +68,7 @@ export function ResearchConversationTurn({
           <ResearchActivitySummary
             activity={runtime?.activity}
             cancellationRequested={runtime?.cancellationRequested}
+            emptyMessage={activityEmptyMessage}
             skippedSources={runtime?.skippedSources ?? []}
           />
           <ProcessDisclosure
@@ -76,7 +84,7 @@ export function ResearchConversationTurn({
       </div>
 
       <ChatMessage
-        label="Mucha"
+        label="MUNI lab"
         meta={assistantMeta(runtime)}
         role="assistant"
         state={isRunning ? "loading" : isError ? "error" : "complete"}

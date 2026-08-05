@@ -99,7 +99,7 @@ export function ScientificPageView({
 
   return (
     <main className="ms-research-main">
-      <section aria-label="Mucha Science 연구 대화" className="ms-chat-workspace">
+      <section aria-label="MUNI lab 연구 대화" className="ms-chat-workspace">
         <div className="ms-chat-thread">
           {submittedQuestion ? (
             <ScientificConversationTurn

@@ -136,9 +136,9 @@ export default function Sidebar() {
       <div className="h-7 w-full shrink-0" />
 
       <div className="cowork-sidebar-top">
-        <Link to="/scientific" className="cowork-brand-link" aria-label="Mucha Science 연구 홈">
-          <span aria-hidden="true" className="cowork-brand-mark">M</span>
-          <strong>Mucha Science</strong>
+        <Link to="/scientific" className="cowork-brand-link" aria-label="MUNI lab 연구 홈">
+          <img alt="" aria-hidden="true" className="cowork-brand-mark" src="/muni-lab-icon.svg" />
+          <strong>MUNI lab</strong>
         </Link>
         <div className="cowork-sidebar-actions">
           <button onClick={toggleCollapsed} className="cowork-icon-button" title="사이드바 닫기" aria-label="사이드바 닫기">
