@@ -106,5 +106,6 @@ function scientificWorkspaceView(pathname: string): AiScientistWorkspaceView | u
   if (pathname === "/scientific") return "chat";
   if (pathname === "/scientific/sources") return "sources";
   if (pathname === "/scientific/validation") return "validation";
+  if (pathname === "/scientific/library") return "library";
   return undefined;
 }

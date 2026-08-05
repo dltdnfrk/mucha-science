@@ -720,3 +720,83 @@
   color: var(--ms-text-strong, #171716);
   font: inherit;
 }
+
+/* Artifact Library (P0-3): grid of committed research artifacts + viewer. */
+.ms-library {
+  padding: var(--ms-space-3, 12px);
+  display: grid;
+  gap: var(--ms-space-3, 12px);
+  min-width: 0;
+}
+
+.ms-library__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--ms-space-2, 8px);
+}
+
+.ms-library__card {
+  display: grid;
+  gap: var(--ms-space-1, 4px);
+  padding: var(--ms-space-2, 8px);
+  border: 1px solid var(--ms-border-strong, #d8d5cc);
+  border-radius: var(--ms-radius-2, 8px);
+  background: var(--ms-surface-soft, #f6f5f0);
+  color: inherit;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.ms-library__card:hover {
+  border-color: var(--ms-accent, #b48a3a);
+}
+
+.ms-library__kind {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--ms-text-soft, #6b6a63);
+}
+
+.ms-library__title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.ms-library__session,
+.ms-library__time {
+  color: var(--ms-text-soft, #6b6a63);
+  font-size: 0.85rem;
+}
+
+.ms-library__empty {
+  color: var(--ms-text-soft, #6b6a63);
+}
+
+.ms-library__viewer-head {
+  display: grid;
+  gap: var(--ms-space-1, 4px);
+}
+
+.ms-library__viewer-title {
+  margin: 0;
+}
+
+.ms-library__viewer-meta {
+  color: var(--ms-text-soft, #6b6a63);
+}
+
+.ms-library__viewer-body {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ms-library__pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  border: 1px solid var(--ms-border-strong, #d8d5cc);
+  border-radius: var(--ms-radius-2, 8px);
+  padding: var(--ms-space-2, 8px);
+  background: var(--ms-surface-soft, #f6f5f0);
+}

@@ -4,6 +4,7 @@ import type { AiScientistWorkspaceView } from "../../pages/AiScientistWorkspace"
 import {
   CheckIcon,
   ComposeIcon,
+  LibraryIcon,
   SettingsIcon,
   SidebarIcon,
   SourcesIcon,
@@ -107,6 +108,10 @@ export function ResearchConversationRail({
         <Link aria-current={view === "validation" ? "page" : undefined} to="/scientific/validation">
           <CheckIcon />
           <span>검증 기록</span>
+        </Link>
+        <Link aria-current={view === "library" ? "page" : undefined} to="/scientific/library">
+          <LibraryIcon />
+          <span>Library</span>
         </Link>
         <Link to="/settings">
           <SettingsIcon />

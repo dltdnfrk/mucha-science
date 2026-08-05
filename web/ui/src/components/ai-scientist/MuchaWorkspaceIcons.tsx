@@ -55,6 +55,14 @@ export function CheckIcon(props: IconProps) {
   );
 }
 
+export function LibraryIcon(props: IconProps) {
+  return (
+    <IconFrame {...props}>
+      <path d="M5 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5Zm2 4.5A1.5 1.5 0 0 1 8.5 6h7a1.5 1.5 0 0 1 0 3h-7A1.5 1.5 0 0 1 8.5 7.5ZM8.5 10.5h7a1.5 1.5 0 0 1 0 3h-7a1.5 1.5 0 0 1 0-3Zm0 4.5h4.5a1.5 1.5 0 0 1 0 3H8.5a1.5 1.5 0 0 1 0-3Z" />
+    </IconFrame>
+  );
+}
+
 export function SettingsIcon(props: IconProps) {
   return (
     <IconFrame fill="none" stroke="currentColor" strokeLinecap="round" strokeWidth="2" {...props}>

@@ -65,6 +65,26 @@ export function createResearchWorkspace(): PersistedResearchWorkspace {
   return workspace;
 }
 
+export type PersistedResearchSession = {
+  readonly session: ResearchConversationSession;
+  readonly runtimeByTurn: Readonly<Record<string, PersistedTurnRuntime>>;
+};
+
+export function loadAllResearchSessions(): readonly PersistedResearchSession[] {
+  const storage = localBrowserStorage();
+  if (!storage) return [];
+  return readConversationIndex(storage).flatMap((entry) => {
+    const storageKey = sessionStorageKey(entry.sessionId);
+    const session = readSession(storage, storageKey);
+    return session?.sessionId === entry.sessionId
+      ? [{
+        session,
+        runtimeByTurn: readRuntime(storage, `${storageKey}.runtime`),
+      }]
+      : [];
+  });
+}
+
 export function listResearchConversationSummaries(): readonly ResearchConversationSummary[] {
   const storage = localBrowserStorage();
   const summaries = readConversationIndex(storage)

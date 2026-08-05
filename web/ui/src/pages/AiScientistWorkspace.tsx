@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "../styles/ai-scientist-research.css";
 import "../styles/ai-scientist-chatgpt.css";
+import { LibraryPanel } from "../components/ai-scientist/LibraryPanel";
 import { ResearchConversationRail } from "../components/ai-scientist/ResearchConversationRail";
 import {
   ResearchOutputPanel,
@@ -13,7 +14,7 @@ import { useSourceConnections } from "../hooks/useSourceConnections";
 import { ResearchConversationPage } from "./ResearchConversationPage";
 import { readExecutionPresentation } from "./runProgressSettings";
 
-export type AiScientistWorkspaceView = "chat" | "sources" | "validation";
+export type AiScientistWorkspaceView = "chat" | "sources" | "validation" | "library";
 
 interface AiScientistWorkspaceProps {
   readonly view: AiScientistWorkspaceView;
@@ -90,11 +91,15 @@ export function AiScientistWorkspace({ view }: AiScientistWorkspaceProps) {
         view={view}
       />
       <section className="ms-science-main">
-        <ResearchConversationPage
-          conversation={conversation}
-          runtimeLabel={`${executionPresentation.label} · ${executionPresentation.detail}`}
-          sourceCount={sourceConnections.connectedSources.length}
-        />
+        {view === "library" ? (
+          <LibraryPanel />
+        ) : (
+          <ResearchConversationPage
+            conversation={conversation}
+            runtimeLabel={`${executionPresentation.label} · ${executionPresentation.detail}`}
+            sourceCount={sourceConnections.connectedSources.length}
+          />
+        )}
       </section>
       {panelOpen ? (
         <ResearchOutputPanel
