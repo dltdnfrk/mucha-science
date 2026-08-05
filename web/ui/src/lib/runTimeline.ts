@@ -98,8 +98,8 @@ export function buildRunTimeline(
 
   if (artifactIds.length > 0) {
     const reportStage = stages.find((stage) => stage.id === "report");
-    if (reportStage) {
-      reportStage.summary = `${reportStage.summary || "보고서 산출"} · 산출물 ${artifactIds.length}건`;
+    if (reportStage && !reportStage.summary) {
+      reportStage.summary = `보고서 산출 · 산출물 ${artifactIds.length}건`;
     }
   }
 
