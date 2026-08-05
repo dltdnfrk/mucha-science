@@ -1,0 +1,1 @@
+"{\n  \"url\": \"http://127.0.0.1:5173/#/scientific/settings\",\n  \"shell\": true,\n  \"railPresent\": true,\n  \"legacySidebarAbsent\": true,\n  \"settingsRendered\": true,\n  \"settingsHeading\": \"설정\"\n}"

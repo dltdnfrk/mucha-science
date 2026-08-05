@@ -1,0 +1,1 @@
+"{\n  \"url\": \"http://127.0.0.1:5173/#/scientific?seed=1\",\n  \"cardMessage\": \"근거 승인 후 연구를 계속할 수 있습니다.\",\n  \"buttons\": [\n    \"다시 승인 UI 열기\",\n    \"수정 의견 보내며 재개\",\n    \"여기까지 Artifact 저장\",\n    \"새 Run으로 포크\"\n  ],\n  \"turnPrompt\": \"근거 승인 대기 상태를 검증할 연구 질문\"\n}"

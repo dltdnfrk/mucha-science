@@ -1,0 +1,107 @@
+........................................................................ [  4%]
+........................................................................ [  8%]
+........................................................................ [ 12%]
+........................................................................ [ 16%]
+........................................................................ [ 20%]
+...................................................................... [ 24%]
+........................................................................ [ 29%]
+........................................................................ [ 33%]
+........................................................................ [ 37%]
+........................................................................ [ 41%]
+........................................................................ [ 45%]
+........................................................................ [ 49%]
+........................................................................ [ 54%]
+........................................................................ [ 58%]
+........................................................................ [ 62%]
+........................................................................ [ 66%]
+.............................................................................................................................. [ 73%]
+.......................................................ss.s.......... [ 77%]
+.......................................................... [ 81%]
+......................F.......................... [ 84%]
+.................................................................. [ 87%]
+....................................FF.................................. [ 92%]
+........................................................................ [ 96%]
+................................................................         [100%]
+=================================== FAILURES ===================================
+_______ test_resolve_vault_path_setting_falls_back_for_unset_placeholder _______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10cb83c80>
+
+>   ???
+E   AssertionError: assert PosixPath('/Users/hyunjun/Documents/Neobio/Neobio') == (PosixPath('/Users/hyunjun/Documents/Hyunjun') / 'Neobio')
+E    +  where PosixPath('/Users/hyunjun/Documents/Neobio/Neobio') = <function resolve_vault_path_setting at 0x10c369bc0>('${MUCHANIPO_VAULT_PATH}/Neobio')
+E    +    where <function resolve_vault_path_setting at 0x10c369bc0> = paths.resolve_vault_path_setting
+E    +  and   PosixPath('/Users/hyunjun/Documents/Hyunjun') = paths.DEFAULT_VAULT_PATH
+
+/Users/hyunjun/Documents/MUNI/mucha-science/tests/test_runtime_paths.py:19: AssertionError
+_______ test_built_sidecar_runs_scientific_handshake_outside_repository ________
+
+tmp_path = PosixPath('/private/var/folders/l_/vy0kynvx0k1dl0p56z0c3xtc0000gn/T/pytest-of-hyunjun/pytest-1659/test_built_sidecar_runs_scient0')
+
+>   ???
+
+/Users/hyunjun/Documents/MUNI/mucha-science/tests/test_sidecar_entrypoint.py:62: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/hyunjun/Documents/MUNI/mucha-science/tests/test_sidecar_entrypoint.py:58: in _build
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+python = PosixPath('/Users/hyunjun/Documents/MUNI/muni-lab/.venv/bin/python')
+target = 'aarch64-apple-darwin'
+output_dir = PosixPath('/private/var/folders/l_/vy0kynvx0k1dl0p56z0c3xtc0000gn/T/pytest-of-hyunjun/pytest-1659/test_built_sidecar_runs_scient0/sidecar')
+signing_identity = '-'
+
+    def build(python: Path, target: str, output_dir: Path, signing_identity: str) -> tuple[Path, Path]:
+        python = python.absolute()
+        if not python.is_file():
+            raise ValueError("sidecar toolchain interpreter must be an existing file")
+        if target != host_target():
+            raise ValueError(f"sidecars must be built natively: requested {target}, host is {host_target()}")
+        if output_dir.exists() and any(output_dir.iterdir()):
+            raise ValueError(f"sidecar output directory must be clean: {output_dir}")
+        if command_output([str(python), "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"]) != "3.11":
+>           raise ValueError("sidecar toolchain interpreter must be Python 3.11")
+E           ValueError: sidecar toolchain interpreter must be Python 3.11
+
+tools/build_scientific_sidecar.py:108: ValueError
+__________ test_build_is_deterministic_and_manifest_matches_artifact ___________
+
+tmp_path = PosixPath('/private/var/folders/l_/vy0kynvx0k1dl0p56z0c3xtc0000gn/T/pytest-of-hyunjun/pytest-1659/test_build_is_deterministic_an0')
+
+>   ???
+
+/Users/hyunjun/Documents/MUNI/mucha-science/tests/test_sidecar_entrypoint.py:83: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+/Users/hyunjun/Documents/MUNI/mucha-science/tests/test_sidecar_entrypoint.py:58: in _build
+    ???
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+python = PosixPath('/Users/hyunjun/Documents/MUNI/muni-lab/.venv/bin/python')
+target = 'aarch64-apple-darwin'
+output_dir = PosixPath('/private/var/folders/l_/vy0kynvx0k1dl0p56z0c3xtc0000gn/T/pytest-of-hyunjun/pytest-1659/test_build_is_deterministic_an0/first')
+signing_identity = '-'
+
+    def build(python: Path, target: str, output_dir: Path, signing_identity: str) -> tuple[Path, Path]:
+        python = python.absolute()
+        if not python.is_file():
+            raise ValueError("sidecar toolchain interpreter must be an existing file")
+        if target != host_target():
+            raise ValueError(f"sidecars must be built natively: requested {target}, host is {host_target()}")
+        if output_dir.exists() and any(output_dir.iterdir()):
+            raise ValueError(f"sidecar output directory must be clean: {output_dir}")
+        if command_output([str(python), "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"]) != "3.11":
+>           raise ValueError("sidecar toolchain interpreter must be Python 3.11")
+E           ValueError: sidecar toolchain interpreter must be Python 3.11
+
+tools/build_scientific_sidecar.py:108: ValueError
+=============================== warnings summary ===============================
+tests/test_model_gateway_routing.py::test_gateway_v2_marks_invalid_key_provider_dead_after_successful_fallback
+  /Users/hyunjun/Documents/MUNI/muni-lab/src/execution/gateway_v2.py:406: RuntimeWarning: Provider 'mimo' returned auth error and is marked dead for this session: MiMo API HTTP 401: invalid_key
+    self._mark_auth_failures_from_events(stage)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_runtime_paths.py::test_resolve_vault_path_setting_falls_back_for_unset_placeholder
+FAILED tests/test_sidecar_entrypoint.py::test_built_sidecar_runs_scientific_handshake_outside_repository
+FAILED tests/test_sidecar_entrypoint.py::test_build_is_deterministic_and_manifest_matches_artifact
+3 failed, 1720 passed, 3 skipped, 1 warning, 66 subtests passed in 196.29s (0:03:16)

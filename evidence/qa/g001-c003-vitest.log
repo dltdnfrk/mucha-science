@@ -1,0 +1,217 @@
+$ vitest run
+10:08:29 PM [vite] warning: `esbuild` option was specified by "vite:react-babel" plugin. This option is deprecated, please use `oxc` instead.
+10:08:29 PM [vite] warning: `optimizeDeps.esbuildOptions` option was specified by "vite:react-babel" plugin. This option is deprecated, please use `optimizeDeps.rolldownOptions` instead.
+Both esbuild and oxc options were set. oxc options will be used and esbuild options will be ignored. The following esbuild options were set: `{ jsx: 'automatic', jsxImportSource: undefined }`
+
+ RUN  v4.1.10 /Users/hyunjun/Documents/MUNI/muni-lab/web/ui
+
+ ✓ src/lib/runsIndex.test.ts (7 tests) 3ms
+ ✓ src/lib/finalBundle.test.ts (16 tests) 3ms
+ ✓ src/pages/runProgressSettings.test.ts (8 tests) 4ms
+ ✓ src/lib/webPipelineClient.test.ts (3 tests) 11ms
+stderr | src/components/ai-scientist/ResearchConversationRail.test.tsx > ResearchConversationRail > renders named conversation navigation with active and utility routes
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at ResearchConversationRail (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/src/components/ai-scientist/ResearchConversationRail.tsx:9:37)
+    at Router (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:807:9)
+    at nav
+    at aside
+    at ResearchConversationRail (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/src/components/ai-scientist/ResearchConversationRail.tsx:9:37)
+    at Router (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:807:9)
+    at nav
+    at aside
+    at ResearchConversationRail (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/src/components/ai-scientist/ResearchConversationRail.tsx:9:37)
+    at Router (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:807:9)
+    at nav
+    at aside
+    at ResearchConversationRail (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/src/components/ai-scientist/ResearchConversationRail.tsx:9:37)
+    at Router (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+
+stderr | src/components/ai-scientist/ResearchConversationRail.test.tsx > ResearchConversationRail > omits a duplicate preview while preserving a distinct preview and marking the current utility
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at ResearchConversationRail (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/src/components/ai-scientist/ResearchConversationRail.tsx:9:37)
+    at Router (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:807:9)
+    at nav
+    at aside
+    at ResearchConversationRail (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/src/components/ai-scientist/ResearchConversationRail.tsx:9:37)
+    at Router (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:807:9)
+    at nav
+    at aside
+    at ResearchConversationRail (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/src/components/ai-scientist/ResearchConversationRail.tsx:9:37)
+    at Router (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:807:9)
+    at nav
+    at aside
+    at ResearchConversationRail (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/src/components/ai-scientist/ResearchConversationRail.tsx:9:37)
+    at Router (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+
+stderr | src/components/ai-scientist/ResearchConversationRail.test.tsx > ResearchConversationRail > disables new and conversation switches while research is running
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at ResearchConversationRail (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/src/components/ai-scientist/ResearchConversationRail.tsx:9:37)
+    at Router (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:807:9)
+    at nav
+    at aside
+    at ResearchConversationRail (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/src/components/ai-scientist/ResearchConversationRail.tsx:9:37)
+    at Router (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:807:9)
+    at nav
+    at aside
+    at ResearchConversationRail (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/src/components/ai-scientist/ResearchConversationRail.tsx:9:37)
+    at Router (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:807:9)
+    at nav
+    at aside
+    at ResearchConversationRail (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/src/components/ai-scientist/ResearchConversationRail.tsx:9:37)
+    at Router (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+
+stderr | src/components/ai-scientist/ResearchConversationRail.test.tsx > ResearchConversationRail > keeps icon controls and hides labels through compact-mode styling
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at ResearchConversationRail (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/src/components/ai-scientist/ResearchConversationRail.tsx:9:37)
+    at Router (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:807:9)
+    at nav
+    at aside
+    at ResearchConversationRail (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/src/components/ai-scientist/ResearchConversationRail.tsx:9:37)
+    at Router (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:807:9)
+    at nav
+    at aside
+    at ResearchConversationRail (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/src/components/ai-scientist/ResearchConversationRail.tsx:9:37)
+    at Router (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:807:9)
+    at nav
+    at aside
+    at ResearchConversationRail (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/src/components/ai-scientist/ResearchConversationRail.tsx:9:37)
+    at Router (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+
+stderr | src/components/ai-scientist/ResearchConversationRail.test.tsx > ResearchConversationRail > keeps an emoji conversation mark as one Unicode character
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at ResearchConversationRail (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/src/components/ai-scientist/ResearchConversationRail.tsx:9:37)
+    at Router (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:807:9)
+    at nav
+    at aside
+    at ResearchConversationRail (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/src/components/ai-scientist/ResearchConversationRail.tsx:9:37)
+    at Router (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:807:9)
+    at nav
+    at aside
+    at ResearchConversationRail (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/src/components/ai-scientist/ResearchConversationRail.tsx:9:37)
+    at Router (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:807:9)
+    at nav
+    at aside
+    at ResearchConversationRail (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/src/components/ai-scientist/ResearchConversationRail.tsx:9:37)
+    at Router (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+
+ ✓ src/components/ai-scientist/ResearchConversationRail.test.tsx (5 tests) 12ms
+ ✓ src/lib/researchRuntimeActivity.test.ts (5 tests) 3ms
+ ✓ src/lib/researchConversationStorage.test.ts (3 tests) 5ms
+ ✓ src/components/ai-scientist/ResearchInteractionCard.test.tsx (1 test) 6ms
+ ✓ src/components/SafeReportMarkdown.test.tsx (6 tests) 17ms
+stderr | src/pages/AiScientistValidationWorkspace.test.tsx > AiScientistValidationWorkspace > renders an empty in-shell validation ledger without a research composer
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:807:9)
+    at header
+    at section
+    at AiScientistValidationWorkspace (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/src/pages/AiScientistValidationWorkspace.tsx:11:43)
+    at Router (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+
+stderr | src/pages/AiScientistValidationWorkspace.test.tsx > AiScientistValidationWorkspace > renders needs-review and blocked records with readiness and reason visibility
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+Warning: useLayoutEffect does nothing on the server, because its effect cannot be encoded into the server renderer's output format. This will lead to a mismatch between the initial, non-hydrated UI and the intended UI. To avoid this, useLayoutEffect should only be used in components that render exclusively on the client. See https://reactjs.org/link/uselayouteffect-ssr for common fixes.
+    at LinkWithRef (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router-dom/dist/umd/react-router-dom.development.js:807:9)
+    at header
+    at section
+    at AiScientistValidationWorkspace (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/src/pages/AiScientistValidationWorkspace.tsx:11:43)
+    at Router (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
+    at MemoryRouter (/Users/hyunjun/Documents/MUNI/muni-lab/web/ui/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
+
+ ✓ src/pages/AiScientistValidationWorkspace.test.tsx (2 tests) 8ms
+ ✓ src/lib/reportPresentation.test.ts (13 tests) 6ms
+ ✓ src/hooks/useResearchPipelineBridge.test.ts (9 tests) 6ms
+ ✓ src/components/ai-scientist/ResearchActivitySummary.test.tsx (1 test) 4ms
+ ✓ src/components/SourceDiscoveryPanel.test.ts (13 tests) 4ms
+ ✓ src/components/ai-scientist/ResearchOutputPanel.test.tsx (2 tests) 7ms
+ ✓ src/components/ReportViewer.test.tsx (1 test) 11ms
+ ✓ src/lib/researchConversation.test.ts (7 tests) 2ms
+ ✓ src/components/ai-scientist/ResearchConversationTurn.test.tsx (4 tests) 14ms
+ ✓ src/lib/sourceConnections.test.ts (6 tests) 3ms
+ ✓ src/lib/tauriClient.test.ts (2 tests) 3ms
+ ✓ src/lib/pipelineExecutionClient.test.ts (2 tests) 3ms
+ ✓ src/hooks/useResearchConversation.test.ts (3 tests) 55ms
+ ✓ src/lib/researchRuntime.test.ts (6 tests) 3ms
+ ✓ src/pages/runProgressReportEvents.test.ts (4 tests) 3ms
+ ✓ src/pages/RunProgress.test.ts (19 tests) 7ms
+ ✓ src/lib/productIdentity.test.ts (3 tests) 2ms
+ ✓ src/bootStatus.test.ts (3 tests) 2ms
+ ✓ src/pages/runProgressPersonas.test.ts (4 tests) 3ms
+ ✓ src/lib/scientificReducer.test.ts (41 tests) 11ms
+ ✓ src/pages/runProgressCouncilEvents.test.ts (1 test) 1ms
+ ✓ src/pages/runProgressStorage.test.ts (5 tests) 2ms
+ ✓ src/lib/safeExternalUrl.test.ts (5 tests) 2ms
+ ✓ src/lib/types.test.ts (2 tests) 1ms
+ ✓ src/pages/StudioSession.test.ts (2 tests) 2ms
+ ✓ src/pages/runProgressStages.test.ts (1 test) 1ms
+ ✓ src/pages/useRunProgressInteractions.test.ts (2 tests) 1ms
+ ✓ src/pages/BrowserHome.test.ts (2 tests) 1ms
+
+ Test Files  37 passed (37)
+      Tests  219 passed (219)
+   Start at  22:08:29
+   Duration  587ms (transform 3.33s, setup 0ms, import 4.89s, tests 235ms, environment 2ms)
+
