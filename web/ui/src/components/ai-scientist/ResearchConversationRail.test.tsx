@@ -27,6 +27,8 @@ const conversation = {
   isRunning: false,
   newConversation: () => true,
   pendingInteraction: undefined,
+  reopenApproval: () => undefined,
+  resumeWithComment: async () => false,
   runtimeByTurn: {},
   session: { sessionId: "session-active", turns: [] },
   submit: async () => false,
@@ -58,7 +60,8 @@ describe("ResearchConversationRail", () => {
     expect(html).toContain('aria-current="page"');
     expect(html).toContain('href="/scientific/sources"');
     expect(html).toContain('href="/scientific/validation"');
-    expect(html).toContain('href="/settings"');
+    expect(html).toContain('href="/scientific/settings"');
+    expect(html).toContain('href="/scientific/library"');
   });
 
   it("omits a duplicate preview while preserving a distinct preview and marking the current utility", () => {

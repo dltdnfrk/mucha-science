@@ -4,6 +4,7 @@ import "../styles/ai-scientist-research.css";
 import "../styles/ai-scientist-chatgpt.css";
 import { LibraryPanel } from "../components/ai-scientist/LibraryPanel";
 import { ResearchConversationRail } from "../components/ai-scientist/ResearchConversationRail";
+import Settings from "./Settings";
 import {
   ResearchOutputPanel,
   type ResearchOutputPanelMode,
@@ -14,7 +15,7 @@ import { useSourceConnections } from "../hooks/useSourceConnections";
 import { ResearchConversationPage } from "./ResearchConversationPage";
 import { readExecutionPresentation } from "./runProgressSettings";
 
-export type AiScientistWorkspaceView = "chat" | "sources" | "validation" | "library";
+export type AiScientistWorkspaceView = "chat" | "sources" | "validation" | "library" | "settings";
 
 interface AiScientistWorkspaceProps {
   readonly view: AiScientistWorkspaceView;
@@ -93,6 +94,8 @@ export function AiScientistWorkspace({ view }: AiScientistWorkspaceProps) {
       <section className="ms-science-main">
         {view === "library" ? (
           <LibraryPanel />
+        ) : view === "settings" ? (
+          <Settings />
         ) : (
           <ResearchConversationPage
             conversation={conversation}

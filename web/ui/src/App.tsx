@@ -1,6 +1,5 @@
 import { lazy, Suspense } from "react";
 import { HashRouter, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
-import Sidebar from "./components/Sidebar";
 import {
   AiScientistWorkspace,
   type AiScientistWorkspaceView,
@@ -9,7 +8,6 @@ import {
 const MuniStudy = lazy(() => import("./pages/MuniStudy"));
 const ReportView = lazy(() => import("./pages/ReportView"));
 const RunProgress = lazy(() => import("./pages/RunProgress"));
-const Settings = lazy(() => import("./pages/Settings"));
 const DesignSystemShowcase = lazy(async () => {
   const module = await import("./pages/DesignSystemShowcase");
   return { default: module.DesignSystemShowcase };
@@ -81,24 +79,18 @@ function AppRoutes() {
   }
 
   return (
-    <div className="flex h-dvh">
-      <Sidebar />
-      <main className="app-workspace flex-1 overflow-y-auto">
-        <BackButton />
-        <Routes>
-          <Route path="/studio" element={<Navigate to="/scientific" replace />} />
-          <Route path="/studio/:studioId" element={<Navigate to="/scientific" replace />} />
-          <Route path="/browser" element={<Navigate to="/scientific" replace />} />
-          <Route path="/muni" element={<MuniStudy />} />
-          <Route path="/browser/:runId" element={<RunProgress />} />
-          <Route path="/browser/:runId/report" element={<ReportView />} />
-          <Route path="/run/:runId" element={<RunProgress />} />
-          <Route path="/report/:runId" element={<ReportView />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </main>
-    </div>
+    <main className="app-workspace flex-1 overflow-y-auto">
+      <BackButton />
+      <Routes>
+        <Route path="/settings" element={<Navigate to="/scientific/settings" replace />} />
+        <Route path="/muni" element={<MuniStudy />} />
+        <Route path="/browser/:runId" element={<RunProgress />} />
+        <Route path="/browser/:runId/report" element={<ReportView />} />
+        <Route path="/run/:runId" element={<RunProgress />} />
+        <Route path="/report/:runId" element={<ReportView />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </main>
   );
 }
 
@@ -107,5 +99,6 @@ function scientificWorkspaceView(pathname: string): AiScientistWorkspaceView | u
   if (pathname === "/scientific/sources") return "sources";
   if (pathname === "/scientific/validation") return "validation";
   if (pathname === "/scientific/library") return "library";
+  if (pathname === "/scientific/settings") return "settings";
   return undefined;
 }

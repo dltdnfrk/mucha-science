@@ -113,7 +113,7 @@ export function ResearchConversationRail({
           <LibraryIcon />
           <span>Library</span>
         </Link>
-        <Link to="/settings">
+        <Link aria-current={view === "settings" ? "page" : undefined} to="/scientific/settings">
           <SettingsIcon />
           <span>실행 설정</span>
         </Link>
