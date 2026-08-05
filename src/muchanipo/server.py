@@ -1558,9 +1558,22 @@ def serve_full(
             research_contract=research_contract,
         )
     except Exception as exc:
-        from src.runtime.live_mode import LiveModeViolation
+        from src.runtime.live_mode import HitlResumeRequired, LiveModeViolation
 
         heartbeat.stop()
+        if isinstance(exc, HitlResumeRequired):
+            event = exc.event
+            emit_scoped(
+                "done",
+                pipeline="full",
+                aborted=False,
+                status="run_awaiting_human",
+                gate=str(event.get("gate") or ""),
+                revision_count=int(event.get("revision_count") or 0),
+                resumable=bool(event.get("resumable")),
+                message=str(event.get("message") or ""),
+            )
+            return 0
         if not isinstance(exc, LiveModeViolation):
             emit_scoped(
                 "error",

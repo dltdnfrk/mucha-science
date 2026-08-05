@@ -118,6 +118,7 @@ from src.report.research_audit_appendix import (
 )
 from src.report.schema import ResearchReport
 from src.runtime.live_mode import (
+    HitlResumeRequired,
     LiveModeViolation,
     assert_live_evidence,
     assert_live_hitl,
@@ -181,8 +182,10 @@ class IdeaToCouncilPipeline:
         depth: str = "deep",
         research_contract: ResearchContract | None = None,
         clock: Callable[[], float] = time.monotonic,
+        on_changes_requested: str = "resume",
     ) -> None:
         self.require_live = live_requested_from_env() if require_live is None else require_live
+        self.on_changes_requested = on_changes_requested
         self.source_research = source_research_requested_from_env()
         self.depth = normalize_depth(depth)
         self.research_contract = research_contract
@@ -545,7 +548,16 @@ class IdeaToCouncilPipeline:
             self._require_live_evidence(evidence_summary, evidence_refs)
             hitl_results["evidence"] = self.hitl_adapter.gate_evidence(evidence_refs)
             self._record_hitl_gate(state, "evidence", hitl_results["evidence"])
-        self._require_approved_gate("evidence", hitl_results["evidence"])
+        try:
+            self._require_approved_gate(
+                "evidence",
+                hitl_results["evidence"],
+                on_changes_requested=self.on_changes_requested,
+                revision_count=1,
+            )
+        except HitlResumeRequired as exc:
+            self._emit_progress(dict(exc.event))
+            raise
         self._emit(state, Stage.EVIDENCE)
 
         report = ResearchReport(
@@ -1344,9 +1356,21 @@ class IdeaToCouncilPipeline:
             retrospective=retrospective,
         )
 
-    def _require_approved_gate(self, gate_name: str, result: HITLResult) -> None:
+    def _require_approved_gate(
+        self,
+        gate_name: str,
+        result: HITLResult,
+        *,
+        on_changes_requested: str = "fail",
+        revision_count: int = 0,
+    ) -> None:
         if self.require_live:
-            assert_live_hitl(gate_name, result)
+            assert_live_hitl(
+                gate_name,
+                result,
+                on_changes_requested=on_changes_requested,
+                revision_count=revision_count,
+            )
 
     def _record_hitl_gate(self, state: PipelineState, gate_name: str, result: HITLResult) -> None:
         state.record_artifact(f"{gate_name}_gate_status", result.status)

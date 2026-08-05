@@ -16,7 +16,13 @@ from src.pipeline.idea_to_council import (
     _CouncilProviderProgressGateway,
     _round_digests,
 )
-from src.runtime.live_mode import LiveModeViolation, assert_live_model_result, assert_live_report
+from src.runtime.live_mode import (
+    HitlResumeRequired,
+    LiveModeViolation,
+    assert_live_hitl,
+    assert_live_model_result,
+    assert_live_report,
+)
 
 
 class _ApprovedHITLAdapter:
@@ -146,6 +152,20 @@ class _ChangesThenApprovedEvidenceHITLAdapter(_ApprovedHITLAdapter):
                 synthetic=False,
             )
         return super().gate_evidence(evidence_refs)
+
+
+class _AlwaysChangesRequestedEvidenceHITLAdapter(_ApprovedHITLAdapter):
+    def __init__(self) -> None:
+        self.evidence_calls = 0
+
+    def gate_evidence(self, evidence_refs):
+        self.evidence_calls += 1
+        return HITLResult(
+            status="changes_requested",
+            comments=["keep asking for better evidence"],
+            gate_id="evidence-changes-requested",
+            synthetic=False,
+        )
 
 
 class _OnlyCGradeEvidenceRunner:
@@ -718,6 +738,69 @@ def test_live_vault_save_uses_run_version_suffix(tmp_path: Path):
 
     assert path.name == "brief-123-run-abc-123.md"
     assert path.read_text(encoding="utf-8") == "# report\n"
+
+
+def test_pipeline_live_mode_emits_resume_required_not_hard_fail(tmp_path: Path):
+    adapter = _AlwaysChangesRequestedEvidenceHITLAdapter()
+    runner = _CountingTrustedEvidenceRunner()
+    pipeline = IdeaToCouncilPipeline(
+        hitl_adapter=adapter,
+        research_runner=runner,
+        vault_dir=tmp_path / "vault",
+        council_log_dir=tmp_path / "council",
+        require_live=True,
+        on_changes_requested="resume",
+    )
+
+    with pytest.raises(HitlResumeRequired) as exc_info:
+        pipeline.run("딸기 농가용 진단키트 시장성")
+
+    event = exc_info.value.event
+    assert event["event"] == "hitl_resume_required"
+    assert event["gate"] == "evidence"
+    assert event["revision_count"] == 1
+    assert event["resumable"] is True
+    assert "근거 승인이 필요합니다" in event["message"]
+    assert runner.calls == 2
+    assert adapter.evidence_calls == 2
+
+
+def test_hitl_second_approval_continues_pipeline_with_resume_mode(tmp_path: Path):
+    adapter = _ChangesThenApprovedEvidenceHITLAdapter()
+    runner = _CountingTrustedEvidenceRunner()
+    pipeline = IdeaToCouncilPipeline(
+        hitl_adapter=adapter,
+        research_runner=runner,
+        vault_dir=tmp_path / "vault",
+        council_log_dir=tmp_path / "council",
+        require_live=True,
+        on_changes_requested="resume",
+    )
+
+    with pytest.raises(LiveModeViolation, match="no live provider candidates"):
+        pipeline.run("딸기 농가용 진단키트 시장성")
+
+    # Evidence gate passed on the second approval; failure is a later, unrelated stage.
+    assert runner.calls == 2
+    assert adapter.evidence_calls == 2
+
+
+def test_assert_live_hitl_resume_vs_fail_mode():
+    result = HITLResult(status="changes_requested", comments=["fix it"], synthetic=False)
+
+    with pytest.raises(HitlResumeRequired) as exc_info:
+        assert_live_hitl("evidence", result, on_changes_requested="resume", revision_count=1)
+    event = exc_info.value.event
+    assert event["event"] == "hitl_resume_required"
+    assert event["gate"] == "evidence"
+    assert event["revision_count"] == 1
+    assert event["resumable"] is True
+    assert event["status"] == "changes_requested"
+    # Resumable failures remain live-mode failures but carry a structured event.
+    assert isinstance(exc_info.value, LiveModeViolation)
+
+    with pytest.raises(LiveModeViolation, match="approved HITL gate"):
+        assert_live_hitl("evidence", result, on_changes_requested="fail")
 
 
 def test_live_council_digest_rejects_synthetic_round_fallback():

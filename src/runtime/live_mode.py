@@ -15,6 +15,19 @@ class LiveModeViolation(RuntimeError):
     """Raised when product/live mode would degrade into a demo path."""
 
 
+class HitlResumeRequired(LiveModeViolation):
+    """Raised when a live HITL gate is change-requested and resumable.
+
+    Unlike :class:`LiveModeViolation` (hard fail), the run should pause and
+    wait for human re-approval instead of aborting. Carries the structured
+    ``hitl_resume_required`` event payload on ``event``.
+    """
+
+    def __init__(self, event: dict[str, Any]) -> None:
+        super().__init__(event.get("message") or "HITL resume required")
+        self.event = event
+
+
 _TRUE_VALUES = {"1", "true", "yes", "on"}
 _MOCK_TEXT_MARKERS = (
     "[mock-",
@@ -144,12 +157,55 @@ def assert_live_evidence(evidence_summary: dict[str, Any], refs: list[Any]) -> N
         raise LiveModeViolation("live mode requires at least one trusted evidence record")
 
 
-def assert_live_hitl(gate_name: str, result: Any) -> None:
+def assert_live_hitl(
+    gate_name: str,
+    result: Any,
+    *,
+    on_changes_requested: str = "fail",
+    revision_count: int = 0,
+) -> None:
     status = str(getattr(result, "status", "") or "")
     if status != "approved":
+        if on_changes_requested == "resume" and status == "changes_requested":
+            raise HitlResumeRequired(
+                hitl_resume_required_event(
+                    gate_name,
+                    result,
+                    revision_count=revision_count,
+                )
+            )
         raise LiveModeViolation(f"live mode requires approved HITL gate {gate_name!r}; got {status!r}")
     if bool(getattr(result, "synthetic", False)):
         raise LiveModeViolation(f"live mode rejects synthetic HITL gate {gate_name!r}")
+
+
+def hitl_resume_required_event(
+    gate_name: str,
+    result: Any,
+    *,
+    revision_count: int = 0,
+    resumable: bool = True,
+) -> dict[str, Any]:
+    """Build the structured ``hitl_resume_required`` event payload.
+
+    Distinct from ``execution_cancelled``/``pipeline_error``: the run is not
+    aborted, it is waiting for human re-approval of the named gate.
+    """
+
+    status = str(getattr(result, "status", "") or "")
+    message = (
+        "근거 승인이 필요합니다."
+        if gate_name == "evidence"
+        else f"HITL gate {gate_name!r} requires human approval"
+    )
+    return {
+        "event": "hitl_resume_required",
+        "gate": gate_name,
+        "revision_count": revision_count,
+        "resumable": resumable,
+        "status": status,
+        "message": message,
+    }
 
 
 def assert_live_report(report_md: str) -> None:
