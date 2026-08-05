@@ -14,6 +14,7 @@ import type {
 import { sanitizeResearchActivityReferences } from "./researchActivity";
 import { researchConversationStorageKey } from "./researchRuntime";
 import { sanitizeExternalReference } from "./safeExternalUrl";
+import { createThreadLabel } from "./researchConversationPresentation";
 import type { SkippedSource } from "./sourceConnections";
 
 const ACTIVE_SESSION_KEY = "muchanipo.research-conversation.active.v1";
@@ -66,7 +67,7 @@ export function createResearchWorkspace(): PersistedResearchWorkspace {
 
 export function listResearchConversationSummaries(): readonly ResearchConversationSummary[] {
   const storage = localBrowserStorage();
-  return readConversationIndex(storage)
+  const summaries = readConversationIndex(storage)
     .flatMap((entry) => {
       const session = readSession(storage, sessionStorageKey(entry.sessionId));
       return session?.sessionId === entry.sessionId
@@ -76,6 +77,21 @@ export function listResearchConversationSummaries(): readonly ResearchConversati
     .sort((left, right) => (
       right.updatedAt - left.updatedAt || left.sessionId.localeCompare(right.sessionId)
     ));
+  return disambiguateDuplicateThreadTitles(summaries);
+}
+
+function disambiguateDuplicateThreadTitles(
+  summaries: readonly ResearchConversationSummary[],
+): readonly ResearchConversationSummary[] {
+  const seen = new Map<string, number>();
+  return summaries.map((summary) => {
+    const label = summary.title;
+    const count = seen.get(label) ?? 0;
+    seen.set(label, count + 1);
+    return count === 0
+      ? summary
+      : { ...summary, title: `${label} · ${count + 1}` };
+  });
 }
 
 export function switchResearchWorkspace(sessionId: string): PersistedResearchWorkspace | undefined {
@@ -231,7 +247,7 @@ function createConversationSummary(
   return {
     preview: firstPrompt,
     sessionId: session.sessionId,
-    title: firstPrompt,
+    title: createThreadLabel(firstPrompt),
     updatedAt,
   };
 }
