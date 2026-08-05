@@ -4,6 +4,7 @@ import {
   formatResearchArtifactLabel,
   formatResearchDuration,
 } from "../../lib/researchConversation";
+import { useState } from "react";
 import type { ResearchTurnRuntime } from "../../hooks/useResearchConversation";
 import { isSafeExternalHttpUrl } from "../../lib/safeExternalUrl";
 import {
@@ -18,6 +19,9 @@ interface ResearchConversationTurnProps {
   readonly now: number;
   readonly onCancel?: (turnId: string) => void;
   readonly onExport: (turnId: string) => void;
+  readonly onFork?: (turnId: string) => void;
+  readonly onResumeGate?: (turnId: string) => void;
+  readonly onResumeWithComment?: (turnId: string, comment: string) => void;
   readonly runtime?: ResearchTurnRuntime;
   readonly turn: ConversationTurn;
 }
@@ -26,18 +30,24 @@ export function ResearchConversationTurn({
   now,
   onCancel,
   onExport,
+  onFork,
+  onResumeGate,
+  onResumeWithComment,
   runtime,
   turn,
 }: ResearchConversationTurnProps) {
   const isRunning = runtime?.status === "running";
   const isError = runtime?.status === "error";
-  const activityEmptyMessage = isError
-    ? "실행이 중단되었습니다."
-    : runtime?.status === "canceled"
-      ? "실행이 종료되었습니다."
-      : runtime?.status === "complete"
-        ? "기록된 실행 투영이 없습니다."
-        : "실행 투영을 기다리는 중입니다.";
+  const isResumable = runtime?.status === "resumable";
+  const activityEmptyMessage = isResumable
+    ? "근거 승인 대기 중입니다."
+    : isError
+      ? "실행이 중단되었습니다."
+      : runtime?.status === "canceled"
+        ? "실행이 종료되었습니다."
+        : runtime?.status === "complete"
+          ? "기록된 실행 투영이 없습니다."
+          : "실행 투영을 기다리는 중입니다.";
   const reportBody = turn.finalReport ?? turn.reportChunks.join("\n\n");
   const duration = runtime
     ? formatResearchDuration(((runtime.completedAt ?? now) - runtime.startedAt) / 1000)
@@ -90,7 +100,17 @@ export function ResearchConversationTurn({
         state={isRunning ? "loading" : isError ? "error" : "complete"}
       >
         {qualityStopNotice ? <p role="alert">{qualityStopNotice}</p> : null}
-        {canRenderReport ? (
+        {isResumable ? (
+          <HitlRecoveryCard
+            message={runtime?.error ?? "근거 승인 후 연구를 계속할 수 있습니다."}
+            onExport={() => onExport(turn.turnId)}
+            onFork={onFork ? () => onFork(turn.turnId) : undefined}
+            onResumeGate={onResumeGate ? () => onResumeGate(turn.turnId) : undefined}
+            onResumeWithComment={onResumeWithComment
+              ? (comment) => onResumeWithComment(turn.turnId, comment)
+              : undefined}
+          />
+        ) : canRenderReport ? (
           <div className="ms-report-markdown">
             <SafeReportMarkdown markdown={reportBody} />
           </div>
@@ -119,6 +139,57 @@ export function ResearchConversationTurn({
         ) : null}
       </ChatMessage>
     </section>
+  );
+}
+
+function HitlRecoveryCard({
+  message,
+  onExport,
+  onFork,
+  onResumeGate,
+  onResumeWithComment,
+}: {
+  readonly message: string;
+  readonly onExport?: () => void;
+  readonly onFork?: () => void;
+  readonly onResumeGate?: () => void;
+  readonly onResumeWithComment?: (comment: string) => void;
+}) {
+  const [comment, setComment] = useState("");
+  return (
+    <div className="ms-hitl-recovery" role="alert">
+      <p className="ms-hitl-recovery__message">{message}</p>
+      <div className="ms-hitl-recovery__actions">
+        {onResumeGate ? (
+          <RuleButton onClick={onResumeGate} variant="neutral">다시 승인 UI 열기</RuleButton>
+        ) : null}
+        {onResumeWithComment ? (
+          <div className="ms-hitl-recovery__resume">
+            <textarea
+              aria-label="수정 의견"
+              className="ms-hitl-recovery__comment"
+              onChange={(event) => setComment(event.target.value)}
+              placeholder="수정 의견을 남기고 재개"
+              rows={2}
+              value={comment}
+            />
+            <RuleButton
+              disabled={!comment.trim()}
+              onClick={() => onResumeWithComment(comment)}
+              variant="neutral"
+            >
+              수정 의견 보내며 재개
+            </RuleButton>
+          </div>
+        ) : null}
+        {onExport ? (
+          <RuleButton onClick={onExport} variant="text">여기까지 Artifact 저장</RuleButton>
+        ) : null}
+        {onFork ? (
+          <RuleButton onClick={onFork} variant="text">새 Run으로 포크</RuleButton>
+        ) : null}
+      </div>
+    </div>
   );
 }
 

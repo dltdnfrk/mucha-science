@@ -111,4 +111,40 @@ describe("ResearchConversationTurn", () => {
     expect(html).toContain("연구 기록 내보내기");
     expect(html).not.toContain("표시하지 않습니다");
   });
+
+  it("renders the HITL recovery card with all four resume actions", () => {
+    const html = renderToStaticMarkup(
+      <ResearchConversationTurn
+        now={2_000}
+        onExport={() => undefined}
+        onFork={() => undefined}
+        onResumeGate={() => undefined}
+        onResumeWithComment={() => undefined}
+        runtime={{
+          completedAt: 2_000,
+          error: "근거 승인이 필요합니다.",
+          startedAt: 1_000,
+          status: "resumable",
+        }}
+        turn={{
+          artifactIds: [],
+          finalReport: "",
+          progress: ["evidence gate"],
+          prompt: "근거 보강이 필요한 연구 질문",
+          reportChunks: [],
+          runId: "run-resumable",
+          sourceIds: [],
+          turnId: "turn-resumable",
+        }}
+      />,
+    );
+
+    expect(html).toContain("근거 승인이 필요합니다.");
+    expect(html).toContain("다시 승인 UI 열기");
+    expect(html).toContain("수정 의견 보내며 재개");
+    expect(html).toContain("여기까지 Artifact 저장");
+    expect(html).toContain("새 Run으로 포크");
+    expect(html).not.toContain("실행이 중단되었습니다.");
+    expect(html).toContain("근거 승인 대기 중입니다.");
+  });
 });

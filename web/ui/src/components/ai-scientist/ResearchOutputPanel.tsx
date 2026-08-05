@@ -139,6 +139,7 @@ function runtimeStatusLabel(
     case "complete": return "작업 완료";
     case "error": return "실행 중단";
     case "canceled": return "종료 확인";
+    case "resumable": return "승인 대기";
     case "preview": return "브라우저 미리보기";
     case undefined: return "대기 중";
   }

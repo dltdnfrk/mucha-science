@@ -83,7 +83,7 @@ export function useResearchConversation({
   const completeRun = useCallback((
     runId: string,
     turnId: string,
-    status: Extract<PersistedTurnStatus, "complete" | "error" | "canceled">,
+    status: Extract<PersistedTurnStatus, "complete" | "error" | "canceled" | "resumable">,
     errorMessage?: string,
   ) => {
     const completedAt = Date.now();
@@ -92,8 +92,10 @@ export function useResearchConversation({
       [turnId]: {
         ...current[turnId],
         completedAt,
-        error: status === "error"
-          ? errorMessage ?? "연구 실행이 완료되지 않았습니다."
+        error: status === "error" || status === "resumable"
+          ? errorMessage ?? (status === "resumable"
+            ? "근거 승인 후 연구를 계속할 수 있습니다."
+            : "연구 실행이 완료되지 않았습니다.")
           : undefined,
         startedAt: current[turnId]?.startedAt ?? completedAt,
         status,
@@ -115,6 +117,7 @@ export function useResearchConversation({
     attachRun,
     cancelActiveRun,
     pendingInteraction,
+    resumeRun,
   } = useResearchPipelineBridge({
     onActivity: (_runId, turnId, projections) => {
       updateRuntime((current) => projectTurnActivity(current, turnId, projections));
@@ -294,6 +297,31 @@ export function useResearchConversation({
   const runningTurnId = Object.entries(runtimeByTurn)
     .find(([, runtime]) => runtime.status === "running")?.[0];
 
+  const reopenApproval = useCallback((turnId: string): void => {
+    const runtime = runtimeRef.current[turnId];
+    if (!runtime || runtime.generation === undefined) return;
+    const run = runtimeByTurn[turnId];
+    const turn = [...session.turns].reverse().find((candidate) => candidate.turnId === turnId);
+    if (!turn) return;
+    void resumeRun(turn.runId, turnId, runtime.generation).catch(() => {
+      setComposerError("승인 화면을 다시 열지 못했습니다.");
+    });
+    if (!run) return;
+  }, [resumeRun, runtimeByTurn, session.turns]);
+
+  const resumeWithComment = useCallback(async (turnId: string, comment: string): Promise<boolean> => {
+    const runtime = runtimeRef.current[turnId];
+    if (!runtime || runtime.generation === undefined) return false;
+    const turn = [...session.turns].reverse().find((candidate) => candidate.turnId === turnId);
+    if (!turn) return false;
+    try {
+      return await resumeRun(turn.runId, turnId, runtime.generation, comment);
+    } catch {
+      setComposerError("수정 의견을 보내지 못했습니다.");
+      return false;
+    }
+  }, [resumeRun, session.turns]);
+
   return {
     activeTurnId: activeTurnId ?? runningTurnId,
     composerError,
@@ -306,6 +334,8 @@ export function useResearchConversation({
     cancelTurn,
     exportTurn,
     newConversation,
+    reopenApproval,
+    resumeWithComment,
     submit,
     switchConversation,
   };

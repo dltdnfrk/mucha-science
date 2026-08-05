@@ -48,7 +48,7 @@ type ResearchPipelineBridgeOptions = {
   readonly onTerminal: (
     runId: string,
     turnId: string,
-    status: "complete" | "error" | "canceled",
+    status: "complete" | "error" | "canceled" | "resumable",
     errorMessage?: string,
   ) => void;
 };
@@ -61,6 +61,10 @@ export function useResearchPipelineBridge({
 }: ResearchPipelineBridgeOptions) {
   const [activeTurnId, setActiveTurnId] = useState<string>();
   const [pendingInteraction, setPendingInteraction] = useState<PendingResearchInteraction>();
+  const pendingInteractionRef = useRef<PendingResearchInteraction | undefined>(undefined);
+  useEffect(() => {
+    pendingInteractionRef.current = pendingInteraction;
+  }, [pendingInteraction]);
   const activeRunRef = useRef<ActiveResearchRun>();
   const unlistenRef = useRef<() => void>();
   const generationRef = useRef(0);
@@ -131,7 +135,31 @@ export function useResearchPipelineBridge({
     }
 
     if (event.event === "done" && !activeRun.cancellationRequested) {
-      callbacksRef.current.onTerminal(activeRun.runId, activeRun.turnId, "complete");
+      if (event.status === "run_awaiting_human") {
+        const resumeMessage = typeof event.message === "string" && event.message.trim()
+          ? String(event.message).trim()
+          : "근거 승인 후 연구를 계속할 수 있습니다.";
+        callbacksRef.current.onTerminal(
+          activeRun.runId,
+          activeRun.turnId,
+          "resumable",
+          resumeMessage,
+        );
+      } else {
+        callbacksRef.current.onTerminal(activeRun.runId, activeRun.turnId, "complete");
+      }
+      setPendingInteraction(undefined);
+      detachRun();
+    } else if (event.event === "hitl_resume_required" && !activeRun.cancellationRequested) {
+      const resumeMessage = typeof event.message === "string" && event.message.trim()
+        ? String(event.message).trim()
+        : "근거 승인 후 연구를 계속할 수 있습니다.";
+      callbacksRef.current.onTerminal(
+        activeRun.runId,
+        activeRun.turnId,
+        "resumable",
+        resumeMessage,
+      );
       setPendingInteraction(undefined);
       detachRun();
     } else if (
@@ -258,6 +286,29 @@ export function useResearchPipelineBridge({
 
   useEffect(() => detachRun, [detachRun]);
 
+  const resumeRun = useCallback(async (
+    runId: string,
+    turnId: string,
+    executionGeneration: number,
+    comment?: string,
+  ): Promise<boolean> => {
+    const attached = await attachRun(runId, turnId, executionGeneration);
+    if (!attached) return false;
+    const resumeComment = comment?.trim();
+    if (resumeComment) {
+      const interaction = pendingInteractionRef.current;
+      if (interaction) {
+        await sendAction(
+          createHitlDecisionAction(interaction.interaction.id, "changes_requested", resumeComment),
+          runId,
+          executionGeneration,
+        );
+        setPendingInteraction(undefined);
+      }
+    }
+    return attached;
+  }, [attachRun]);
+
   return {
     activeTurnId,
     answerInteraction,
@@ -265,6 +316,7 @@ export function useResearchPipelineBridge({
     cancelActiveRun,
     detachRun,
     pendingInteraction,
+    resumeRun,
   };
 }
 

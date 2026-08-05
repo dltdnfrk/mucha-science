@@ -32,6 +32,8 @@ export interface ResearchConversationController {
   readonly cancelTurn: (turnId: string) => Promise<void>;
   readonly exportTurn: (turnId: string) => void;
   readonly newConversation: () => boolean;
+  readonly reopenApproval: (turnId: string) => void;
+  readonly resumeWithComment: (turnId: string, comment: string) => Promise<boolean>;
   readonly submit: (prompt: string) => Promise<boolean>;
   readonly switchConversation: (sessionId: string) => boolean;
 }

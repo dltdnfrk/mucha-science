@@ -152,6 +152,64 @@ describe("useResearchPipelineBridge terminal generation admission", () => {
     );
   });
 
+  it("terminates a change-requested gate as resumable, not error", async () => {
+    bridgeHarness.reset();
+    const onTerminal = vi.fn();
+    const bridge = useResearchPipelineBridge({
+      onActivity: vi.fn(),
+      onConversationEvent: vi.fn(),
+      onError: vi.fn(),
+      onTerminal,
+    });
+
+    await bridge.attachRun(runId, turnId, generation);
+    bridgeHarness.emit({
+      event: "hitl_resume_required",
+      app_run_id: runId,
+      generation,
+      gate: "evidence",
+      message: "근거 승인이 필요합니다.",
+      resumable: true,
+      revision_count: 1,
+    });
+
+    expect(onTerminal).toHaveBeenCalledWith(
+      runId,
+      turnId,
+      "resumable",
+      "근거 승인이 필요합니다.",
+    );
+  });
+
+  it("terminates a run_awaiting_human done event as resumable", async () => {
+    bridgeHarness.reset();
+    const onTerminal = vi.fn();
+    const bridge = useResearchPipelineBridge({
+      onActivity: vi.fn(),
+      onConversationEvent: vi.fn(),
+      onError: vi.fn(),
+      onTerminal,
+    });
+
+    await bridge.attachRun(runId, turnId, generation);
+    bridgeHarness.emit({
+      event: "done",
+      app_run_id: runId,
+      generation,
+      status: "run_awaiting_human",
+      gate: "evidence",
+      message: "근거 승인이 필요합니다.",
+      pipeline: "full",
+    });
+
+    expect(onTerminal).toHaveBeenCalledWith(
+      runId,
+      turnId,
+      "resumable",
+      "근거 승인이 필요합니다.",
+    );
+  });
+
   it("projects done quality metadata before terminalizing the active turn", async () => {
     bridgeHarness.reset();
     const onActivity = vi.fn();

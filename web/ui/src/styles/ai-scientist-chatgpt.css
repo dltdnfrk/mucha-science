@@ -680,3 +680,43 @@
     transition: none;
   }
 }
+
+/* HITL recovery card (P0-1): shown when a live gate is change-requested and
+   the run is waiting for human re-approval instead of hard-failing. */
+.ms-hitl-recovery {
+  border: 1px solid var(--ms-border-strong, #d8d5cc);
+  border-radius: var(--ms-radius-2, 8px);
+  padding: var(--ms-space-3, 12px);
+  background: var(--ms-surface-soft, #f6f5f0);
+  display: grid;
+  gap: var(--ms-space-2, 8px);
+}
+
+.ms-hitl-recovery__message {
+  margin: 0;
+  color: var(--ms-text-strong, #171716);
+}
+
+.ms-hitl-recovery__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ms-space-2, 8px);
+  align-items: center;
+}
+
+.ms-hitl-recovery__resume {
+  display: grid;
+  gap: var(--ms-space-1, 4px);
+  width: min(100%, 28rem);
+}
+
+.ms-hitl-recovery__comment {
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--ms-space-2, 8px);
+  border: 1px solid var(--ms-border-strong, #d8d5cc);
+  border-radius: var(--ms-radius-1, 4px);
+  background: var(--ms-surface, #fffdf7);
+  color: var(--ms-text-strong, #171716);
+  font: inherit;
+}

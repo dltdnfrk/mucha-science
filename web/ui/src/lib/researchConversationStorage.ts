@@ -20,7 +20,7 @@ const ACTIVE_SESSION_KEY = "muchanipo.research-conversation.active.v1";
 const CONVERSATION_INDEX_KEY = "muchanipo.research-conversation.index.v1";
 const EMPTY_CONVERSATION_LABEL = "새 연구 대화";
 
-export type PersistedTurnStatus = "running" | "complete" | "error" | "canceled" | "preview";
+export type PersistedTurnStatus = "running" | "complete" | "error" | "canceled" | "preview" | "resumable";
 
 export type PersistedTurnRuntime = {
   readonly activity?: ResearchActivity;
@@ -301,6 +301,7 @@ function readPersistedStatus(value: unknown): PersistedTurnStatus | undefined {
     || value === "error"
     || value === "canceled"
     || value === "preview"
+    || value === "resumable"
     ? value
     : undefined;
 }

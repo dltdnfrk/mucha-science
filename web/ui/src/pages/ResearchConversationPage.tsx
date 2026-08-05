@@ -109,6 +109,9 @@ export function ResearchConversationPage({
                   now={now}
                   onCancel={conversation.cancelTurn}
                   onExport={conversation.exportTurn}
+                  onFork={() => void conversation.submit(turn.prompt)}
+                  onResumeGate={conversation.reopenApproval}
+                  onResumeWithComment={(comment) => void conversation.resumeWithComment(turn.turnId, comment)}
                   runtime={conversation.runtimeByTurn[turn.turnId]}
                   turn={turn}
                 />
