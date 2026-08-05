@@ -228,6 +228,19 @@ function writeConversationIndex(storage: Storage, session: ResearchConversationS
   ]));
 }
 
+export function deleteResearchSession(sessionId: string): void {
+  const storage = localBrowserStorage();
+  if (!storage) return;
+  const storageKey = sessionStorageKey(sessionId);
+  storage.removeItem(storageKey);
+  storage.removeItem(`${storageKey}.runtime`);
+  const retained = readConversationIndex(storage).filter((entry) => entry.sessionId !== sessionId);
+  write(storage, CONVERSATION_INDEX_KEY, JSON.stringify(retained));
+  if (readText(storage, ACTIVE_SESSION_KEY) === sessionId) {
+    storage.removeItem(ACTIVE_SESSION_KEY);
+  }
+}
+
 function readConversationIndex(storage: Storage | undefined): readonly ResearchConversationIndexEntry[] {
   const serialized = readText(storage, CONVERSATION_INDEX_KEY);
   if (!serialized) return [];

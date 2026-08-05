@@ -24,6 +24,7 @@ const conversation = {
     },
   ],
   exportTurn: () => undefined,
+  deleteConversation: () => true,
   isRunning: false,
   newConversation: () => true,
   pendingInteraction: undefined,
@@ -62,6 +63,8 @@ describe("ResearchConversationRail", () => {
     expect(html).toContain('href="/scientific/validation"');
     expect(html).toContain('href="/scientific/settings"');
     expect(html).toContain('href="/scientific/library"');
+    expect(html).toContain("대화 삭제");
+    expect(html).toContain("장내 미생물과 우울증의 인과 근거 대화 삭제");
   });
 
   it("omits a duplicate preview while preserving a distinct preview and marking the current utility", () => {
@@ -108,7 +111,8 @@ describe("ResearchConversationRail", () => {
     );
 
     // Then
-    expect(html.match(/disabled=""/g)).toHaveLength(3);
+    // 새 대화 1 + 대화 열기 2 + 대화 삭제 2 = 5개 disabled
+    expect(html.match(/disabled=""/g)).toHaveLength(5);
   });
 
   it("keeps icon controls and hides labels through compact-mode styling", () => {

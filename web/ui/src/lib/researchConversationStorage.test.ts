@@ -5,6 +5,7 @@ import {
 } from "./researchConversation";
 import { createThreadLabel } from "./researchConversationPresentation";
 import {
+  deleteResearchSession,
   listResearchConversationSummaries,
   loadResearchWorkspace,
   persistResearchWorkspace,
@@ -172,5 +173,44 @@ describe("research conversation summary thread labels", () => {
       .sort();
 
     expect(titles).toEqual(["두 번째 연구 질문", "첫 번째 연구 질문"]);
+  });
+});
+
+describe("research conversation deletion", () => {
+  function seedStandaloneSession(storage: MemoryStorage, sessionId: string, prompt: string): void {
+    const session = startResearchConversationTurn(
+      { sessionId, turns: [] },
+      {
+        prompt,
+        runId: `run-${sessionId}`,
+        turnId: `turn-${sessionId}`,
+      },
+    );
+    persistResearchWorkspace(session, {});
+  }
+
+  it("removes the session, runtime, and index entry", () => {
+    const storage = new MemoryStorage();
+    vi.stubGlobal("window", { localStorage: storage });
+    seedStandaloneSession(storage, "session-del-a", "삭제할 대화");
+
+    deleteResearchSession("session-del-a");
+
+    expect(storage.getItem("muchanipo.research-conversation.v1.session-del-a")).toBeNull();
+    expect(storage.getItem("muchanipo.research-conversation.v1.session-del-a.runtime")).toBeNull();
+    expect(listResearchConversationSummaries()).toEqual([]);
+  });
+
+  it("keeps other sessions and resets the active session when deleting it", () => {
+    const storage = new MemoryStorage();
+    vi.stubGlobal("window", { localStorage: storage });
+    seedStandaloneSession(storage, "session-del-a", "삭제할 대화");
+    seedStandaloneSession(storage, "session-del-b", "남길 대화");
+    storage.setItem("muchanipo.research-conversation.active.v1", "session-del-a");
+
+    deleteResearchSession("session-del-a");
+
+    expect(listResearchConversationSummaries().map((summary) => summary.sessionId)).toEqual(["session-del-b"]);
+    expect(storage.getItem("muchanipo.research-conversation.active.v1")).toBeNull();
   });
 });

@@ -860,3 +860,53 @@
 .ms-run-timeline__raw .ms-activity-log {
   margin: 0;
 }
+
+/* Conversation delete affordance in the rail (hover-visible). */
+.ms-conversation-rail__entry {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: stretch;
+  gap: var(--ms-space-1, 4px);
+}
+
+.ms-conversation-rail__delete {
+  display: grid;
+  place-items: center;
+  gap: var(--ms-space-1, 4px);
+  min-width: 2rem;
+  padding: var(--ms-space-1, 4px);
+  border: 0;
+  border-radius: var(--ms-radius-1, 4px);
+  background: transparent;
+  color: var(--ms-text-soft, #6b6a63);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.ms-conversation-rail__entry:hover .ms-conversation-rail__delete,
+.ms-conversation-rail__delete:focus-visible,
+.ms-conversation-rail__delete[data-force-visible="true"] {
+  opacity: 1;
+}
+
+.ms-conversation-rail__delete:hover {
+  background: var(--ms-surface-soft, #f6f5f0);
+  color: var(--ms-danger, #b3261e);
+}
+
+.ms-conversation-rail__delete:disabled {
+  cursor: not-allowed;
+  opacity: 0.3;
+}
+
+.ms-conversation-rail__delete-label {
+  display: none;
+}
+
+@media (max-width: 48rem) {
+  .ms-conversation-rail__delete-label {
+    display: inline;
+  }
+}

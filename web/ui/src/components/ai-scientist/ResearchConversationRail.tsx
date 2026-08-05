@@ -74,7 +74,7 @@ export function ResearchConversationRail({
           {conversation.conversationSummaries.map((summary) => {
             const active = summary.sessionId === conversation.session.sessionId;
             return (
-              <li key={summary.sessionId}>
+              <li className="ms-conversation-rail__entry" key={summary.sessionId}>
                 <button
                   aria-current={active ? "page" : undefined}
                   aria-label={`${summary.title} 대화 열기`}
@@ -93,6 +93,22 @@ export function ResearchConversationRail({
                     <span>{summary.title}</span>
                     {summary.preview === summary.title ? null : <small>{summary.preview}</small>}
                   </span>
+                </button>
+                <button
+                  aria-label={`${summary.title} 대화 삭제`}
+                  className="ms-conversation-rail__delete"
+                  disabled={locked}
+                  onClick={() => {
+                    if (!window.confirm(`"${summary.title}" 대화를 삭제할까요?`)) return;
+                    if (conversation.deleteConversation(summary.sessionId) && active) {
+                      navigate("/scientific");
+                    }
+                  }}
+                  title={locked ? "현재 연구가 끝난 뒤 삭제할 수 있습니다." : "대화 삭제"}
+                  type="button"
+                >
+                  <span aria-hidden="true">✕</span>
+                  <span className="ms-conversation-rail__delete-label">삭제</span>
                 </button>
               </li>
             );

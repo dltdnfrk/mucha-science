@@ -4,6 +4,7 @@ import type { ResearchConversationSession } from "../lib/researchConversation";
 import {
   createResearchIdentifier,
   createResearchWorkspace,
+  deleteResearchSession,
   downloadResearchTurn,
   listResearchConversationSummaries,
   loadResearchWorkspace,
@@ -249,6 +250,26 @@ export function useResearchConversation({
     downloadResearchTurn(sessionRef.current, turnId);
   }, []);
 
+  const deleteConversation = useCallback((sessionId: string): boolean => {
+    deleteResearchSession(sessionId);
+    if (sessionId === sessionRef.current.sessionId) {
+      const remaining = listResearchConversationSummaries();
+      const next = remaining[0];
+      const workspace = next
+        ? switchResearchWorkspace(next.sessionId)
+        : createResearchWorkspace();
+      if (workspace) {
+        sessionRef.current = workspace.session;
+        runtimeRef.current = workspace.runtimeByTurn;
+        setSession(workspace.session);
+        setRuntimeByTurn(workspace.runtimeByTurn);
+      }
+    }
+    setConversationSummaries(listResearchConversationSummaries());
+    setComposerError(undefined);
+    return true;
+  }, []);
+
   const newConversation = useCallback((): boolean => {
     if (!canChangeResearchConversation(activeTurnId, runtimeRef.current)) {
       setComposerError("현재 연구가 끝난 뒤 새 대화를 만들 수 있습니다.");
@@ -332,6 +353,7 @@ export function useResearchConversation({
     session,
     answerInteraction,
     cancelTurn,
+    deleteConversation,
     exportTurn,
     newConversation,
     reopenApproval,
