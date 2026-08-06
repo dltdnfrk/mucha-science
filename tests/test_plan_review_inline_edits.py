@@ -1,3 +1,13 @@
+import pytest
+
+@pytest.fixture(autouse=True)
+def _offline_academic_search(monkeypatch):
+    import src.research.academic.sync_search as academic_sync_search
+
+    def _offline_search(query: str, limit: int = 4):
+        return []
+
+    monkeypatch.setattr(academic_sync_search, "search", _offline_search)
 from src.intake.idea_dump import IdeaDump
 from src.evidence.artifact import EvidenceRef, Finding
 from src.hitl.plannotator_adapter import HITLResult

@@ -4,6 +4,16 @@ from pathlib import Path
 
 import pytest
 
+@pytest.fixture(autouse=True)
+def _offline_academic_search(monkeypatch):
+    import src.research.academic.sync_search as academic_sync_search
+
+    def _offline_search(query: str, limit: int = 4):
+        return []
+
+    monkeypatch.setattr(academic_sync_search, "search", _offline_search)
+
+
 from src.evidence.artifact import EvidenceRef, Finding
 from src.execution.models import ModelResult
 from src.pipeline.runner import run_pipeline, round_result_to_digest
@@ -818,6 +828,12 @@ def test_run_pipeline_live_source_research_applies_bounded_runtime_defaults(monk
 
 def test_run_pipeline_source_research_records_karpathy_autoresearch_loop(monkeypatch, tmp_path):
     import src.pipeline.runner as runner_mod
+    import src.research.academic.sync_search as academic_sync_search
+
+    def _fake_academic_search(query: str, limit: int = 4):
+        return []
+
+    monkeypatch.setattr(academic_sync_search, "search", _fake_academic_search)
 
     class SourceRunner:
         def __init__(self):
