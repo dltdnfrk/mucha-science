@@ -10,8 +10,10 @@ from typing import Any, Awaitable, Callable, List
 from src.evidence.artifact import EvidenceRef
 
 from .arxiv import search as arxiv_search
+from .biorxiv import search as biorxiv_search
 from .core import search as core_search
 from .crossref import search as crossref_search
+from .europepmc import search as europepmc_search
 from .openalex import search as openalex_search
 from .pubmed import search as pubmed_search
 from .semantic_scholar import search as semantic_scholar_search
@@ -20,22 +22,27 @@ from .unpaywall import search as unpaywall_search
 
 DEFAULT_LIMIT = 4
 AsyncSearchFn = Callable[..., Awaitable[List[EvidenceRef]]]
+
 ACADEMIC_SOURCE_NAMES = (
     "openalex",
     "pubmed",
+    "europepmc",
     "semantic_scholar",
     "crossref",
     "core",
     "arxiv",
+    "biorxiv",
     "unpaywall",
 )
 DEFAULT_SEARCH_FNS = (
     openalex_search,
     pubmed_search,
+    europepmc_search,
     semantic_scholar_search,
     crossref_search,
     core_search,
     arxiv_search,
+    biorxiv_search,
     unpaywall_search,
 )
 

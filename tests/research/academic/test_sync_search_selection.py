@@ -2,15 +2,7 @@ from src.evidence.artifact import EvidenceRef
 from src.research.academic import sync_search
 
 
-BACKEND_SOURCES = (
-    "openalex",
-    "pubmed",
-    "semantic_scholar",
-    "crossref",
-    "core",
-    "arxiv",
-    "unpaywall",
-)
+BACKEND_SOURCES = sync_search.ACADEMIC_SOURCE_NAMES
 
 
 def test_default_limit_can_meet_minimum_evidence_floor() -> None:
