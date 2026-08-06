@@ -115,6 +115,8 @@ version = "0.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "httpx" },
+    { name = "polite-http" },
+    { name = "python-dotenv" },
     { name = "unicodedata2" },
     { name = "websockets" },
 ]
@@ -130,8 +132,10 @@ test = [
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.28" },
+    { name = "polite-http", specifier = ">=0.1.0" },
     { name = "pyinstaller", marker = "extra == 'sidecar'", specifier = "==6.11.1" },
     { name = "pytest", marker = "extra == 'test'", specifier = ">=8" },
+    { name = "python-dotenv", specifier = ">=1.0" },
     { name = "unicodedata2", specifier = "==15.1.0" },
     { name = "websockets", specifier = ">=16.1,<17" },
 ]
@@ -162,6 +166,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/f9/e2/3e91f31a7d2b083fe6ef3fa267035b518369d9511ffab804f839851d2779/pluggy-1.6.0.tar.gz", hash = "sha256:7dcc130b76258d33b90f61b658791dede3486c3e6bfb003ee5c9bfb396dd22f3", size = 69412, upload-time = "2025-05-15T12:30:07.975Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/54/20/4d324d65cc6d9205fabedc306948156824eb9f0ee1633355a8f7ec5c66bf/pluggy-1.6.0-py3-none-any.whl", hash = "sha256:e920276dd6813095e9377c0bc5566d94c932c33b27a3e3945d8389c374dd4746", size = 20538, upload-time = "2025-05-15T12:30:06.134Z" },
+]
+
+[[package]]
+name = "polite-http"
+version = "0.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/32/78/05724220863fe867139e81744cd772a1ad7b6586f5b45d4de564d9714a56/polite_http-0.1.0.tar.gz", hash = "sha256:92a5d44d8d5139256572de30cd6ee44191137890deeddc97035a8833a83995f6", size = 20185, upload-time = "2026-06-18T02:38:14.34Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8a/ab/57d9ba298a4c99c4ddb8f40269eae7ae37eeb248f211729b4fbd846ebfcc/polite_http-0.1.0-py3-none-any.whl", hash = "sha256:3415b45623654f4fb1e511c701cccb1ed8844b4dba0b16f578681620fa55b9cb", size = 19053, upload-time = "2026-06-18T02:38:13.179Z" },
 ]
 
 [[package]]
@@ -227,6 +240,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/e4/47/b9efed96c114afcfa3c9d3fe98a76a1d14c74a9e266d397cf6eb64be5e01/pytest-9.1.1.tar.gz", hash = "sha256:1088fbde8f2b49d95a549a195707afa7a76a3ce9bcadc26b6d71f0ffda5fe313", size = 1636369, upload-time = "2026-06-19T10:58:32.857Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/24/25/1de2678b631f5a49215c6c96fff41ba892b0a34df68d6d80292b1b48aa7f/pytest-9.1.1-py3-none-any.whl", hash = "sha256:37a86b45efb9a47a61a36449063e8e18d0cab3161329fc099eb21783169c4f0c", size = 386536, upload-time = "2026-06-19T10:58:31.347Z" },
+]
+
+[[package]]
+name = "python-dotenv"
+version = "1.2.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/82/ed/0301aeeac3e5353ef3d94b6ec08bbcabd04a72018415dcb29e588514bba8/python_dotenv-1.2.2.tar.gz", hash = "sha256:2c371a91fbd7ba082c2c1dc1f8bf89ca22564a087c2c287cd9b662adde799cf3", size = 50135, upload-time = "2026-03-01T16:00:26.196Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0b/d7/1959b9648791274998a9c3526f6d0ec8fd2233e4d4acce81bbae76b44b2a/python_dotenv-1.2.2-py3-none-any.whl", hash = "sha256:1d8214789a24de455a8b8bd8ae6fe3c6b69a5e3d64aa8a8e5d68e694bbcb285a", size = 22101, upload-time = "2026-03-01T16:00:25.09Z" },
 ]
 
 [[package]]

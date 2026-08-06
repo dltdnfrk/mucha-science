@@ -1,76 +1,99 @@
 import asyncio
+import json
+import subprocess
+from pathlib import Path
 
-import httpx
+import pytest
 
-from src.research.academic.pubmed import PubMedClient
+from src.research.academic import pubmed
 
-
-PUBMED_XML = """<?xml version="1.0" encoding="UTF-8"?>
-<PubmedArticleSet>
-  <PubmedArticle>
-    <MedlineCitation>
-      <PMID>12345678</PMID>
-      <Article>
-        <ArticleTitle>Grounded biomedical evidence</ArticleTitle>
-        <Abstract>
-          <AbstractText Label="BACKGROUND">First abstract section.</AbstractText>
-          <AbstractText Label="RESULTS">Measured effect was significant.</AbstractText>
-        </Abstract>
-        <Journal>
-          <JournalIssue>
-            <PubDate><Year>2024</Year><Month>Mar</Month><Day>12</Day></PubDate>
-          </JournalIssue>
-          <Title>Nature Medicine</Title>
-        </Journal>
-        <ELocationID EIdType="doi">10.1000/pubmed-test</ELocationID>
-      </Article>
-    </MedlineCitation>
-  </PubmedArticle>
-</PubmedArticleSet>
-"""
+PUBMED_ARTICLES = [
+    {
+        "pmid": "12345678",
+        "title": "Grounded biomedical evidence",
+        "authors": ["Doe J"],
+        "journal": "Nature Medicine",
+        "pubdate": "2024 Mar 12",
+        "doi": "10.1000/pubmed-test",
+        "abstract": "BACKGROUND: First section.\nRESULTS: Measured effect was significant.",
+    },
+]
 
 
-def test_pubmed_search_resolves_ids_and_maps_article_metadata():
-    paths: list[str] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        paths.append(request.url.path)
-        assert request.url.params["api_key"] == "ncbi-key"
-        if request.url.path.endswith("/esearch.fcgi"):
-            assert request.url.params["term"] == "grounded evidence"
-            return httpx.Response(200, json={"esearchresult": {"idlist": ["12345678"]}})
-        assert request.url.path.endswith("/efetch.fcgi")
-        assert request.url.params["id"] == "12345678"
-        return httpx.Response(200, text=PUBMED_XML)
-
-    async def run():
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
-            client = PubMedClient(client=http, api_key="ncbi-key", min_interval_seconds=0)
-            return await client.search("grounded evidence", limit=1)
-
-    results = asyncio.run(run())
-
-    assert paths == [
-        "/entrez/eutils/esearch.fcgi",
-        "/entrez/eutils/efetch.fcgi",
-    ]
-    assert results[0].id == "pubmed:12345678"
-    assert results[0].source_url == "https://pubmed.ncbi.nlm.nih.gov/12345678/"
-    assert results[0].source_title == "Grounded biomedical evidence"
-    assert results[0].quote == "First abstract section. Measured effect was significant."
-    assert results[0].provenance["doi"] == "10.1000/pubmed-test"
-    assert results[0].provenance["journal"] == "Nature Medicine"
-    assert results[0].provenance["source_text"]["publication_year"] == 2024
-    assert results[0].provenance["source_text"]["publication_date"] == "2024-03-12"
+def _fake_pubmed_run(args: list[str], **_: object) -> subprocess.CompletedProcess[str]:
+    output_path = args[2]
+    func = args[3]
+    if func == "search_pubmed":
+        payload = ["12345678"]
+    else:
+        payload = PUBMED_ARTICLES
+    Path(output_path).write_text(json.dumps(payload), encoding="utf-8")
+    return subprocess.CompletedProcess(args, 0, stdout="ok", stderr="")
 
 
-def test_pubmed_search_returns_empty_without_ids():
-    def handler(_request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json={"esearchresult": {"idlist": []}})
+def test_pubmed_search_invokes_cli_and_maps_articles(monkeypatch):
+    calls: list[list[str]] = []
 
-    async def run():
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
-            client = PubMedClient(client=http, min_interval_seconds=0)
-            return await client.search("no result")
+    def capturing_run(args: list[str], **kwargs: object):
+        calls.append(args)
+        return _fake_pubmed_run(args, **kwargs)
 
-    assert asyncio.run(run()) == []
+    monkeypatch.setattr(pubmed.subprocess, "run", capturing_run)
+
+    refs = asyncio.run(pubmed.search("BRCA1 breast cancer", limit=5))
+
+    assert calls[0][3] == "search_pubmed"
+    assert calls[0][4] == "BRCA1 breast cancer"
+    assert "--max_results" in calls[0]
+    assert calls[1][3] == "fetch_article_abstracts"
+    assert calls[1][5] == "12345678"
+    assert len(refs) == 1
+    ref = refs[0]
+    assert ref.source_url == "https://pubmed.ncbi.nlm.nih.gov/12345678/"
+    assert ref.source_title == "Grounded biomedical evidence"
+    assert "Measured effect was significant" in (ref.quote or "")
+    assert ref.source_grade == "A"
+    assert ref.provenance["kind"] == "pubmed"
+
+
+def test_pubmed_search_empty_query_skips_cli(monkeypatch):
+    def unexpected_run(*_: object):
+        raise AssertionError("CLI must not run for an empty query")
+
+    monkeypatch.setattr(pubmed.subprocess, "run", unexpected_run)
+
+    assert asyncio.run(pubmed.search("   ")) == []
+
+
+def test_pubmed_search_no_hits_returns_empty(monkeypatch):
+    def no_hits_run(args: list[str], **_: object):
+        Path(args[2]).write_text("[]", encoding="utf-8")
+        return subprocess.CompletedProcess(args, 0, stdout="ok", stderr="")
+
+    monkeypatch.setattr(pubmed.subprocess, "run", no_hits_run)
+
+    assert asyncio.run(pubmed.search("nothing found")) == []
+
+
+def test_pubmed_cli_failure_raises(monkeypatch):
+    def failing_run(args: list[str], **_: object):
+        return subprocess.CompletedProcess(args, 1, stdout="", stderr="boom")
+
+    monkeypatch.setattr(pubmed.subprocess, "run", failing_run)
+
+    with pytest.raises(RuntimeError, match="pubmed_api CLI failed"):
+        asyncio.run(pubmed.search("query"))
+
+
+def test_pubmed_get_paper_maps_single_article(monkeypatch):
+    monkeypatch.setattr(pubmed.subprocess, "run", _fake_pubmed_run)
+
+    ref = asyncio.run(pubmed.get_paper("12345678"))
+
+    assert ref is not None
+    assert ref.source_url == "https://pubmed.ncbi.nlm.nih.gov/12345678/"
+
+
+def test_pubmed_get_citations_not_supported():
+    with pytest.raises(NotImplementedError):
+        asyncio.run(pubmed.get_citations("12345678"))

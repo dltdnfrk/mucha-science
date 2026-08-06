@@ -1,139 +1,142 @@
-"""OpenAlex academic search integration."""
-from __future__ import annotations
+"""OpenAlex search backed by the vendored DeepMind science-skills CLI.
 
+The pipeline contract (``async search`` / ``async get_paper`` returning
+:class:`EvidenceRef` items) is preserved; the in-process HTTP client is
+replaced by ``third_party/science-skills/literature_search_openalex/openalex_cli.py``
+(Apache 2.0, Google LLC).  The CLI prints the OpenAlex API response JSON to
+stdout; the wrapper extracts the ``results`` list.
+"""
+
+import asyncio
+import json
 import os
-from typing import Any
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any, Mapping
 
 import httpx
 
 from src.evidence.artifact import EvidenceRef
 
-from .common import AcademicHttpClient, compact_text, contact_email, evidence_ref, normalize_doi, source_grade_for_paper
+from .common import (
+    compact_text,
+    contact_email,
+    evidence_ref,
+    normalize_doi,
+    source_grade_for_paper,
+)
 
-
+_OPENALEX_SCRIPT = (
+    Path(__file__).resolve().parents[3]
+    / "third_party"
+    / "science-skills"
+    / "literature_search_openalex"
+    / "openalex_cli.py"
+)
+_CLI_TIMEOUT_SECONDS = 120
 OPENALEX_BASE_URL = "https://api.openalex.org"
 OPENALEX_TARGETING_TIMEOUT_SEC = 5.0
 
 
-class OpenAlexClient:
-    """Async OpenAlex client with polite-pool contact metadata."""
-
-    def __init__(self, *, client: httpx.AsyncClient | None = None, email: str | None = None) -> None:
-        self.email = email or contact_email()
-        self.http = AcademicHttpClient(
-            base_url=OPENALEX_BASE_URL,
-            headers={
-                "User-Agent": f"muchanipo/0.1 (mailto:{self.email})",
-                "From": self.email,
-            },
-            max_concurrency=10,
-            client=client,
-        )
-
-    async def aclose(self) -> None:
-        await self.http.aclose()
-
-    async def search(self, query: str, limit: int = 10, **kwargs: Any) -> list[EvidenceRef]:
-        data = await self.http.get_json(
-            "/works",
-            params={
-                "search": query,
-                "per-page": limit,
-                "mailto": self.email,
-                **kwargs,
-            },
-        )
-        return [self._to_evidence(item) for item in data.get("results", [])]
-
-    async def get_paper(self, paper_id: str) -> EvidenceRef | None:
-        data = await self.http.get_json(f"/works/{paper_id}", params={"mailto": self.email})
-        return self._to_evidence(data) if data else None
-
-    async def get_citations(self, paper_id: str, limit: int = 50) -> list[EvidenceRef]:
-        openalex_id = paper_id.rsplit("/", 1)[-1]
-        data = await self.http.get_json(
-            "/works",
-            params={
-                "filter": f"cites:{openalex_id}",
-                "per-page": limit,
-                "mailto": self.email,
-            },
-        )
-        return [self._to_evidence(item) for item in data.get("results", [])]
-
-    def _to_evidence(self, item: dict[str, Any]) -> EvidenceRef:
-        paper_id = str(item.get("id") or item.get("doi") or item.get("display_name") or "unknown")
-        doi = normalize_doi(item.get("doi"))
-        abstract = _abstract_from_inverted_index(item.get("abstract_inverted_index"))
-        quote = compact_text([abstract, item.get("publication_year")])
-        oa = item.get("open_access") or {}
-        access_status = _access_status_from_openalex(oa, bool(abstract))
-        return evidence_ref(
-            source="openalex",
-            paper_id=paper_id,
-            raw=item,
-            source_url=item.get("doi") or item.get("id"),
-            source_title=item.get("display_name"),
-            quote=quote,
-            source_grade=source_grade_for_paper(doi=doi),
-            doi=doi,
-            journal=_journal_name(item),
-            institution=_institution_name(item),
-            access_status=access_status,
-        )
-
-
-def _abstract_from_inverted_index(index: dict[str, list[int]] | None) -> str | None:
-    if not index:
+async def _run_openalex_cli(args: list[str]) -> Any:
+    if not _openalex_key_present():
         return None
-    words: list[tuple[int, str]] = []
-    for word, positions in index.items():
-        words.extend((position, word) for position in positions)
-    return " ".join(word for _, word in sorted(words)) or None
+    process = await asyncio.get_running_loop().run_in_executor(
+        None,
+        lambda: subprocess.run(
+            [sys.executable, str(_OPENALEX_SCRIPT), *args],
+            capture_output=True,
+            text=True,
+            timeout=_CLI_TIMEOUT_SECONDS,
+        ),
+    )
+    if process.returncode != 0:
+        raise RuntimeError(
+            f"openalex CLI failed ({process.returncode}): {process.stderr.strip()[:300]}"
+        )
+    return json.loads(process.stdout)
 
 
-def _journal_name(item: dict[str, Any]) -> str | None:
-    primary_source = ((item.get("primary_location") or {}).get("source") or {})
-    host_venue = item.get("host_venue") or {}
-    return (
-        primary_source.get("display_name")
-        or primary_source.get("host_organization_name")
-        or host_venue.get("display_name")
+def _openalex_key_present() -> bool:
+    if os.environ.get("OPENALEX_API_KEY", "").strip():
+        return True
+    try:
+        from dotenv import dotenv_values
+
+        home_env = dotenv_values(os.path.expanduser("~/.env"))
+        return bool((home_env.get("OPENALEX_API_KEY") or "").strip())
+    except Exception:
+        return False
+
+
+def _abstract_from_inverted_index(inverted: Any) -> str:
+    if not isinstance(inverted, dict) or not inverted:
+        return ""
+    positions: list[tuple[int, str]] = []
+    for word, indices in inverted.items():
+        for index in indices:
+            positions.append((int(index), str(word)))
+    return " ".join(word for _, word in sorted(positions))
+
+
+def _journal_for_work(work: Mapping[str, Any]) -> str:
+    location = work.get("primary_location") or {}
+    source = location.get("source") or {}
+    return compact_text([str(source.get("display_name") or "")])
+
+
+def _to_evidence(work: Mapping[str, Any]) -> EvidenceRef:
+    work_id = str(work.get("id") or "")
+    doi = normalize_doi(str(work.get("doi") or ""))
+    title = compact_text([str(work.get("display_name") or work.get("title") or "")])
+    abstract = _abstract_from_inverted_index(work.get("abstract_inverted_index"))
+    return evidence_ref(
+        source="openalex",
+        paper_id=work_id or doi or "unknown",
+        raw=dict(work),
+        source_url=doi and f"https://doi.org/{doi}" or work_id,
+        source_title=title,
+        quote=compact_text([abstract]),
+        source_grade=source_grade_for_paper(doi=doi),
+        doi=doi,
+        journal=_journal_for_work(work),
     )
 
 
-def _institution_name(item: dict[str, Any]) -> str | None:
-    for authorship in item.get("authorships") or []:
-        if not isinstance(authorship, dict):
-            continue
-        for institution in authorship.get("institutions") or []:
-            if isinstance(institution, dict) and institution.get("display_name"):
-                return str(institution["display_name"])
-    return None
-
-
-async def search(query: str, limit: int = 10, **kwargs: Any) -> list[EvidenceRef]:
-    client = OpenAlexClient()
-    try:
-        return await client.search(query, limit, **kwargs)
-    finally:
-        await client.aclose()
+async def search(query: str, limit: int = 10) -> list[EvidenceRef]:
+    if not query.strip():
+        return []
+    response = await _run_openalex_cli([
+        "filter",
+        "works",
+        "--search",
+        query.strip(),
+        "--per-page",
+        str(limit),
+    ])
+    if response is None:
+        return []
+    works = response.get("results") if isinstance(response, dict) else response
+    if not isinstance(works, list):
+        return []
+    return [_to_evidence(work) for work in works if work]
 
 
 async def get_paper(paper_id: str) -> EvidenceRef | None:
-    client = OpenAlexClient()
-    try:
-        return await client.get_paper(paper_id)
-    finally:
-        await client.aclose()
+    response = await _run_openalex_cli(["resolve", paper_id])
+    if response is None:
+        return None
+    if not isinstance(response, dict) or not response.get("id"):
+        return None
+    return _to_evidence(response)
 
 
-async def get_citations(paper_id: str, limit: int = 50) -> list[EvidenceRef]:
-    client = OpenAlexClient()
-    try:
-        return await client.get_citations(paper_id, limit)
-    finally:
-        await client.aclose()
+async def get_citations(paper_id: str) -> list[EvidenceRef]:
+    raise NotImplementedError(
+        "OpenAlex citations are not exposed by the vendored science-skills "
+        "openalex_cli filter command."
+    )
 
 
 def query_institutions(domains: list[str], limit: int = 5) -> tuple[list[str], list[dict[str, Any]]]:
@@ -230,17 +233,6 @@ def _targeting_name(item: dict[str, Any], *, field: str) -> str:
     if field == "doi_or_title":
         return str(normalize_doi(item.get("doi")) or item.get("display_name") or "").strip()
     return str(item.get(field) or "").strip()
-
-
-def _access_status_from_openalex(oa: dict[str, Any], has_abstract: bool) -> str | None:
-    """Map OpenAlex open_access metadata to deterministic access_status."""
-    if oa.get("is_oa"):
-        return "oa_copy_found"
-    if oa.get("oa_url"):
-        return "oa_copy_found"
-    if has_abstract:
-        return "abstract_only"
-    return "blocked"
 
 
 def _skip_live_targeting() -> bool:

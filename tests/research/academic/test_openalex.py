@@ -1,111 +1,127 @@
 import asyncio
+import json
+import subprocess
 
-import httpx
+import pytest
 
 from src.research.academic import openalex
-from src.research.academic.openalex import OpenAlexClient
 
-
-def test_openalex_search_maps_results_to_evidence():
-    def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.path == "/works"
-        assert request.url.params["mailto"] == "dev@example.com"
-        assert request.headers["from"] == "dev@example.com"
-        return httpx.Response(
-            200,
-            json={
-                "results": [
-                    {
-                        "id": "https://openalex.org/W1",
-                        "doi": "https://doi.org/10.1234/example",
-                        "display_name": "A paper",
-                        "publication_year": 2024,
-                        "abstract_inverted_index": {"hello": [0], "world": [1]},
-                    }
-                ]
+OPENALEX_WORKS = {
+    "meta": {"count": 1},
+    "results": [
+        {
+            "id": "https://openalex.org/W123",
+            "display_name": "Deep sea carbon capture",
+            "doi": "https://doi.org/10.1234/openalex-test",
+            "abstract_inverted_index": {
+                "capture": [1],
+                "carbon": [0],
             },
-        )
-
-    async def run():
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
-            client = OpenAlexClient(client=http, email="dev@example.com")
-            return await client.search("agent memory")
-
-    results = asyncio.run(run())
-
-    assert len(results) == 1
-    assert results[0].id == "openalex:https://openalex.org/W1"
-    assert results[0].source_grade == "A"
-    assert results[0].quote == "hello world 2024"
-    assert results[0].provenance["doi"] == "10.1234/example"
-    assert results[0].provenance["source_text"]["display_name"] == "A paper"
+            "publication_year": 2024,
+            "primary_location": {
+                "source": {"display_name": "Nature Climate Change"},
+            },
+        },
+    ],
+}
 
 
-def test_openalex_get_citations_uses_cites_filter():
-    def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.params["filter"] == "cites:W1"
-        return httpx.Response(200, json={"results": [{"id": "https://openalex.org/W2", "display_name": "Citing"}]})
+def _completed(stdout: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.CompletedProcess([], 0, stdout=stdout, stderr="")
 
-    async def run():
-        async with httpx.AsyncClient(transport=httpx.MockTransport(handler)) as http:
-            client = OpenAlexClient(client=http, email="dev@example.com")
-            return await client.get_citations("https://openalex.org/W1", limit=5)
 
-    results = asyncio.run(run())
+def test_openalex_search_invokes_cli_and_maps_works(monkeypatch):
+    calls: list[list[str]] = []
 
-    assert results[0].source_title == "Citing"
+    def capturing_run(args: list[str], **_: object):
+        calls.append(args)
+        return _completed(json.dumps(OPENALEX_WORKS))
+
+    monkeypatch.setattr(openalex, "_openalex_key_present", lambda: True)
+    monkeypatch.setattr(openalex.subprocess, "run", capturing_run)
+
+    refs = asyncio.run(openalex.search("carbon capture", limit=3))
+
+    assert calls[0][2] == "filter"
+    assert calls[0][3] == "works"
+    assert "--search" in calls[0]
+    assert calls[0][calls[0].index("--search") + 1] == "carbon capture"
+    assert len(refs) == 1
+    ref = refs[0]
+    assert ref.source_url == "https://doi.org/10.1234/openalex-test"
+    assert ref.source_title == "Deep sea carbon capture"
+    assert ref.quote == "carbon capture"
+    assert ref.source_grade == "A"
+    assert ref.provenance["kind"] == "openalex"
+
+
+def test_openalex_search_empty_query_skips_cli(monkeypatch):
+    def unexpected_run(*_: object):
+        raise AssertionError("CLI must not run for an empty query")
+
+    monkeypatch.setattr(openalex.subprocess, "run", unexpected_run)
+
+    assert asyncio.run(openalex.search("  ")) == []
+
+
+def test_openalex_cli_failure_raises(monkeypatch):
+    def failing_run(args: list[str], **_: object):
+        return subprocess.CompletedProcess(args, 1, stdout="", stderr="rate limited")
+
+    monkeypatch.setattr(openalex, "_openalex_key_present", lambda: True)
+    monkeypatch.setattr(openalex.subprocess, "run", failing_run)
+
+    with pytest.raises(RuntimeError, match="openalex CLI failed"):
+        asyncio.run(openalex.search("query"))
 
 
 def test_openalex_targeting_queries_map_entities_without_async_loop(monkeypatch):
-    requests = []
+    from src.research.academic.openalex import query_institutions, query_journals, query_seed_papers
 
-    class FakeResponse:
-        def __init__(self, endpoint):
-            self.endpoint = endpoint
+    def fake_get(self, endpoint: str, params: dict | None = None, **_: object):
+        class Response:
+            def raise_for_status(self) -> None:
+                return None
 
-        def json(self):
-            if self.endpoint == "/works":
-                return {
-                    "results": [
-                        {"display_name": "A paper", "doi": "https://doi.org/10.1234/example"},
-                    ]
-                }
-            return {
-                "results": [
-                    {"display_name": "Seoul National University", "doi": None},
-                    {"display_name": "Precision Agriculture", "doi": "https://doi.org/10.1234/example"},
-                ]
-            }
+            def json(self) -> dict:
+                return {"results": [{"display_name": f"entity-{endpoint}", "doi": "10.1/seed"}]}
 
-        def raise_for_status(self):
-            return None
-
-    class FakeClient:
-        def __init__(self, **kwargs):
-            self.kwargs = kwargs
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, tb):
-            return False
-
-        def get(self, endpoint, params):
-            requests.append((endpoint, dict(params)))
-            return FakeResponse(endpoint)
+        return Response()
 
     monkeypatch.setattr(openalex, "_skip_live_targeting", lambda: False)
-    monkeypatch.setattr(openalex.httpx, "Client", FakeClient)
+    monkeypatch.setattr("httpx.Client.get", fake_get)
 
-    institutions, inst_prov = openalex.query_institutions(["agriculture"], limit=1)
-    journals, journal_prov = openalex.query_journals(["agriculture"], limit=1)
-    papers, paper_prov = openalex.query_seed_papers(["agriculture"], limit=1)
+    institutions, provenance = query_institutions(["biology"])
+    assert institutions == ["entity-/institutions"]
+    assert provenance[0]["status"] == "ok"
 
-    assert institutions == ["Seoul National University"]
-    assert journals == ["Seoul National University"]
-    assert papers == ["10.1234/example"]
-    assert requests[0][0] == "/institutions"
-    assert requests[1][0] == "/sources"
-    assert requests[1][1]["filter"] == "type:journal"
-    assert requests[2][0] == "/works"
-    assert inst_prov[0]["status"] == journal_prov[0]["status"] == paper_prov[0]["status"] == "ok"
+    journals, _ = query_journals(["biology"])
+    assert journals == ["entity-/sources"]
+
+    papers, _ = query_seed_papers(["biology"])
+    assert papers == ["10.1/seed"]
+
+
+def test_openalex_targeting_skips_during_pytest(monkeypatch):
+    from src.research.academic.openalex import query_institutions
+
+    def unexpected_get(*_: object):
+        raise AssertionError("targeting must not hit the network during pytest")
+
+    monkeypatch.setattr(openalex, "_skip_live_targeting", lambda: True)
+    monkeypatch.setattr("httpx.Client.get", unexpected_get)
+
+    names, provenance = query_institutions(["biology"])
+    assert names == []
+    assert provenance[0]["status"] == "skipped"
+
+
+def test_openalex_search_without_key_skips_cli(monkeypatch):
+    def unexpected_run(*_: object):
+        raise AssertionError("CLI must not run without an OpenAlex API key")
+
+    monkeypatch.setattr(openalex, "_openalex_key_present", lambda: False)
+    monkeypatch.setattr(openalex.subprocess, "run", unexpected_run)
+
+    assert asyncio.run(openalex.search("carbon capture")) == []
+    assert asyncio.run(openalex.get_paper("W123")) is None

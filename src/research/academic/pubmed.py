@@ -1,223 +1,111 @@
-"""PubMed/NCBI E-utilities literature search integration."""
-from __future__ import annotations
+"""PubMed search backed by the vendored DeepMind science-skills CLI.
 
+The pipeline contract (``async search`` / ``async get_paper`` returning
+:class:`EvidenceRef` items) is preserved; the in-process HTTP client is
+replaced by ``third_party/science-skills/pubmed_database/scripts/pubmed_api.py``
+(Apache 2.0, Google LLC).  The CLI writes JSON to an output file, so each
+call runs as a short-lived subprocess with a bounded timeout.  PubMed
+citations are not exposed by the vendored CLI, so ``get_citations`` raises
+:class:`NotImplementedError` instead of silently degrading.
+"""
+
+import asyncio
+import json
 import os
-import xml.etree.ElementTree as ET
-from typing import Any
-
-import httpx
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+from typing import Any, Mapping
 
 from src.evidence.artifact import EvidenceRef
 
-from .common import AcademicHttpClient, compact_text, evidence_ref, normalize_doi, source_grade_for_paper
+from .common import compact_text, evidence_ref, normalize_doi, source_grade_for_paper
+
+_PUBMED_SCRIPT = (
+    Path(__file__).resolve().parents[3]
+    / "third_party"
+    / "science-skills"
+    / "pubmed_database"
+    / "scripts"
+    / "pubmed_api.py"
+)
+_CLI_TIMEOUT_SECONDS = 120
 
 
-PUBMED_BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
-
-
-class PubMedClient:
-    def __init__(
-        self,
-        *,
-        client: httpx.AsyncClient | None = None,
-        api_key: str | None = None,
-        min_interval_seconds: float | None = None,
-    ) -> None:
-        self.api_key = (
-            api_key
-            or os.getenv("MUCHANIPO_NCBI_API_KEY")
-            or os.getenv("NCBI_API_KEY")
+async def _run_pubmed_cli(args: list[str]) -> Any:
+    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as output:
+        output_path = output.name
+    try:
+        process = await asyncio.get_running_loop().run_in_executor(
+            None,
+            lambda: subprocess.run(
+                [sys.executable, str(_PUBMED_SCRIPT), output_path, *args],
+                capture_output=True,
+                text=True,
+                timeout=_CLI_TIMEOUT_SECONDS,
+            ),
         )
-        interval = (
-            min_interval_seconds
-            if min_interval_seconds is not None
-            else (0.11 if self.api_key else 0.34)
-        )
-        self.http = AcademicHttpClient(
-            base_url=PUBMED_BASE_URL,
-            headers={"User-Agent": "mucha-science/0.1"},
-            max_concurrency=1,
-            min_interval_seconds=interval,
-            client=client,
-        )
-
-    async def aclose(self) -> None:
-        await self.http.aclose()
-
-    async def search(self, query: str, limit: int = 10, **kwargs: Any) -> list[EvidenceRef]:
-        params: dict[str, Any] = {
-            "db": "pubmed",
-            "term": query,
-            "retmode": "json",
-            "retmax": limit,
-            **kwargs,
-        }
-        if self.api_key:
-            params["api_key"] = self.api_key
-        payload = await self.http.get_json("/esearch.fcgi", params=params)
-        ids = _pubmed_ids(payload)
-        if not ids:
-            return []
-        return await self._fetch(ids)
-
-    async def get_paper(self, paper_id: str) -> EvidenceRef | None:
-        results = await self._fetch([_strip_pubmed_id(paper_id)])
-        return results[0] if results else None
-
-    async def get_citations(self, paper_id: str, limit: int = 50) -> list[EvidenceRef]:
-        return []
-
-    async def _fetch(self, ids: list[str]) -> list[EvidenceRef]:
-        params: dict[str, Any] = {
-            "db": "pubmed",
-            "id": ",".join(ids),
-            "retmode": "xml",
-        }
-        if self.api_key:
-            params["api_key"] = self.api_key
-        response = await self.http.get("/efetch.fcgi", params=params)
-        return [_to_evidence(article) for article in _articles(response.text)]
+        if process.returncode != 0:
+            raise RuntimeError(
+                f"pubmed_api CLI failed ({process.returncode}): {process.stderr.strip()[:300]}"
+            )
+        with open(output_path, encoding="utf-8") as handle:
+            return json.load(handle)
+    finally:
+        os.unlink(output_path)
 
 
-def _pubmed_ids(payload: Any) -> list[str]:
-    if not isinstance(payload, dict):
-        return []
-    result = payload.get("esearchresult")
-    ids = result.get("idlist") if isinstance(result, dict) else None
-    if not isinstance(ids, list):
-        return []
-    return [str(item).strip() for item in ids if str(item).strip()]
-
-
-def _articles(xml_text: str) -> list[ET.Element]:
-    root = ET.fromstring(xml_text)
-    return list(root.findall("./PubmedArticle"))
-
-
-def _to_evidence(article: ET.Element) -> EvidenceRef:
-    pmid = _node_text(article.find("./MedlineCitation/PMID")) or "unknown"
-    title = _node_text(article.find("./MedlineCitation/Article/ArticleTitle"))
-    abstract = compact_text(
-        [
-            _node_text(node)
-            for node in article.findall("./MedlineCitation/Article/Abstract/AbstractText")
-        ]
+def _to_evidence(article: Mapping[str, Any]) -> EvidenceRef:
+    pmid = str(article.get("pmid") or "")
+    doi = normalize_doi(str(article.get("doi") or ""))
+    source_url = (
+        f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/"
+        if pmid
+        else (f"https://doi.org/{doi}" if doi else "")
     )
-    journal = _node_text(article.find("./MedlineCitation/Article/Journal/Title"))
-    doi = normalize_doi(_doi(article))
-    publication_date = _publication_date(article)
-    raw = {
-        "pmid": pmid,
-        "title": title,
-        "abstract": abstract,
-        "journal": journal,
-        "doi": doi,
-    }
-    if publication_date:
-        raw["publication_date"] = publication_date
-        raw["publication_year"] = int(publication_date[:4])
+    title = compact_text([str(article.get("title") or "")])
     return evidence_ref(
         source="pubmed",
-        paper_id=pmid,
-        raw=raw,
-        source_url=f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/",
+        paper_id=pmid or doi or "unknown",
+        raw=dict(article),
+        source_url=source_url,
         source_title=title,
-        quote=abstract,
+        quote=compact_text([str(article.get("abstract") or "")]),
         source_grade=source_grade_for_paper(doi=doi),
         doi=doi,
-        journal=journal,
-        access_status="abstract_only" if abstract else "metadata_only",
+        journal=compact_text([str(article.get("journal") or "")]),
     )
 
 
-def _publication_date(article: ET.Element) -> str | None:
-    pub_date = article.find("./MedlineCitation/Article/Journal/JournalIssue/PubDate")
-    if pub_date is None:
-        return None
-    year = _node_text(pub_date.find("./Year"))
-    if not year:
-        medline_date = _node_text(pub_date.find("./MedlineDate")) or ""
-        year_match = next(
-            (token for token in medline_date.replace("-", " ").split() if token.isdigit() and len(token) == 4),
-            "",
-        )
-        year = year_match
-    if not year:
-        return None
-    month = _month_number(_node_text(pub_date.find("./Month")))
-    day = _node_text(pub_date.find("./Day"))
-    if month and day and day.isdigit():
-        return f"{year}-{month}-{int(day):02d}"
-    if month:
-        return f"{year}-{month}"
-    return year
-
-
-def _month_number(value: str | None) -> str:
-    if not value:
-        return ""
-    normalized = value.strip().casefold()[:3]
-    months = {
-        "jan": 1,
-        "feb": 2,
-        "mar": 3,
-        "apr": 4,
-        "may": 5,
-        "jun": 6,
-        "jul": 7,
-        "aug": 8,
-        "sep": 9,
-        "oct": 10,
-        "nov": 11,
-        "dec": 12,
-    }
-    if normalized.isdigit():
-        month = int(normalized)
-    else:
-        month = months.get(normalized, 0)
-    return f"{month:02d}" if 1 <= month <= 12 else ""
-
-
-def _doi(article: ET.Element) -> str | None:
-    for node in article.findall("./MedlineCitation/Article/ELocationID"):
-        if node.attrib.get("EIdType", "").lower() == "doi":
-            return _node_text(node)
-    for node in article.findall("./PubmedData/ArticleIdList/ArticleId"):
-        if node.attrib.get("IdType", "").lower() == "doi":
-            return _node_text(node)
-    return None
-
-
-def _node_text(node: ET.Element | None) -> str | None:
-    if node is None:
-        return None
-    text = " ".join("".join(node.itertext()).split())
-    return text or None
-
-
-def _strip_pubmed_id(value: str) -> str:
-    return value.rstrip("/").rsplit("/", 1)[-1]
-
-
-async def search(query: str, limit: int = 10, **kwargs: Any) -> list[EvidenceRef]:
-    client = PubMedClient()
-    try:
-        return await client.search(query, limit, **kwargs)
-    finally:
-        await client.aclose()
+async def search(query: str, limit: int = 10) -> list[EvidenceRef]:
+    if not query.strip():
+        return []
+    pmids = await _run_pubmed_cli([
+        "search_pubmed",
+        query.strip(),
+        "--max_results",
+        str(limit),
+    ])
+    if not pmids:
+        return []
+    articles = await _run_pubmed_cli([
+        "fetch_article_abstracts",
+        "--pmids",
+        ",".join(str(pmid) for pmid in pmids[:limit]),
+    ])
+    return [_to_evidence(article) for article in articles if article]
 
 
 async def get_paper(paper_id: str) -> EvidenceRef | None:
-    client = PubMedClient()
-    try:
-        return await client.get_paper(paper_id)
-    finally:
-        await client.aclose()
+    articles = await _run_pubmed_cli(["fetch_article_abstracts", "--pmids", paper_id])
+    if not articles:
+        return None
+    return _to_evidence(articles[0])
 
 
-async def get_citations(paper_id: str, limit: int = 50) -> list[EvidenceRef]:
-    client = PubMedClient()
-    try:
-        return await client.get_citations(paper_id, limit)
-    finally:
-        await client.aclose()
+async def get_citations(paper_id: str) -> list[EvidenceRef]:
+    raise NotImplementedError(
+        "PubMed citations require the NCBI E-utilities citedby query, which the "
+        "vendored science-skills pubmed_api CLI does not expose."
+    )
